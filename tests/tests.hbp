@@ -8,6 +8,7 @@ test_http.prg
 test_api.prg
 test_agent.prg
 test_tools.prg
+test_ui.prg
 ../src/dsconfig.prg
 ../src/dssse.prg
 ../src/dshttp.prg
@@ -17,3 +18,4 @@ test_tools.prg
 ../src/dstools_file.prg
 ../src/dstools_search.prg
 ../src/dstools_shell.prg
+../src/dsui.prg
