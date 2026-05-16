@@ -1,2 +1,54 @@
+// Creates a fresh tool registry with all builtin tools registered.
+// (Builtin registrations are added by Tasks 3-6.)
 FUNCTION DSTools_Registry()
-   RETURN {=>}
+   LOCAL oReg := {=>}
+   RETURN oReg
+
+// Adds a tool record to the registry, keyed by its name.
+// hTool: { name, description, parameters, handler }.
+FUNCTION DSTools_Register( oReg, hTool )
+   oReg[ hTool[ "name" ] ] := hTool
+   RETURN oReg
+
+// Returns the OpenAI "tools" array for every registered tool.
+FUNCTION DSTools_Schemas( oReg )
+   LOCAL aOut := {}, cKey, hTool
+   FOR EACH cKey IN hb_HKeys( oReg )
+      hTool := oReg[ cKey ]
+      AAdd( aOut, { "type" => "function", ;
+                    "function" => { "name" => hTool[ "name" ], ;
+                                    "description" => hTool[ "description" ], ;
+                                    "parameters" => hTool[ "parameters" ] } } )
+   NEXT
+   RETURN aOut
+
+// Returns the executor codeblock { |cName,cArgsJson| -> cResultString }.
+// It plugs straight into DS_AgentRun's hOpts["tool_executor"].
+FUNCTION DSTools_Executor( oReg )
+   RETURN {| cName, cArgsJson | DSTools_Dispatch( oReg, cName, cArgsJson ) }
+
+// Looks up a tool, validates arguments, runs the handler under an error net.
+STATIC FUNCTION DSTools_Dispatch( oReg, cName, cArgsJson )
+   LOCAL hTool, xArgs, cReq, cResult, oErr
+   IF !hb_HHasKey( oReg, cName )
+      RETURN "Error: unknown tool '" + hb_CStr( cName ) + "'"
+   ENDIF
+   hTool := oReg[ cName ]
+   xArgs := hb_jsonDecode( hb_CStr( cArgsJson ) )
+   IF ValType( xArgs ) != "H"
+      RETURN "Error: invalid arguments JSON"
+   ENDIF
+   IF hb_HHasKey( hTool[ "parameters" ], "required" )
+      FOR EACH cReq IN hTool[ "parameters" ][ "required" ]
+         IF !hb_HHasKey( xArgs, cReq )
+            RETURN "Error: missing required argument '" + cReq + "'"
+         ENDIF
+      NEXT
+   ENDIF
+   BEGIN SEQUENCE WITH {| o | Break( o ) }
+      cResult := Eval( hTool[ "handler" ], xArgs )
+   RECOVER USING oErr
+      cResult := "Error: tool '" + cName + "' failed: " + ;
+                 iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" )
+   END SEQUENCE
+   RETURN cResult
