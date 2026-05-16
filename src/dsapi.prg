@@ -1,0 +1,1 @@
+FUNCTION DS_Client( hOpts ); HB_SYMBOL_UNUSED( hOpts ); RETURN NIL

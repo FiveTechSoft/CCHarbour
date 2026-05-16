@@ -1,0 +1,9 @@
+-orun_tests
+-mt
+-gtcgi
+run_tests.prg
+../src/dsconfig.prg
+../src/dssse.prg
+../src/dshttp.prg
+../src/dsapi.prg
+hbcurl.hbc

@@ -1,0 +1,1 @@
+FUNCTION DSCFG_ResolveKey( hOpts ); HB_SYMBOL_UNUSED( hOpts ); RETURN NIL
