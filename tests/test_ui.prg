@@ -28,4 +28,33 @@ FUNCTION Test_UI()
 
    hA := DSUI_ParseCommand( "  /exit  " )
    T_Equal( hA[ "type" ], "exit", "ui: command is trimmed" )
+
+   // DSUI_Summarize
+   T_Equal( DSUI_Summarize( "short", 80 ), "short", "ui: summarize short text" )
+   T_Assert( "first" $ DSUI_Summarize( "first" + Chr(10) + "second", 80 ), ;
+             "ui: summarize keeps first line" )
+   T_Assert( !( "second" $ DSUI_Summarize( "first" + Chr(10) + "second", 80 ) ), ;
+             "ui: summarize drops later lines" )
+   T_Assert( "chars]" $ DSUI_Summarize( "first" + Chr(10) + "second", 80 ), ;
+             "ui: summarize annotates size" )
+   T_Assert( Len( DSUI_Summarize( Replicate( "x", 200 ), 80 ) ) < 110, ;
+             "ui: summarize truncates long text" )
+
+   // DSUI_RenderEvent
+   T_Equal( DSUI_RenderEvent( { "type" => "text_delta", "text" => "hi" } ), "hi", ;
+            "ui: render text_delta" )
+   T_Assert( "read" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
+             "name" => "read", "arguments" => '{"path":"x"}' } ), ;
+             "ui: render tool_call shows name" )
+   T_Assert( "->" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
+             "name" => "read", "arguments" => "{}" } ), ;
+             "ui: render tool_call has arrow" )
+   T_Assert( "chars]" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
+             "content" => "line one" + Chr(10) + "line two" } ), ;
+             "ui: render tool_result summarises" )
+   T_Assert( "error" $ DSUI_RenderEvent( { "type" => "error", ;
+             "error_type" => "network", "message" => "boom" } ), ;
+             "ui: render error" )
+   T_Equal( DSUI_RenderEvent( { "type" => "iteration_start", "n" => 1 } ), "", ;
+            "ui: render ignores iteration_start" )
    RETURN NIL
