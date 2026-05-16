@@ -107,4 +107,27 @@ FUNCTION Test_Agent()
         "tool_executor" => {| cName, cArgs | ;
            HB_SYMBOL_UNUSED( cName ), HB_SYMBOL_UNUSED( cArgs ), "r" } }, NIL )
    T_Equal( hRes[ "usage" ][ "prompt_tokens" ], 5, "agent: usage accumulated" )
+
+   // iteration cap: the model keeps requesting tools; cap stops the loop
+   bTransport := AgentTransport( { { "sse" => SSE_Tool( "c1", "ping" ), ;
+                                     "http" => HttpOK() } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport, "max_iterations" => 3, ;
+        "tool_executor" => {| cName, cArgs | ;
+           HB_SYMBOL_UNUSED( cName ), HB_SYMBOL_UNUSED( cArgs ), "r" } }, NIL )
+   T_Equal( hRes[ "success" ], .T., "agent: cap success flag" )
+   T_Equal( hRes[ "stop_reason" ], "max_iterations", "agent: cap stop reason" )
+   T_Equal( hRes[ "iterations" ], 3, "agent: cap iteration count" )
+
+   // API failure mid-loop surfaces in hResult
+   bTransport := AgentTransport( { { "sse" => "", ;
+      "http" => { "ok" => .F., "status" => 0, "curl_code" => 7, ;
+                  "error" => "no connect" } } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport }, NIL )
+   T_Equal( hRes[ "success" ], .F., "agent: api failure success flag" )
+   T_Equal( hRes[ "error_type" ], "network", "agent: api failure error_type" )
+   T_Equal( hRes[ "stop_reason" ], "error", "agent: api failure stop reason" )
    RETURN NIL

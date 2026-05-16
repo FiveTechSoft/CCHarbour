@@ -54,6 +54,16 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
 
       hChat := DS_ChatCompletion( oClient, aMsgs, hChatParams, bOnEvent )
 
+      IF !hChat[ "success" ]
+         hResult[ "messages" ]    := aMsgs
+         hResult[ "iterations" ]  := nIter
+         hResult[ "usage" ]       := hUsage
+         hResult[ "error_type" ]  := hChat[ "error_type" ]
+         hResult[ "message" ]     := hChat[ "message" ]
+         hResult[ "stop_reason" ] := "error"
+         RETURN hResult
+      ENDIF
+
       DS_AgentAddUsage( hUsage, hChat[ "usage" ] )
       AAdd( aMsgs, DS_AgentAsstMsg( hChat ) )
 
