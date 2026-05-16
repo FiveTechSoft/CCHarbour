@@ -15,3 +15,4 @@ test_tools.prg
 ../src/dsagent.prg
 ../src/dstools.prg
 ../src/dstools_file.prg
+../src/dstools_search.prg

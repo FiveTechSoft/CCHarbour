@@ -9,7 +9,7 @@ STATIC FUNCTION FindSchema( aSchemas, cName )
    RETURN NIL
 
 FUNCTION Test_Tools()
-   LOCAL oReg, bExec, aSchemas, hEcho, hCustom, cTmp, cRes
+   LOCAL oReg, bExec, aSchemas, hEcho, hCustom, cTmp, cRes, cTmpDir
 
    // a custom tool used to exercise the registry and executor
    hCustom := { "name" => "echo", ;
@@ -101,4 +101,46 @@ FUNCTION Test_Tools()
       "old_string" => "a", "new_string" => "b" } ) )
    T_Assert( "Error: file not found" $ cRes, "tools: edit missing file" )
    FErase( cTmp )
+
+   // glob + grep tools: build a small temp directory tree
+   bExec := DSTools_Executor( DSTools_Registry() )
+   cTmpDir := hb_DirTemp() + "dstools_search"
+   hb_DirBuild( cTmpDir )
+   hb_MemoWrit( cTmpDir + hb_ps() + "a.txt", "needle here" + Chr(10) + "plain line" + Chr(10) )
+   hb_MemoWrit( cTmpDir + hb_ps() + "b.txt", "another needle" + Chr(10) )
+   hb_MemoWrit( cTmpDir + hb_ps() + "c.log", "needle in log" + Chr(10) )
+
+   // glob: match *.txt
+   cRes := Eval( bExec, "glob", ;
+      hb_jsonEncode( { "pattern" => "*.txt", "path" => cTmpDir } ) )
+   T_Assert( "a.txt" $ cRes, "tools: glob finds a.txt" )
+   T_Assert( "b.txt" $ cRes, "tools: glob finds b.txt" )
+   T_Assert( !( "c.log" $ cRes ), "tools: glob respects the mask" )
+
+   // glob: no matches
+   cRes := Eval( bExec, "glob", ;
+      hb_jsonEncode( { "pattern" => "*.xyz", "path" => cTmpDir } ) )
+   T_Assert( "No matches" $ cRes, "tools: glob no matches" )
+
+   // grep: pattern across files
+   cRes := Eval( bExec, "grep", ;
+      hb_jsonEncode( { "pattern" => "needle", "path" => cTmpDir } ) )
+   T_Assert( "a.txt:1:" $ cRes, "tools: grep reports file:line" )
+   T_Assert( "needle in log" $ cRes, "tools: grep scans all files by default" )
+
+   // grep: glob filter restricts scanned files
+   cRes := Eval( bExec, "grep", hb_jsonEncode( { "pattern" => "needle", ;
+      "path" => cTmpDir, "glob" => "*.log" } ) )
+   T_Assert( "needle in log" $ cRes, "tools: grep glob filter keeps matches" )
+   T_Assert( !( "a.txt" $ cRes ), "tools: grep glob filter excludes others" )
+
+   // grep: invalid regex -> error
+   cRes := Eval( bExec, "grep", hb_jsonEncode( { "pattern" => "[unclosed", ;
+      "path" => cTmpDir } ) )
+   T_Assert( "Error: invalid regex" $ cRes, "tools: grep invalid regex" )
+
+   FErase( cTmpDir + hb_ps() + "a.txt" )
+   FErase( cTmpDir + hb_ps() + "b.txt" )
+   FErase( cTmpDir + hb_ps() + "c.log" )
+   hb_DirDelete( cTmpDir )
    RETURN NIL
