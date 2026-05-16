@@ -1,0 +1,7 @@
+-hblib
+-odsclient
+-mt
+src/dsconfig.prg
+src/dssse.prg
+src/dshttp.prg
+src/dsapi.prg

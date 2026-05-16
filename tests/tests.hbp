@@ -10,4 +10,3 @@ test_api.prg
 ../src/dssse.prg
 ../src/dshttp.prg
 ../src/dsapi.prg
-hbcurl.hbc
