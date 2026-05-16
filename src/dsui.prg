@@ -45,14 +45,21 @@ FUNCTION DSUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "tool_call"
-      RETURN Chr(10) + "  -> " + hb_CStr( hEv[ "name" ] ) + " " + ;
-             hb_CStr( hEv[ "arguments" ] ) + Chr(10)
+      RETURN Chr(10) + DSUI_Color( "  -> " + hb_CStr( hEv[ "name" ] ) + " " + ;
+             hb_CStr( hEv[ "arguments" ] ), "36" ) + Chr(10)
    CASE cType == "tool_result"
-      RETURN "  <- " + DSUI_Summarize( hb_CStr( hEv[ "content" ] ), 80 ) + Chr(10)
+      RETURN DSUI_Color( "  <- " + ;
+             DSUI_Summarize( hb_CStr( hEv[ "content" ] ), 80 ), "90" ) + Chr(10)
    CASE cType == "error"
-      RETURN Chr(10) + "!! error: " + hb_CStr( hEv[ "message" ] ) + Chr(10)
+      RETURN Chr(10) + DSUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
+             "31" ) + Chr(10)
    ENDCASE
    RETURN ""
+
+// Wraps text in an ANSI SGR colour code; cSGR is the code, e.g. "36" (cyan),
+// "90" (grey), "31" (red), "1;36" (bold cyan), "33" (yellow).
+FUNCTION DSUI_Color( cText, cSGR )
+   RETURN Chr(27) + "[" + cSGR + "m" + cText + Chr(27) + "[0m"
 
 // The system message seeded into every conversation.
 FUNCTION DSUI_SystemPrompt()

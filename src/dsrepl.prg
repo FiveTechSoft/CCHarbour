@@ -1,14 +1,13 @@
 #include "fileio.ch"
+#include "hbdyn.ch"
 
 // Tracks a pending LF to swallow after a CR, so CRLF counts as one line break.
 STATIC s_lSkipLF := .F.
 
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
-   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, cCpOut := ""
-   // Switch the Windows console to UTF-8 (code page 65001) so the model's
-   // UTF-8 output renders correctly instead of as OEM-codepage mojibake.
-   hb_processRun( "cmd.exe /c chcp 65001", , @cCpOut, @cCpOut )
+   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr
+   DSREPL_InitConsole()
    hSet := DSSettings_Load()
    IF Empty( cModel )
       cModel := hb_GetEnv( "DEEPSEEK_MODEL" )
@@ -42,9 +41,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes
    aMsgs   := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    bRender := {| hEv | OutStd( DSUI_RenderEvent( hEv ) ) }
-   OutStd( "CCHarbour - model: " + cModel + ". /help for commands." + Chr(10) )
+   OutStd( DSUI_Color( "CCHarbour - model: " + cModel + ". /help for commands.", ;
+                       "90" ) + Chr(10) )
    DO WHILE .T.
-      OutStd( Chr(10) + "> " )
+      OutStd( Chr(10) + DSUI_Color( "> ", "1;36" ) )
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          EXIT
@@ -59,7 +59,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          OutStd( DSUI_Help() + Chr(10) )
       CASE hAction[ "type" ] == "clear"
          aMsgs := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
-         OutStd( "[conversation reset]" + Chr(10) )
+         OutStd( DSUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "message"
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => hAction[ "text" ] } )
@@ -73,16 +73,37 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
-               OutStd( "[stopped: iteration cap]" + Chr(10) )
+               OutStd( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
             ENDIF
-            OutStd( DSREPL_UsageLine( hRes[ "usage" ] ) + Chr(10) )
+            OutStd( DSUI_Color( DSREPL_UsageLine( hRes[ "usage" ] ), "90" ) + Chr(10) )
          ELSE
-            OutStd( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
-                    hb_CStr( hRes[ "message" ] ) + Chr(10) )
+            OutStd( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
+                    hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
          ENDIF
       ENDCASE
    ENDDO
-   OutStd( Chr(10) + "bye" + Chr(10) )
+   OutStd( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
+   RETURN NIL
+
+// Prepares the Windows console: UTF-8 code page so the model's UTF-8 output
+// renders correctly, and ANSI/VT escape processing so colours work.
+// Wrapped so a missing console API never aborts startup.
+STATIC FUNCTION DSREPL_InitConsole()
+   LOCAL nStdOut, oErr
+   BEGIN SEQUENCE WITH {| o | Break( o ) }
+      hb_dynCall( { "SetConsoleOutputCP", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
+      hb_dynCall( { "SetConsoleCP", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
+      nStdOut := hb_dynCall( { "GetStdHandle", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_LONG ) }, -11 )
+      // mode 7 = PROCESSED_OUTPUT | WRAP_AT_EOL | VIRTUAL_TERMINAL_PROCESSING
+      hb_dynCall( { "SetConsoleMode", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, nStdOut, 7 )
+   RECOVER USING oErr
+      HB_SYMBOL_UNUSED( oErr )
+      // console API unavailable -> leave console settings unchanged
+   END SEQUENCE
    RETURN NIL
 
 // Permission prompt for a tool in "ask" mode. Returns the typed answer
@@ -90,9 +111,9 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
 STATIC FUNCTION DSREPL_AskPerm( cName, cArgsJson )
    LOCAL cLine := "n", oErr
    BEGIN SEQUENCE WITH {| o | Break( o ) }
-      OutStd( Chr(10) + "Tool '" + hb_CStr( cName ) + "' wants to run: " + ;
-              DSUI_Summarize( hb_CStr( cArgsJson ), 120 ) + Chr(10) + ;
-              "Allow? [y/n/a] " )
+      OutStd( Chr(10) + DSUI_Color( "Tool '" + hb_CStr( cName ) + ;
+              "' wants to run: " + DSUI_Summarize( hb_CStr( cArgsJson ), 120 ) + ;
+              Chr(10) + "Allow? [y/n/a] ", "33" ) )
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          cLine := "n"
