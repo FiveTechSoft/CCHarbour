@@ -53,3 +53,18 @@ FUNCTION DSUI_RenderEvent( hEv )
       RETURN Chr(10) + "!! error: " + hb_CStr( hEv[ "message" ] ) + Chr(10)
    ENDCASE
    RETURN ""
+
+// The system message seeded into every conversation.
+FUNCTION DSUI_SystemPrompt()
+   RETURN "You are CCHarbour, a terminal coding assistant. " + ;
+          "You have tools to read, write and edit files, search with glob and " + ;
+          "grep, and run shell commands. Use them to help the user with coding " + ;
+          "tasks. Be concise."
+
+// The text shown by the /help command.
+FUNCTION DSUI_Help()
+   RETURN "Commands:" + Chr(10) + ;
+          "  /help   show this help" + Chr(10) + ;
+          "  /clear  reset the conversation" + Chr(10) + ;
+          "  /exit   quit (alias: /quit)" + Chr(10) + ;
+          "Type anything else to talk to the assistant."

@@ -57,4 +57,10 @@ FUNCTION Test_UI()
              "ui: render error" )
    T_Equal( DSUI_RenderEvent( { "type" => "iteration_start", "n" => 1 } ), "", ;
             "ui: render ignores iteration_start" )
+
+   // DSUI_SystemPrompt and DSUI_Help
+   T_Assert( Len( DSUI_SystemPrompt() ) > 0, "ui: system prompt non-empty" )
+   T_Assert( "/help" $ DSUI_Help(), "ui: help mentions /help" )
+   T_Assert( "/clear" $ DSUI_Help(), "ui: help mentions /clear" )
+   T_Assert( "/exit" $ DSUI_Help(), "ui: help mentions /exit" )
    RETURN NIL
