@@ -29,7 +29,6 @@ FUNCTION T_Equal( xActual, xExpected, cName )
    RETURN T_Assert( lOk, cName + iif( lOk, "", ;
       " (got <" + hb_CStr( xActual ) + "> want <" + hb_CStr( xExpected ) + ">)" ) )
 
-FUNCTION Test_SSE();    RETURN NIL
 FUNCTION Test_Config(); RETURN NIL
 FUNCTION Test_Http();   RETURN NIL
 FUNCTION Test_Api();    RETURN NIL

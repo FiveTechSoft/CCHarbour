@@ -2,6 +2,7 @@
 -mt
 -gtcgi
 run_tests.prg
+test_sse.prg
 ../src/dsconfig.prg
 ../src/dssse.prg
 ../src/dshttp.prg
