@@ -1,5 +1,8 @@
 #include "fileio.ch"
 
+// Tracks a pending LF to swallow after a CR, so CRLF counts as one line break.
+STATIC s_lSkipLF := .F.
+
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr
@@ -98,6 +101,9 @@ STATIC FUNCTION DSREPL_AskPerm( cName, cArgsJson )
    RETURN cLine
 
 // Reads one line from stdin. Returns the line, or NIL at end of input.
+// Terminates on LF, CR, or CRLF, so it works whether the console hands the
+// app cooked input (LF) or raw keystrokes (CR, as a Win32 console does).
+// Typed characters are echoed: a raw console does not echo on its own.
 STATIC FUNCTION DSREPL_ReadLine()
    LOCAL cLine := "", cCh := Space(1), nRead, hIn := hb_GetStdIn()
    DO WHILE .T.
@@ -105,12 +111,26 @@ STATIC FUNCTION DSREPL_ReadLine()
       IF nRead == 0
          RETURN iif( Empty( cLine ), NIL, cLine )
       ENDIF
-      IF cCh == Chr(10)
+      IF s_lSkipLF
+         s_lSkipLF := .F.
+         IF cCh == Chr(10)
+            LOOP   // swallow the LF that follows a CR (CRLF)
+         ENDIF
+      ENDIF
+      DO CASE
+      CASE cCh == Chr(10)
          EXIT
-      ENDIF
-      IF cCh != Chr(13)
+      CASE cCh == Chr(13)
+         s_lSkipLF := .T.
+         OutStd( Chr(10) )
+         EXIT
+      CASE ( cCh == Chr(8) .OR. cCh == Chr(127) ) .AND. !Empty( cLine )
+         cLine := hb_BLeft( cLine, hb_BLen( cLine ) - 1 )
+         OutStd( Chr(8) + " " + Chr(8) )   // erase last char on screen
+      CASE cCh >= " "
          cLine += cCh
-      ENDIF
+         OutStd( cCh )   // echo (raw consoles do not echo themselves)
+      ENDCASE
    ENDDO
    // strip a leading UTF-8 BOM (piped input on Windows may prepend one)
    IF hb_BLeft( cLine, 3 ) == Chr(239) + Chr(187) + Chr(191)
