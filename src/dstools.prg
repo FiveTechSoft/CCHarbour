@@ -7,6 +7,7 @@ FUNCTION DSTools_Registry()
    DSTools_Register( oReg, DSTool_Edit() )
    DSTools_Register( oReg, DSTool_Glob() )
    DSTools_Register( oReg, DSTool_Grep() )
+   DSTools_Register( oReg, DSTool_Shell() )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

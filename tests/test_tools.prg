@@ -143,4 +143,23 @@ FUNCTION Test_Tools()
    FErase( cTmpDir + hb_ps() + "b.txt" )
    FErase( cTmpDir + hb_ps() + "c.log" )
    hb_DirDelete( cTmpDir )
+
+   // shell tool
+   bExec := DSTools_Executor( DSTools_Registry() )
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "echo hello" } ) )
+   T_Assert( "hello" $ cRes, "tools: shell captures output" )
+   T_Assert( "[exit code: 0]" $ cRes, "tools: shell reports exit 0" )
+
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
+   T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
+
+   // end-to-end: the default registry exposes all six builtin tools
+   aSchemas := DSTools_Schemas( DSTools_Registry() )
+   T_Equal( Len( aSchemas ), 6, "tools: registry has six builtins" )
+   T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
+   T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
+   T_Assert( FindSchema( aSchemas, "edit" )  != NIL, "tools: builtin edit" )
+   T_Assert( FindSchema( aSchemas, "glob" )  != NIL, "tools: builtin glob" )
+   T_Assert( FindSchema( aSchemas, "grep" )  != NIL, "tools: builtin grep" )
+   T_Assert( FindSchema( aSchemas, "shell" ) != NIL, "tools: builtin shell" )
    RETURN NIL
