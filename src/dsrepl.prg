@@ -95,11 +95,14 @@ STATIC FUNCTION DSREPL_InitConsole()
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
       hb_dynCall( { "SetConsoleCP", "kernel32.dll", ;
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
+      // GetStdHandle returns a HANDLE (pointer), so the return type must be a
+      // pointer; typing it as an integer corrupts the handle on the next call.
       nStdOut := hb_dynCall( { "GetStdHandle", "kernel32.dll", ;
-         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_LONG ) }, -11 )
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_VOID_PTR ) }, -11 )
       // mode 7 = PROCESSED_OUTPUT | WRAP_AT_EOL | VIRTUAL_TERMINAL_PROCESSING
       hb_dynCall( { "SetConsoleMode", "kernel32.dll", ;
-         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, nStdOut, 7 )
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ), ;
+         { HB_DYN_CTYPE_VOID_PTR, HB_DYN_CTYPE_LONG_UNSIGNED } }, nStdOut, 7 )
    RECOVER USING oErr
       HB_SYMBOL_UNUSED( oErr )
       // console API unavailable -> leave console settings unchanged
