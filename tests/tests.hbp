@@ -7,8 +7,10 @@ test_config.prg
 test_http.prg
 test_api.prg
 test_agent.prg
+test_tools.prg
 ../src/dsconfig.prg
 ../src/dssse.prg
 ../src/dshttp.prg
 ../src/dsapi.prg
 ../src/dsagent.prg
+../src/dstools.prg
