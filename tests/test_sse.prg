@@ -26,4 +26,39 @@ FUNCTION Test_SSE()
                'data: {"choices":[{"delta":{"content":"Y"}}]}' + Chr(13) + Chr(10), ;
                {| h | AAdd( aEvents, h ) } )
    T_Equal( Len( aEvents ), 1, "sse: crlf + blank line" )
+
+   // tool_call delta
+   aEvents := {}
+   oP := DSSSE_New()
+   DSSSE_Feed( oP, 'data: {"choices":[{"delta":{"tool_calls":[' + ;
+      '{"index":0,"id":"call_1","function":{"name":"read","arguments":"{\"p\""}}]}}]}' + ;
+      Chr(10), {| h | AAdd( aEvents, h ) } )
+   T_Equal( Len( aEvents ), 1, "sse: tool_call event count" )
+   T_Equal( aEvents[ 1 ][ "type" ], "tool_call_delta", "sse: tool_call type" )
+   T_Equal( aEvents[ 1 ][ "index" ], 0, "sse: tool_call index" )
+   T_Equal( aEvents[ 1 ][ "id" ], "call_1", "sse: tool_call id" )
+   T_Equal( aEvents[ 1 ][ "name" ], "read", "sse: tool_call name" )
+   T_Equal( aEvents[ 1 ][ "arguments" ], '{"p"', "sse: tool_call args fragment" )
+
+   // finish_reason
+   aEvents := {}
+   oP := DSSSE_New()
+   DSSSE_Feed( oP, 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}' + Chr(10), ;
+               {| h | AAdd( aEvents, h ) } )
+   T_Equal( aEvents[ 1 ][ "type" ], "finish", "sse: finish event" )
+   T_Equal( aEvents[ 1 ][ "finish_reason" ], "stop", "sse: finish reason" )
+
+   // usage
+   aEvents := {}
+   oP := DSSSE_New()
+   DSSSE_Feed( oP, 'data: {"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":5}}' + ;
+               Chr(10), {| h | AAdd( aEvents, h ) } )
+   T_Equal( aEvents[ 1 ][ "type" ], "usage", "sse: usage event" )
+   T_Equal( aEvents[ 1 ][ "usage" ][ "prompt_tokens" ], 3, "sse: usage value" )
+
+   // [DONE]
+   aEvents := {}
+   oP := DSSSE_New()
+   DSSSE_Feed( oP, "data: [DONE]" + Chr(10), {| h | AAdd( aEvents, h ) } )
+   T_Equal( aEvents[ 1 ][ "type" ], "done", "sse: done event" )
    RETURN NIL

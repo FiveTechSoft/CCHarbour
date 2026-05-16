@@ -35,6 +35,41 @@ STATIC FUNCTION DSSSE_Line( cLine, bEmit )
             !Empty( hDelta[ "content" ] )
             Eval( bEmit, { "type" => "text_delta", "text" => hDelta[ "content" ] } )
          ENDIF
+         IF hb_HHasKey( hDelta, "tool_calls" )
+            DSSSE_ToolCalls( hDelta[ "tool_calls" ], bEmit )
+         ENDIF
+      ENDIF
+      IF hb_HHasKey( hChoice, "finish_reason" ) .AND. ;
+         ValType( hChoice[ "finish_reason" ] ) == "C"
+         Eval( bEmit, { "type" => "finish", ;
+                        "finish_reason" => hChoice[ "finish_reason" ] } )
       ENDIF
    ENDIF
+   IF hb_HHasKey( xJson, "usage" ) .AND. ValType( xJson[ "usage" ] ) == "H"
+      Eval( bEmit, { "type" => "usage", "usage" => xJson[ "usage" ] } )
+   ENDIF
+   RETURN NIL
+
+STATIC FUNCTION DSSSE_ToolCalls( aCalls, bEmit )
+   LOCAL hCall, hFn, hEv
+   FOR EACH hCall IN aCalls
+      hEv := { "type" => "tool_call_delta", "index" => 0, ;
+               "id" => NIL, "name" => NIL, "arguments" => NIL }
+      IF hb_HHasKey( hCall, "index" )
+         hEv[ "index" ] := hCall[ "index" ]
+      ENDIF
+      IF hb_HHasKey( hCall, "id" )
+         hEv[ "id" ] := hCall[ "id" ]
+      ENDIF
+      IF hb_HHasKey( hCall, "function" ) .AND. ValType( hCall[ "function" ] ) == "H"
+         hFn := hCall[ "function" ]
+         IF hb_HHasKey( hFn, "name" )
+            hEv[ "name" ] := hFn[ "name" ]
+         ENDIF
+         IF hb_HHasKey( hFn, "arguments" )
+            hEv[ "arguments" ] := hFn[ "arguments" ]
+         ENDIF
+      ENDIF
+      Eval( bEmit, hEv )
+   NEXT
    RETURN NIL
