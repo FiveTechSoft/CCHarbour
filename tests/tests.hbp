@@ -4,6 +4,7 @@
 run_tests.prg
 test_sse.prg
 test_config.prg
+test_http.prg
 ../src/dsconfig.prg
 ../src/dssse.prg
 ../src/dshttp.prg
