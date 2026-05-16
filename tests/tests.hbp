@@ -9,6 +9,8 @@ test_api.prg
 test_agent.prg
 test_tools.prg
 test_ui.prg
+test_settings.prg
+test_perm.prg
 ../src/dsconfig.prg
 ../src/dssse.prg
 ../src/dshttp.prg
@@ -19,3 +21,5 @@ test_ui.prg
 ../src/dstools_search.prg
 ../src/dstools_shell.prg
 ../src/dsui.prg
+../src/dssettings.prg
+../src/dsperm.prg

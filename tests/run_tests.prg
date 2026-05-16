@@ -11,6 +11,8 @@ FUNCTION Main()
    Test_Agent()
    Test_Tools()
    Test_UI()
+   Test_Settings()
+   Test_Perm()
    ? ""
    ? "pass: " + LTrim( Str( s_nPass ) ) + "   fail: " + LTrim( Str( s_nFail ) )
    ErrorLevel( iif( s_nFail > 0, 1, 0 ) )

@@ -1,0 +1,2 @@
+FUNCTION Test_Perm()
+   RETURN NIL
