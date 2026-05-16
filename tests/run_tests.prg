@@ -8,6 +8,7 @@ FUNCTION Main()
    Test_Config()
    Test_Http()
    Test_Api()
+   Test_Agent()
    ? ""
    ? "pass: " + LTrim( Str( s_nPass ) ) + "   fail: " + LTrim( Str( s_nFail ) )
    ErrorLevel( iif( s_nFail > 0, 1, 0 ) )
