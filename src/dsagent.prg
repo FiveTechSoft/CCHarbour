@@ -6,7 +6,7 @@
 // Returns hResult: { success, messages, content, stop_reason, iterations,
 //                    usage, error_type, message }
 FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
-   LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams
+   LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams, tc, cRes
 
    IF ValType( hOpts ) != "H"
       hOpts := {=>}
@@ -61,7 +61,34 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          hResult[ "stop_reason" ] := "stop"
          EXIT
       ENDIF
+
+      // model wants tools but caller supplied no executor -> fast-fail
+      IF !hb_HHasKey( hOpts, "tool_executor" ) .OR. hOpts[ "tool_executor" ] == NIL
+         hResult[ "messages" ]    := aMsgs
+         hResult[ "iterations" ]  := nIter
+         hResult[ "usage" ]       := hUsage
+         hResult[ "error_type" ]  := "config"
+         hResult[ "message" ]     := "model requested tool but no tool_executor provided"
+         hResult[ "stop_reason" ] := "error"
+         RETURN hResult
+      ENDIF
+
+      // execute every tool call this turn, append each result as a tool message
+      FOR EACH tc IN hChat[ "tool_calls" ]
+         DS_AgentEmit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
+                                   "name" => tc[ "name" ], ;
+                                   "arguments" => tc[ "arguments" ] } )
+         cRes := Eval( hOpts[ "tool_executor" ], tc[ "name" ], tc[ "arguments" ] )
+         DS_AgentEmit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+                                   "content" => cRes } )
+         AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
+                        "content" => cRes } )
+      NEXT
    ENDDO
+
+   IF hResult[ "stop_reason" ] == NIL
+      hResult[ "stop_reason" ] := "max_iterations"
+   ENDIF
 
    hResult[ "success" ]    := .T.
    hResult[ "messages" ]   := aMsgs

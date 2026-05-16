@@ -56,4 +56,55 @@ FUNCTION Test_Agent()
    T_Equal( hRes[ "success" ], .F., "agent: empty history fails" )
    T_Equal( hRes[ "error_type" ], "config", "agent: empty history error_type" )
    T_Equal( hRes[ "stop_reason" ], "error", "agent: empty history stop_reason" )
+
+   // tool turn: turn 1 requests a tool, turn 2 replies with text
+   bTransport := AgentTransport( { ;
+      { "sse" => SSE_Tool( "c1", "ping" ), "http" => HttpOK() }, ;
+      { "sse" => SSE_Text( "done" ),       "http" => HttpOK() } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport, ;
+        "tool_executor" => {| cName, cArgs | ;
+           HB_SYMBOL_UNUSED( cArgs ), "result-of-" + cName } }, NIL )
+   T_Equal( hRes[ "success" ], .T., "agent: tool turn success" )
+   T_Equal( hRes[ "iterations" ], 2, "agent: tool turn iterations" )
+   T_Equal( hRes[ "stop_reason" ], "stop", "agent: tool turn stop reason" )
+   T_Equal( hRes[ "content" ], "done", "agent: tool turn final content" )
+   // messages: user, assistant(tool_calls), tool, assistant(text)
+   T_Equal( Len( hRes[ "messages" ] ), 4, "agent: tool turn message count" )
+   T_Equal( hRes[ "messages" ][ 3 ][ "role" ], "tool", "agent: tool message role" )
+   T_Equal( hRes[ "messages" ][ 3 ][ "tool_call_id" ], "c1", "agent: tool message id" )
+   T_Equal( hRes[ "messages" ][ 3 ][ "content" ], "result-of-ping", ;
+            "agent: tool message content" )
+
+   // model requests a tool but no executor supplied -> config error
+   bTransport := AgentTransport( { { "sse" => SSE_Tool( "c9", "ping" ), ;
+                                     "http" => HttpOK() } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport }, NIL )
+   T_Equal( hRes[ "success" ], .F., "agent: no executor fails" )
+   T_Equal( hRes[ "error_type" ], "config", "agent: no executor error_type" )
+   T_Equal( hRes[ "stop_reason" ], "error", "agent: no executor stop_reason" )
+
+   // input array is not mutated by the run
+   aInput := { { "role" => "user", "content" => "keep" } }
+   bTransport := AgentTransport( { { "sse" => SSE_Text( "ok" ), "http" => HttpOK() } } )
+   DS_AgentRun( oClient, aInput, { "transport" => bTransport }, NIL )
+   T_Equal( Len( aInput ), 1, "agent: input array not mutated" )
+
+   // usage accumulates across turns
+   bTransport := AgentTransport( { ;
+      { "sse" => SSE_Tool( "c1", "ping" ), "http" => HttpOK() }, ;
+      { "sse" => 'data: {"choices":[{"delta":{"content":"x"}}]}' + Chr(10) + ;
+                 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}' + Chr(10) + ;
+                 'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":7}}' + ;
+                 Chr(10) + "data: [DONE]" + Chr(10), ;
+        "http" => HttpOK() } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport, ;
+        "tool_executor" => {| cName, cArgs | ;
+           HB_SYMBOL_UNUSED( cName ), HB_SYMBOL_UNUSED( cArgs ), "r" } }, NIL )
+   T_Equal( hRes[ "usage" ][ "prompt_tokens" ], 5, "agent: usage accumulated" )
    RETURN NIL
