@@ -5,7 +5,10 @@ STATIC s_lSkipLF := .F.
 
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
-   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr
+   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, cCpOut := ""
+   // Switch the Windows console to UTF-8 (code page 65001) so the model's
+   // UTF-8 output renders correctly instead of as OEM-codepage mojibake.
+   hb_processRun( "cmd.exe /c chcp 65001", , @cCpOut, @cCpOut )
    hSet := DSSettings_Load()
    IF Empty( cModel )
       cModel := hb_GetEnv( "DEEPSEEK_MODEL" )
