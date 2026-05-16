@@ -28,5 +28,3 @@ FUNCTION T_Equal( xActual, xExpected, cName )
                 ( hb_CStr( xActual ) == hb_CStr( xExpected ) )
    RETURN T_Assert( lOk, cName + iif( lOk, "", ;
       " (got <" + hb_CStr( xActual ) + "> want <" + hb_CStr( xExpected ) + ">)" ) )
-
-FUNCTION Test_Api();    RETURN NIL
