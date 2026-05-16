@@ -67,4 +67,38 @@ FUNCTION Test_Tools()
       hb_jsonEncode( { "path" => hb_DirTemp() + "no_such_file.txt" } ) )
    T_Assert( "Error: file not found" $ cRes, "tools: read missing file" )
    FErase( cTmp )
+
+   // write tool
+   bExec := DSTools_Executor( DSTools_Registry() )
+   cTmp := hb_DirTemp() + "dstools_write.txt"
+   FErase( cTmp )
+   cRes := Eval( bExec, "write", ;
+      hb_jsonEncode( { "path" => cTmp, "content" => "hello world" } ) )
+   T_Assert( "Wrote" $ cRes, "tools: write reports success" )
+   T_Equal( hb_MemoRead( cTmp ), "hello world", "tools: write content on disk" )
+
+   // edit tool: unique replacement
+   hb_MemoWrit( cTmp, "one two one" )
+   cRes := Eval( bExec, "edit", hb_jsonEncode( { "path" => cTmp, ;
+      "old_string" => "two", "new_string" => "TWO" } ) )
+   T_Assert( "Edited" $ cRes, "tools: edit reports success" )
+   T_Equal( hb_MemoRead( cTmp ), "one TWO one", "tools: edit applied" )
+
+   // edit tool: non-unique target without replace_all -> error
+   hb_MemoWrit( cTmp, "x x x" )
+   cRes := Eval( bExec, "edit", hb_jsonEncode( { "path" => cTmp, ;
+      "old_string" => "x", "new_string" => "y" } ) )
+   T_Assert( "not unique" $ cRes, "tools: edit non-unique error" )
+
+   // edit tool: replace_all
+   cRes := Eval( bExec, "edit", hb_jsonEncode( { "path" => cTmp, ;
+      "old_string" => "x", "new_string" => "y", "replace_all" => .T. } ) )
+   T_Equal( hb_MemoRead( cTmp ), "y y y", "tools: edit replace_all" )
+
+   // edit tool: missing file -> error
+   cRes := Eval( bExec, "edit", hb_jsonEncode( { ;
+      "path" => hb_DirTemp() + "no_such_edit.txt", ;
+      "old_string" => "a", "new_string" => "b" } ) )
+   T_Assert( "Error: file not found" $ cRes, "tools: edit missing file" )
+   FErase( cTmp )
    RETURN NIL

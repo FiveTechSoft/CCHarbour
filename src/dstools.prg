@@ -3,6 +3,8 @@
 FUNCTION DSTools_Registry()
    LOCAL oReg := {=>}
    DSTools_Register( oReg, DSTool_Read() )
+   DSTools_Register( oReg, DSTool_Write() )
+   DSTools_Register( oReg, DSTool_Edit() )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.
