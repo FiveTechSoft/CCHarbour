@@ -2,6 +2,7 @@
 // (Builtin registrations are added by Tasks 3-6.)
 FUNCTION DSTools_Registry()
    LOCAL oReg := {=>}
+   DSTools_Register( oReg, DSTool_Read() )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

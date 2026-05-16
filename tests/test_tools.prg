@@ -9,7 +9,7 @@ STATIC FUNCTION FindSchema( aSchemas, cName )
    RETURN NIL
 
 FUNCTION Test_Tools()
-   LOCAL oReg, bExec, aSchemas, hEcho, hCustom
+   LOCAL oReg, bExec, aSchemas, hEcho, hCustom, cTmp, cRes
 
    // a custom tool used to exercise the registry and executor
    hCustom := { "name" => "echo", ;
@@ -44,4 +44,27 @@ FUNCTION Test_Tools()
             "tools: executor invalid JSON" )
    T_Equal( Eval( bExec, "echo", "{}" ), "Error: missing required argument 'text'", ;
             "tools: executor missing required arg" )
+
+   // read tool
+   bExec := DSTools_Executor( DSTools_Registry() )
+   cTmp := hb_DirTemp() + "dstools_read.txt"
+   hb_MemoWrit( cTmp, "alpha" + Chr(10) + "beta" + Chr(10) + "gamma" + Chr(10) )
+
+   cRes := Eval( bExec, "read", hb_jsonEncode( { "path" => cTmp } ) )
+   T_Assert( "alpha" $ cRes, "tools: read returns content" )
+   T_Assert( Chr(9) $ cRes, "tools: read has line-number tab" )
+
+   cRes := Eval( bExec, "read", ;
+      hb_jsonEncode( { "path" => cTmp, "offset" => 2 } ) )
+   T_Assert( "gamma" $ cRes, "tools: read offset keeps later lines" )
+   T_Assert( !( "alpha" $ cRes ), "tools: read offset drops earlier lines" )
+
+   cRes := Eval( bExec, "read", ;
+      hb_jsonEncode( { "path" => cTmp, "max_lines" => 1 } ) )
+   T_Assert( "[truncated:" $ cRes, "tools: read max_lines truncates" )
+
+   cRes := Eval( bExec, "read", ;
+      hb_jsonEncode( { "path" => hb_DirTemp() + "no_such_file.txt" } ) )
+   T_Assert( "Error: file not found" $ cRes, "tools: read missing file" )
+   FErase( cTmp )
    RETURN NIL
