@@ -1,3 +1,6 @@
+// Whether DSUI_Color emits ANSI colour codes (off unless the REPL turns it on).
+STATIC s_lColor := .F.
+
 // Classifies a line of REPL input. Returns:
 //   { "type" => "exit"|"clear"|"help"|"message"|"empty", "text" => <trimmed> }
 FUNCTION DSUI_ParseCommand( cLine )
@@ -56,9 +59,19 @@ FUNCTION DSUI_RenderEvent( hEv )
    ENDCASE
    RETURN ""
 
-// Wraps text in an ANSI SGR colour code; cSGR is the code, e.g. "36" (cyan),
-// "90" (grey), "31" (red), "1;36" (bold cyan), "33" (yellow).
+// Enables or disables ANSI colour output. Off by default; the REPL turns it on
+// from the settings "color" key. Only enable it on a VT-capable terminal.
+FUNCTION DSUI_SetColor( lOn )
+   s_lColor := ( lOn == .T. )
+   RETURN NIL
+
+// Wraps text in an ANSI SGR colour code when colour is enabled, otherwise
+// returns the text unchanged. cSGR is the code, e.g. "36" (cyan), "90" (grey),
+// "31" (red), "1;36" (bold cyan), "33" (yellow).
 FUNCTION DSUI_Color( cText, cSGR )
+   IF !s_lColor
+      RETURN cText
+   ENDIF
    RETURN Chr(27) + "[" + cSGR + "m" + cText + Chr(27) + "[0m"
 
 // The system message seeded into every conversation.

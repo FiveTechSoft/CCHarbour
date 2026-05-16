@@ -9,6 +9,7 @@ FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr
    DSREPL_InitConsole()
    hSet := DSSettings_Load()
+   DSUI_SetColor( hSet[ "color" ] )
    IF Empty( cModel )
       cModel := hb_GetEnv( "DEEPSEEK_MODEL" )
    ENDIF
@@ -85,27 +86,19 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    OutStd( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
    RETURN NIL
 
-// Prepares the Windows console: UTF-8 code page so the model's UTF-8 output
-// renders correctly, and ANSI/VT escape processing so colours work.
+// Switches the Windows console to the UTF-8 code page (65001) so the model's
+// UTF-8 output renders correctly instead of as OEM-codepage mojibake.
 // Wrapped so a missing console API never aborts startup.
 STATIC FUNCTION DSREPL_InitConsole()
-   LOCAL nStdOut, oErr
+   LOCAL oErr
    BEGIN SEQUENCE WITH {| o | Break( o ) }
       hb_dynCall( { "SetConsoleOutputCP", "kernel32.dll", ;
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
       hb_dynCall( { "SetConsoleCP", "kernel32.dll", ;
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
-      // GetStdHandle returns a HANDLE (pointer), so the return type must be a
-      // pointer; typing it as an integer corrupts the handle on the next call.
-      nStdOut := hb_dynCall( { "GetStdHandle", "kernel32.dll", ;
-         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_VOID_PTR ) }, -11 )
-      // mode 7 = PROCESSED_OUTPUT | WRAP_AT_EOL | VIRTUAL_TERMINAL_PROCESSING
-      hb_dynCall( { "SetConsoleMode", "kernel32.dll", ;
-         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ), ;
-         { HB_DYN_CTYPE_VOID_PTR, HB_DYN_CTYPE_LONG_UNSIGNED } }, nStdOut, 7 )
    RECOVER USING oErr
       HB_SYMBOL_UNUSED( oErr )
-      // console API unavailable -> leave console settings unchanged
+      // console API unavailable -> leave the code page unchanged
    END SEQUENCE
    RETURN NIL
 
