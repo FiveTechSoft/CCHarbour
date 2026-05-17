@@ -5,6 +5,8 @@ A terminal coding assistant — a Claude Code-style agent — written in
 replies, and lets the model use tools to read, write and edit files, search the
 project, and run shell commands, all from a single console executable.
 
+**Documentation:** <https://fivetechsoft.github.io/CCHarbour/>
+
 ```
 ╭─────────────────────────────────────────────────────────────────────────────╮
 │                                        │ Tips for getting started           │
