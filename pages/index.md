@@ -27,3 +27,4 @@ from a single console executable.
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style terminal UI
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
+[Try online](try-online.md){ .md-button }

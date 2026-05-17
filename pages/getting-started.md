@@ -12,6 +12,8 @@
 Grab `cc.exe` from the
 [latest release](https://github.com/FiveTechSoft/CCHarbour/releases/latest).
 Release binaries are built fully static — no extra DLLs required.
+You can also inspect CI builds in
+[GitHub Actions](https://github.com/FiveTechSoft/CCHarbour/actions/workflows/build.yml).
 
 ## Build from source
 
