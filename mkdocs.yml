@@ -19,6 +19,7 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Live test: live-test.md
   - Commands: commands.md
   - Configuration: configuration.md
   - Roadmap: roadmap.md
