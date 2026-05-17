@@ -50,13 +50,26 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
-      DSREPL_Out( Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) + ;
-                  DSUI_Color( "> ", "1;36" ) )
+      IF DSUI_ColorOn()
+         // Draw both rules, then move the cursor back up onto the prompt line
+         // between them, so the bottom rule is visible before the user types.
+         DSREPL_Out( Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) + ;
+                     Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + ;
+                     DSUI_VT( "1A" ) + DSUI_VT( "1G" ) + ;
+                     DSUI_Color( "> ", "1;36" ) )
+      ELSE
+         DSREPL_Out( Chr(10) + DSUI_Rule() + Chr(10) + "> " )
+      ENDIF
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          EXIT
       ENDIF
-      DSREPL_Out( DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) )
+      IF DSUI_ColorOn()
+         // The bottom rule is already drawn; step below it before any output.
+         DSREPL_Out( Chr(10) )
+      ELSE
+         DSREPL_Out( DSUI_Rule() + Chr(10) )
+      ENDIF
       hAction := DSUI_ParseCommand( cLine )
       DO CASE
       CASE hAction[ "type" ] == "empty"

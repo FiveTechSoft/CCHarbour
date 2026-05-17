@@ -166,6 +166,18 @@ FUNCTION DSUI_Color( cText, cSGR )
    ENDIF
    RETURN Chr(27) + "[" + cSGR + "m" + cText + Chr(27) + "[0m"
 
+// Returns .T. when ANSI output (colour and cursor control) is enabled.
+FUNCTION DSUI_ColorOn()
+   RETURN s_lColor
+
+// Emits an ANSI control sequence (e.g. "1A" = cursor up one line,
+// "1G" = move to column 1) when ANSI output is enabled, else "".
+FUNCTION DSUI_VT( cSeq )
+   IF !s_lColor
+      RETURN ""
+   ENDIF
+   RETURN Chr(27) + "[" + cSeq
+
 // The system message seeded into every conversation. When a CLAUDE.md file is
 // present in the working directory its contents are appended as project
 // instructions, so the agent honours per-project conventions.
