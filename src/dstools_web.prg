@@ -11,6 +11,7 @@ FUNCTION DSTool_WebFetch()
                "required" => { "url" } }, ;
             "handler" => {| hArgs | DSTool_WebFetchRun( hArgs ) } }
 
+// Assumes the executor (DSTools_Dispatch) has already validated required args.
 STATIC FUNCTION DSTool_WebFetchRun( hArgs )
    LOCAL hRes, cBody
    hRes := DSHTTP_Fetch( { "url" => hb_CStr( hArgs[ "url" ] ), "method" => "GET" } )

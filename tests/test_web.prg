@@ -33,4 +33,12 @@ FUNCTION Test_Web()
    T_Equal( cRes, "Error: web_fetch HTTP 404", "web_fetch: non-2xx error" )
    DSHTTP_SetTestTransport( NIL )
 
+   // --- web_fetch reports a transport failure ---
+   DSHTTP_SetTestTransport( {| hR | HB_SYMBOL_UNUSED( hR ), ;
+      { "ok" => .F., "status" => 0, "body" => "", "error" => "couldnt connect" } } )
+   cRes := Eval( hTool[ "handler" ], { "url" => "https://example.com/x" } )
+   T_Equal( cRes, "Error: web_fetch failed: couldnt connect", ;
+            "web_fetch: transport failure error" )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL
