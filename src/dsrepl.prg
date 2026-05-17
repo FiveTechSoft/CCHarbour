@@ -18,7 +18,7 @@ FUNCTION Main( cModel )
    ENDIF
    hCfg := DSCFG_Resolve( {=>} )
    IF !hCfg[ "ok" ]
-      OutStd( "Error: no API key. Set DEEPSEEK_API_KEY." + Chr(10) )
+      DSREPL_Out( "Error: no API key. Set DEEPSEEK_API_KEY." + Chr(10) )
       ErrorLevel( 1 )
       RETURN NIL
    ENDIF
@@ -29,7 +29,7 @@ FUNCTION Main( cModel )
    BEGIN SEQUENCE WITH {| o | Break( o ) }
       DSREPL_Run( oClient, oReg, cModel, bGate, hSet[ "max_iterations" ] )
    RECOVER USING oErr
-      OutStd( Chr(10) + "Fatal: " + ;
+      DSREPL_Out( Chr(10) + "Fatal: " + ;
               iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" ) + ;
               Chr(10) )
       ErrorLevel( 1 )
@@ -41,11 +41,11 @@ FUNCTION Main( cModel )
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes
    aMsgs   := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
-   bRender := {| hEv | OutStd( DSUI_RenderEvent( hEv ) ) }
-   OutStd( DSUI_Color( "CCHarbour - model: " + cModel + ". /help for commands.", ;
-                       "90" ) + Chr(10) )
+   bRender := {| hEv | DSREPL_Out( DSUI_RenderEvent( hEv ) ) }
+   DSREPL_Out( DSUI_Color( "CCHarbour - model: " + cModel + ". /help for commands.", ;
+                           "90" ) + Chr(10) )
    DO WHILE .T.
-      OutStd( Chr(10) + DSUI_Color( "> ", "1;36" ) )
+      DSREPL_Out( Chr(10) + DSUI_Color( "> ", "1;36" ) )
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          EXIT
@@ -57,10 +57,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CASE hAction[ "type" ] == "exit"
          EXIT
       CASE hAction[ "type" ] == "help"
-         OutStd( DSUI_Help() + Chr(10) )
+         DSREPL_Out( DSUI_Help() + Chr(10) )
       CASE hAction[ "type" ] == "clear"
          aMsgs := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
-         OutStd( DSUI_Color( "[conversation reset]", "90" ) + Chr(10) )
+         DSREPL_Out( DSUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "message"
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => hAction[ "text" ] } )
@@ -70,20 +70,29 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
               "tool_executor" => bGate, ;
               "max_iterations" => nMaxIter }, ;
             bRender )
-         OutStd( Chr(10) )
+         DSREPL_Out( Chr(10) )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
-               OutStd( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
+               DSREPL_Out( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
             ENDIF
-            OutStd( DSUI_Color( DSREPL_UsageLine( hRes[ "usage" ] ), "90" ) + Chr(10) )
+            DSREPL_Out( DSUI_Color( DSREPL_UsageLine( hRes[ "usage" ] ), "90" ) + Chr(10) )
          ELSE
-            OutStd( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
+            DSREPL_Out( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
                     hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
          ENDIF
       ENDCASE
    ENDDO
-   OutStd( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
+   DSREPL_Out( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
+   RETURN NIL
+
+// Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
+// so UTF-8 output is not re-encoded. The console code page is set to UTF-8
+// by DSREPL_InitConsole, so these bytes render correctly.
+STATIC FUNCTION DSREPL_Out( cText )
+   IF !Empty( cText )
+      FWrite( hb_GetStdOut(), cText )
+   ENDIF
    RETURN NIL
 
 // Switches the Windows console to the UTF-8 code page (65001) so the model's
@@ -107,7 +116,7 @@ STATIC FUNCTION DSREPL_InitConsole()
 STATIC FUNCTION DSREPL_AskPerm( cName, cArgsJson )
    LOCAL cLine := "n", oErr
    BEGIN SEQUENCE WITH {| o | Break( o ) }
-      OutStd( Chr(10) + DSUI_Color( "Tool '" + hb_CStr( cName ) + ;
+      DSREPL_Out( Chr(10) + DSUI_Color( "Tool '" + hb_CStr( cName ) + ;
               "' wants to run: " + DSUI_Summarize( hb_CStr( cArgsJson ), 120 ) + ;
               Chr(10) + "Allow? [y/n/a] ", "33" ) )
       cLine := DSREPL_ReadLine()
@@ -142,14 +151,14 @@ STATIC FUNCTION DSREPL_ReadLine()
          EXIT
       CASE cCh == Chr(13)
          s_lSkipLF := .T.
-         OutStd( Chr(10) )
+         DSREPL_Out( Chr(10) )
          EXIT
       CASE ( cCh == Chr(8) .OR. cCh == Chr(127) ) .AND. !Empty( cLine )
          cLine := hb_BLeft( cLine, hb_BLen( cLine ) - 1 )
-         OutStd( Chr(8) + " " + Chr(8) )   // erase last char on screen
+         DSREPL_Out( Chr(8) + " " + Chr(8) )   // erase last char on screen
       CASE cCh >= " "
          cLine += cCh
-         OutStd( cCh )   // echo (raw consoles do not echo themselves)
+         DSREPL_Out( cCh )   // echo (raw consoles do not echo themselves)
       ENDCASE
    ENDDO
    // strip a leading UTF-8 BOM (piped input on Windows may prepend one)
