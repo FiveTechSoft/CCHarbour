@@ -6,10 +6,12 @@ STATIC s_lSkipLF := .F.
 
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
-   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr
-   DSREPL_InitConsole()
+   LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, lVT
+   lVT := DSREPL_InitConsole()
    hSet := DSSettings_Load()
-   DSUI_SetColor( hSet[ "color" ] )
+   // colour only when the console accepted virtual-terminal mode AND the
+   // settings do not switch it off -- avoids ANSI codes on a plain console
+   DSUI_SetColor( lVT .AND. hSet[ "color" ] == .T. )
    IF Empty( cModel )
       cModel := hb_GetEnv( "DEEPSEEK_MODEL" )
    ENDIF
@@ -102,21 +104,28 @@ STATIC FUNCTION DSREPL_Out( cText )
    ENDIF
    RETURN NIL
 
-// Switches the Windows console to the UTF-8 code page (65001) so the model's
-// UTF-8 output renders correctly instead of as OEM-codepage mojibake.
-// Wrapped so a missing console API never aborts startup.
+// Sets the Windows console to the UTF-8 code page (65001) so the model's
+// UTF-8 output renders, and enables virtual-terminal mode so ANSI colours
+// work. Returns .T. when VT mode was accepted (so the caller can decide
+// whether to colour output). Wrapped so a missing console API never aborts.
 STATIC FUNCTION DSREPL_InitConsole()
-   LOCAL oErr
+   LOCAL oErr, hOut, lVT := .F.
    BEGIN SEQUENCE WITH {| o | Break( o ) }
       hb_dynCall( { "SetConsoleOutputCP", "kernel32.dll", ;
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
       hb_dynCall( { "SetConsoleCP", "kernel32.dll", ;
          hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ) }, 65001 )
+      hOut := hb_dynCall( { "GetStdHandle", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_VOID_PTR ) }, -11 )
+      // mode 7 = PROCESSED_OUTPUT | WRAP_AT_EOL | VIRTUAL_TERMINAL_PROCESSING
+      lVT := hb_dynCall( { "SetConsoleMode", "kernel32.dll", ;
+         hb_bitOr( HB_DYN_CALLCONV_STDCALL, HB_DYN_CTYPE_BOOL ), ;
+         { HB_DYN_CTYPE_VOID_PTR, HB_DYN_CTYPE_LONG_UNSIGNED } }, hOut, 7 )
    RECOVER USING oErr
       HB_SYMBOL_UNUSED( oErr )
-      // console API unavailable -> leave the code page unchanged
+      // console API unavailable -> leave the console as is
    END SEQUENCE
-   RETURN NIL
+   RETURN ( lVT == .T. )
 
 // Permission prompt for a tool in "ask" mode. Returns the typed answer
 // ("y"/"n"/"a"); the gate normalises it. Never throws.

@@ -3,7 +3,7 @@ FUNCTION DSSettings_Defaults()
    RETURN { "model"          => "deepseek-chat", ;
             "base_url"       => "https://api.deepseek.com", ;
             "max_iterations" => 25, ;
-            "color"          => .F., ;
+            "color"          => .T., ;
             "permissions"    => { "read"  => "allow", "glob"  => "allow", ;
                                   "grep"  => "allow", "write" => "ask", ;
                                   "edit"  => "ask",   "shell" => "ask" } }
