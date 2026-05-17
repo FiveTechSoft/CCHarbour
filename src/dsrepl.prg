@@ -134,9 +134,9 @@ STATIC FUNCTION DSREPL_AskPerm( cName, cArgsJson )
    RETURN cLine
 
 // Reads one line from stdin. Returns the line, or NIL at end of input.
-// Terminates on LF, CR, or CRLF, so it works whether the console hands the
-// app cooked input (LF) or raw keystrokes (CR, as a Win32 console does).
-// Typed characters are echoed: a raw console does not echo on its own.
+// Terminates on LF, CR, or CRLF. The console runs in its default cooked mode
+// (gtnul does not touch it), so it echoes the typed line and applies editing
+// itself -- this function must NOT echo, or the input would appear twice.
 STATIC FUNCTION DSREPL_ReadLine()
    LOCAL cLine := "", cCh := Space(1), nRead, hIn := hb_GetStdIn()
    DO WHILE .T.
@@ -155,14 +155,11 @@ STATIC FUNCTION DSREPL_ReadLine()
          EXIT
       CASE cCh == Chr(13)
          s_lSkipLF := .T.
-         DSREPL_Out( Chr(10) )
          EXIT
       CASE ( cCh == Chr(8) .OR. cCh == Chr(127) ) .AND. !Empty( cLine )
          cLine := hb_BLeft( cLine, hb_BLen( cLine ) - 1 )
-         DSREPL_Out( Chr(8) + " " + Chr(8) )   // erase last char on screen
       CASE cCh >= " "
          cLine += cCh
-         DSREPL_Out( cCh )   // echo (raw consoles do not echo themselves)
       ENDCASE
    ENDDO
    // strip a leading UTF-8 BOM (piped input on Windows may prepend one)
