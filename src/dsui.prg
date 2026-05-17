@@ -1,21 +1,37 @@
 // Whether DSUI_Color emits ANSI colour codes (off unless the REPL turns it on).
 STATIC s_lColor := .F.
 
-// Classifies a line of REPL input. Returns:
-//   { "type" => "exit"|"clear"|"help"|"message"|"empty", "text" => <trimmed> }
+// Classifies a line of REPL input. Returns a hash with:
+//   "type" => "exit"|"clear"|"help"|"init"|"model"|"message"|"empty"
+//   "text" => the trimmed line, or the command argument for "model"
 FUNCTION DSUI_ParseCommand( cLine )
    LOCAL cTrim := AllTrim( hb_CStr( cLine ) )
+   LOCAL cLow  := Lower( cTrim )
    DO CASE
    CASE Empty( cTrim )
       RETURN { "type" => "empty", "text" => "" }
-   CASE Lower( cTrim ) == "/exit" .OR. Lower( cTrim ) == "/quit"
+   CASE cLow == "/exit" .OR. cLow == "/quit"
       RETURN { "type" => "exit", "text" => cTrim }
-   CASE Lower( cTrim ) == "/clear"
+   CASE cLow == "/clear"
       RETURN { "type" => "clear", "text" => cTrim }
-   CASE Lower( cTrim ) == "/help"
+   CASE cLow == "/help"
       RETURN { "type" => "help", "text" => cTrim }
+   CASE cLow == "/init"
+      RETURN { "type" => "init", "text" => "" }
+   CASE cLow == "/model" .OR. Left( cLow, 7 ) == "/model "
+      RETURN { "type" => "model", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
    ENDCASE
    RETURN { "type" => "message", "text" => cTrim }
+
+// The instruction sent to the agent by the /init command: it asks the model
+// to inspect the project and write a CLAUDE.md file.
+FUNCTION DSUI_InitPrompt()
+   RETURN "Analyse this project and create a CLAUDE.md file in the working " + ;
+          "directory. Use your tools to explore the repository: its layout, " + ;
+          "how it is built and run, and its coding conventions. CLAUDE.md " + ;
+          "should concisely cover: what the project is, how to build and run " + ;
+          "it, the key directories, and the coding conventions to follow. " + ;
+          "Keep it short. Write the file with your write tool, then confirm."
 
 // Returns the first line of cText, truncated to nMax characters, with a
 // "[<N> chars]" annotation when anything was dropped. nMax defaults to 80.
@@ -288,10 +304,17 @@ FUNCTION DSUI_Banner( cModel, cCwd, cUser )
            Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "br" ), "90" ) + Chr(10)
    RETURN cOut
 
+// A horizontal rule as wide as the startup banner box, used to frame the
+// input prompt the way Claude Code does.
+FUNCTION DSUI_Rule()
+   RETURN Replicate( DSUI_Glyph( "h" ), 79 )
+
 // The text shown by the /help command.
 FUNCTION DSUI_Help()
    RETURN "Commands:" + Chr(10) + ;
-          "  /help   show this help" + Chr(10) + ;
-          "  /clear  reset the conversation" + Chr(10) + ;
-          "  /exit   quit (alias: /quit)" + Chr(10) + ;
+          "  /help          show this help" + Chr(10) + ;
+          "  /init          analyse the project and write CLAUDE.md" + Chr(10) + ;
+          "  /model [name]  show the model, or switch to <name>" + Chr(10) + ;
+          "  /clear         reset the conversation" + Chr(10) + ;
+          "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

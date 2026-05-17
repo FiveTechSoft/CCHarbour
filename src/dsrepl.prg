@@ -41,7 +41,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes
+   LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes, cMsg
    aMsgs   := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    bRender := {| hEv | DSREPL_Out( DSUI_RenderEvent( hEv ) ) }
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -50,11 +50,13 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
-      DSREPL_Out( Chr(10) + DSUI_Color( "> ", "1;36" ) )
+      DSREPL_Out( Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) + ;
+                  DSUI_Color( "> ", "1;36" ) )
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          EXIT
       ENDIF
+      DSREPL_Out( DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) )
       hAction := DSUI_ParseCommand( cLine )
       DO CASE
       CASE hAction[ "type" ] == "empty"
@@ -66,9 +68,18 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CASE hAction[ "type" ] == "clear"
          aMsgs := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
          DSREPL_Out( DSUI_Color( "[conversation reset]", "90" ) + Chr(10) )
-      CASE hAction[ "type" ] == "message"
+      CASE hAction[ "type" ] == "model"
+         IF Empty( hAction[ "text" ] )
+            DSREPL_Out( DSUI_Color( "model: " + cModel, "90" ) + Chr(10) )
+         ELSE
+            cModel := hAction[ "text" ]
+            DSREPL_Out( DSUI_Color( "[model -> " + cModel + "]", "90" ) + Chr(10) )
+         ENDIF
+      CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
+         cMsg := iif( hAction[ "type" ] == "init", ;
+                      DSUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
-         AAdd( aTurn, { "role" => "user", "content" => hAction[ "text" ] } )
+         AAdd( aTurn, { "role" => "user", "content" => cMsg } )
          hRes := DS_AgentRun( oClient, aTurn, ;
             { "model" => cModel, ;
               "tools" => DSTools_Schemas( oReg ), ;

@@ -2,5 +2,19 @@
 *.o
 *.obj
 *.ppo
+*.hrb
 .hbmk/
 .ccharbour/
+
+# editor / tooling
+.claude/
+
+# scratch test artefacts (the tracked suite lives in tests/test_*.prg)
+/test.c
+/test.txt
+/tests/test.c
+/tests/test.prg
+/tests/test_output.txt
+
+# session transcripts
+*-puedes-implementar-*.txt
