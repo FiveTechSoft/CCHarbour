@@ -49,12 +49,14 @@ jobs:
           mingw32-make
           mingw32-make install
 
+      # -fullstatic links the C runtime, libgcc and libwinpthread statically,
+      # so the resulting cc.exe needs no non-system DLLs.
       - name: Build cc.exe
         shell: msys2 {0}
         run: |
           export PATH="$GITHUB_WORKSPACE/harbour-bin/bin:$PATH"
           export HB_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE")/harbour-bin"
-          hbmk2 -comp=mingw64 cc.hbp
+          hbmk2 -comp=mingw64 -fullstatic cc.hbp
 
       - name: Upload cc.exe artifact
         uses: actions/upload-artifact@v4
