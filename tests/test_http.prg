@@ -42,4 +42,9 @@ FUNCTION Test_Http()
    T_Equal( hRes[ "body" ], "M:POST", "fetch: method passthrough" )
    DSHTTP_SetTestTransport( NIL )
 
+   // missing url -> structured error, no crash
+   hRes := DSHTTP_Fetch( {=>} )
+   T_Equal( hRes[ "ok" ], .F., "fetch: missing url ok flag" )
+   T_Equal( hRes[ "error" ], "missing url", "fetch: missing url error" )
+
    RETURN NIL

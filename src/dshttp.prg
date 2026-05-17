@@ -99,6 +99,7 @@ FUNCTION DSHTTP_SetTestTransport( bBlock )
 //         "K: V"), body (string, sent for POST/PATCH), timeout (seconds,
 //         default 60), transport (optional {|hReq| -> hResult} override) }.
 // Returns: { ok, status, body, error }.
+// ok indicates the transport succeeded (curl ran); check status for the HTTP result.
 FUNCTION DSHTTP_Fetch( hReq )
    IF hb_HHasKey( hReq, "transport" ) .AND. hReq[ "transport" ] != NIL
       RETURN Eval( hReq[ "transport" ], hReq )
@@ -115,6 +116,11 @@ STATIC FUNCTION DSHTTP_CurlFetch( hReq )
    LOCAL cBuf := Space( 16384 ), nRead
    LOCAL nExit, nStatus := 0, cErr := "", cBody := ""
    LOCAL aHeaders, cReqBody, lHasBody
+
+   IF !hb_HHasKey( hReq, "url" ) .OR. Empty( hReq[ "url" ] )
+      RETURN { "ok" => .F., "status" => 0, "body" => "", ;
+               "error" => "missing url" }
+   ENDIF
 
    cMethod := iif( hb_HHasKey( hReq, "method" ) .AND. !Empty( hReq[ "method" ] ), ;
                    Upper( hb_CStr( hReq[ "method" ] ) ), "GET" )
