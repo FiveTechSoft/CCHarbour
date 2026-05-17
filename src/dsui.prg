@@ -150,12 +150,32 @@ FUNCTION DSUI_Color( cText, cSGR )
    ENDIF
    RETURN Chr(27) + "[" + cSGR + "m" + cText + Chr(27) + "[0m"
 
-// The system message seeded into every conversation.
+// The system message seeded into every conversation. When a CLAUDE.md file is
+// present in the working directory its contents are appended as project
+// instructions, so the agent honours per-project conventions.
 FUNCTION DSUI_SystemPrompt()
-   RETURN "You are CCHarbour, a terminal coding assistant. " + ;
-          "You have tools to read, write and edit files, search with glob and " + ;
-          "grep, and run shell commands. Use them to help the user with coding " + ;
-          "tasks. Be concise."
+   LOCAL cBase, cProj
+   cBase := "You are CCHarbour, a terminal coding assistant. " + ;
+            "You have tools to read, write and edit files, search with glob and " + ;
+            "grep, and run shell commands. Use them to help the user with coding " + ;
+            "tasks. Be concise."
+   cProj := DSUI_ProjectContext()
+   IF !Empty( cProj )
+      cBase += Chr(10) + Chr(10) + ;
+         "The following project instructions come from the CLAUDE.md file in " + ;
+         "the working directory. Treat them as authoritative and follow them:" + ;
+         Chr(10) + Chr(10) + cProj
+   ENDIF
+   RETURN cBase
+
+// Reads project instructions from a CLAUDE.md file in the current directory.
+// Returns "" when the file is absent or empty.
+FUNCTION DSUI_ProjectContext()
+   LOCAL cText := ""
+   IF File( "CLAUDE.md" )
+      cText := hb_MemoRead( "CLAUDE.md" )
+   ENDIF
+   RETURN AllTrim( hb_CStr( cText ) )
 
 // Returns a UTF-8 box-drawing glyph by name, built from raw bytes so the
 // source file's encoding does not matter.
