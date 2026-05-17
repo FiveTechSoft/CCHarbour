@@ -1,0 +1,69 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 (mingw-w64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+
+      # Harbour is built from source once and cached. A mingw build is
+      # self-consistent, so it avoids the dynamic-CRT linking dance that the
+      # local msvc64 build (build.bat) needs.
+      - name: Cache Harbour
+        id: harbour-cache
+        uses: actions/cache@v4
+        with:
+          path: harbour-bin
+          key: harbour-mingw64-v1
+
+      - name: Build Harbour from source
+        if: steps.harbour-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          git clone --depth 1 https://github.com/harbour/core.git harbour-src
+          cd harbour-src
+          export HB_PLATFORM=win
+          export HB_COMPILER=mingw64
+          export HB_BUILD_CONTRIBS=no
+          export HB_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE")/harbour-bin"
+          mingw32-make
+          mingw32-make install
+
+      - name: Build cc.exe
+        shell: msys2 {0}
+        run: |
+          export PATH="$GITHUB_WORKSPACE/harbour-bin/bin:$PATH"
+          export HB_INSTALL_PREFIX="$(cygpath -m "$GITHUB_WORKSPACE")/harbour-bin"
+          hbmk2 -comp=mingw64 cc.hbp
+
+      - name: Upload cc.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-exe
+          path: cc.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cc.exe
