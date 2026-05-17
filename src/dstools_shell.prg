@@ -17,8 +17,12 @@ FUNCTION DSTool_Shell()
 STATIC FUNCTION DSTool_ShellRun( hArgs )
    LOCAL cCommand, cShell, cCmdLine, cOut := "", cErr := "", nExit, cResult
    cCommand := hb_CStr( hArgs[ "command" ] )
-   cShell := iif( hb_HHasKey( hArgs, "shell" ) .AND. !Empty( hArgs[ "shell" ] ), ;
-                  hb_CStr( hArgs[ "shell" ] ), "cmd.exe /c" )
+   // only honour "shell" when it is a non-empty string; models sometimes send
+   // a boolean here, which must not be treated as a launcher prefix
+   cShell := iif( hb_HHasKey( hArgs, "shell" ) .AND. ;
+                  ValType( hArgs[ "shell" ] ) == "C" .AND. ;
+                  !Empty( hArgs[ "shell" ] ), ;
+                  hArgs[ "shell" ], "cmd.exe /c" )
    cCmdLine := cShell + " " + cCommand
    nExit := hb_processRun( cCmdLine, , @cOut, @cErr )
    IF nExit == -1
