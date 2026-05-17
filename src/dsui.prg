@@ -157,6 +157,117 @@ FUNCTION DSUI_SystemPrompt()
           "grep, and run shell commands. Use them to help the user with coding " + ;
           "tasks. Be concise."
 
+// Returns a UTF-8 box-drawing glyph by name, built from raw bytes so the
+// source file's encoding does not matter.
+STATIC FUNCTION DSUI_Glyph( cName )
+   DO CASE
+   CASE cName == "tl"
+      RETURN Chr(226)+Chr(149)+Chr(173)   // ╭
+   CASE cName == "tr"
+      RETURN Chr(226)+Chr(149)+Chr(174)   // ╮
+   CASE cName == "bl"
+      RETURN Chr(226)+Chr(149)+Chr(176)   // ╰
+   CASE cName == "br"
+      RETURN Chr(226)+Chr(149)+Chr(175)   // ╯
+   CASE cName == "h"
+      RETURN Chr(226)+Chr(148)+Chr(128)   // ─
+   CASE cName == "v"
+      RETURN Chr(226)+Chr(148)+Chr(130)   // │
+   ENDCASE
+   RETURN " "
+
+// Pads cText to nWidth display columns, counting UTF-8 characters (not bytes).
+// cAlign is "L" (default), "C" (centre) or "R" (right). Over-long text is cut.
+STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
+   LOCAL nLen, nPad, nLeft
+   cText := hb_CStr( cText )
+   nLen  := hb_UTF8Len( cText )
+   IF nLen > nWidth
+      cText := hb_UTF8SubStr( cText, 1, nWidth )
+      nLen  := nWidth
+   ENDIF
+   nPad := nWidth - nLen
+   DO CASE
+   CASE cAlign == "C"
+      nLeft := Int( nPad / 2 )
+      RETURN Space( nLeft ) + cText + Space( nPad - nLeft )
+   CASE cAlign == "R"
+      RETURN Space( nPad ) + cText
+   ENDCASE
+   RETURN cText + Space( nPad )
+
+// Builds one content row of the banner: a left cell and a right cell divided
+// by the vertical glyph. aL/aR are { text, align } pairs. lTitle highlights the
+// left cell (the welcome line). A right text of "<HR>" draws a panel divider.
+STATIC FUNCTION DSUI_BanRow( aL, aR, nLW, nRW )
+   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), "90" )
+   LOCAL cL, cR
+   cL := DSUI_PadCell( aL[ 1 ], nLW, aL[ 2 ] )
+   IF aL[ 3 ]
+      cL := DSUI_Color( cL, "1;36" )
+   ENDIF
+   IF aR[ 1 ] == "<HR>"
+      cR := DSUI_Color( Replicate( DSUI_Glyph( "h" ), nRW ), "90" )
+   ELSE
+      cR := DSUI_PadCell( aR[ 1 ], nRW, aR[ 2 ] )
+      IF aR[ 3 ]
+         cR := DSUI_Color( cR, "1" )
+      ENDIF
+   ENDIF
+   RETURN cV + " " + cL + " " + cV + " " + cR + " " + cV
+
+// Builds the Claude Code-style startup banner: a rounded box with a welcome
+// panel (logo, model, working directory) on the left and a tips / what's-new
+// panel on the right. Returns the whole banner as one string ending in LF.
+FUNCTION DSUI_Banner( cModel, cCwd, cUser )
+   LOCAL nLW := 38, nRW := 34
+   LOCAL cH := DSUI_Glyph( "h" )
+   LOCAL cOut, i, aL, aR
+
+   cModel := hb_CStr( cModel )
+   cCwd   := hb_CStr( cCwd )
+   cUser  := AllTrim( hb_CStr( cUser ) )
+   IF Empty( cUser )
+      cUser := "developer"
+   ENDIF
+
+   // left panel rows: { text, align, isTitle }
+   aL := { ;
+      { "",                                       "L", .F. }, ;
+      { "Welcome to CCHarbour, " + cUser + "!",    "C", .T. }, ;
+      { "",                                       "L", .F. }, ;
+      { "  \  |  /  ",                             "C", .F. }, ;
+      { "-- (CC) -- ",                             "C", .F. }, ;
+      { "  /  |  \  ",                             "C", .F. }, ;
+      { "",                                       "L", .F. }, ;
+      { "model: " + cModel,                        "C", .F. }, ;
+      { cCwd,                                      "C", .F. }, ;
+      { "",                                       "L", .F. }, ;
+      { "",                                       "L", .F. } }
+
+   // right panel rows: { text, align, isBold }
+   aR := { ;
+      { "Tips for getting started",   "L", .T. }, ;
+      { "",                           "L", .F. }, ;
+      { "Type a request to begin",    "L", .F. }, ;
+      { "Run /help to list commands", "L", .F. }, ;
+      { "<HR>",                       "L", .F. }, ;
+      { "What's new",                 "L", .T. }, ;
+      { "",                           "L", .F. }, ;
+      { "Streamed tool output",       "L", .F. }, ;
+      { "Inline diffs on edits",      "L", .F. }, ;
+      { "Auto colour detection",      "L", .F. }, ;
+      { "",                           "L", .F. } }
+
+   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + ;
+           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "tr" ), "90" ) + Chr(10)
+   FOR i := 1 TO Len( aL )
+      cOut += DSUI_BanRow( aL[ i ], aR[ i ], nLW, nRW ) + Chr(10)
+   NEXT
+   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + ;
+           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "br" ), "90" ) + Chr(10)
+   RETURN cOut
+
 // The text shown by the /help command.
 FUNCTION DSUI_Help()
    RETURN "Commands:" + Chr(10) + ;

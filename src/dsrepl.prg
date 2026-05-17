@@ -44,8 +44,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes
    aMsgs   := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    bRender := {| hEv | DSREPL_Out( DSUI_RenderEvent( hEv ) ) }
-   DSREPL_Out( DSUI_Color( "CCHarbour - model: " + cModel + ". /help for commands.", ;
-                           "90" ) + Chr(10) )
+   DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
    DO WHILE .T.
       DSREPL_Out( Chr(10) + DSUI_Color( "> ", "1;36" ) )
       cLine := DSREPL_ReadLine()
