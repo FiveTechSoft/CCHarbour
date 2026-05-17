@@ -92,7 +92,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
 // normalised to CRLF: bypassing the GT also loses its LF -> CRLF translation,
 // and a Windows console needs the CR to return to column 0.
 STATIC FUNCTION DSREPL_Out( cText )
-   IF !Empty( cText )
+   // Test the length, not Empty(): Empty() is true for a whitespace-only
+   // string, so a streamed delta of just "\n" would be dropped and the line
+   // break lost.
+   IF ValType( cText ) == "C" .AND. Len( cText ) > 0
       cText := StrTran( cText, Chr(13), "" )
       cText := StrTran( cText, Chr(10), Chr(13) + Chr(10) )
       FWrite( hb_GetStdOut(), cText )
