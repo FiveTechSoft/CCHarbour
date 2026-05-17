@@ -23,4 +23,23 @@ FUNCTION Test_Http()
    hRes := DSHTTP_Post( hReq, {| c | HB_SYMBOL_UNUSED( c ) }, bTransport )
    T_Equal( hRes[ "ok" ], .F., "http: failure ok flag" )
    T_Equal( hRes[ "curl_code" ], 7, "http: curl code passthrough" )
+
+   // --- DSHTTP_Fetch ---
+
+   // per-request transport override returns its result verbatim
+   hRes := DSHTTP_Fetch( { "url" => "https://x/y", "transport" => ;
+      {| hR | HB_SYMBOL_UNUSED( hR ), ;
+              { "ok" => .T., "status" => 200, "body" => "hello", "error" => "" } } } )
+   T_Equal( hRes[ "ok" ], .T., "fetch: transport ok" )
+   T_Equal( hRes[ "status" ], 200, "fetch: transport status" )
+   T_Equal( hRes[ "body" ], "hello", "fetch: transport body" )
+
+   // the module-level test transport is used when no per-request one is set
+   DSHTTP_SetTestTransport( {| hR | ;
+      { "ok" => .T., "status" => 201, "body" => "M:" + hR[ "method" ], "error" => "" } } )
+   hRes := DSHTTP_Fetch( { "url" => "https://x", "method" => "POST" } )
+   T_Equal( hRes[ "status" ], 201, "fetch: module transport status" )
+   T_Equal( hRes[ "body" ], "M:POST", "fetch: method passthrough" )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL
