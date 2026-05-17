@@ -1,0 +1,29 @@
+site_name: CCHarbour
+site_description: A Claude Code-style terminal coding assistant written in Harbour
+site_url: https://fivetechsoft.github.io/CCHarbour/
+repo_url: https://github.com/FiveTechSoft/CCHarbour
+repo_name: FiveTechSoft/CCHarbour
+docs_dir: pages
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: teal
+      accent: teal
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Commands: commands.md
+  - Configuration: configuration.md
+  - Roadmap: roadmap.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences

@@ -1,0 +1,49 @@
+# Configuration
+
+## settings.json
+
+Settings load from `.ccharbour/settings.json` under the working directory, or
+from the path in the `CCHARBOUR_CONFIG` environment variable. Values are merged
+over the built-in defaults:
+
+| Key              | Default                     | Meaning                       |
+|------------------|-----------------------------|-------------------------------|
+| `model`          | `deepseek-chat`             | model name                    |
+| `base_url`       | `https://api.deepseek.com`  | API endpoint                  |
+| `max_iterations` | `25`                        | tool-call loop cap per turn   |
+| `color`          | `true`                      | ANSI colour output            |
+| `permissions`    | see below                   | per-tool gate                 |
+
+A missing or malformed file falls back to the pure defaults.
+
+## Permissions
+
+Each tool maps to one of three modes:
+
+- `allow` — run without asking
+- `deny` — never run
+- `ask` — prompt before each run (the prompt offers a session-wide upgrade)
+
+Defaults: `read`, `glob` and `grep` are `allow`; `write`, `edit` and `shell`
+are `ask`.
+
+```json
+{
+  "permissions": {
+    "write": "allow",
+    "shell": "deny"
+  }
+}
+```
+
+## CLAUDE.md
+
+A `CLAUDE.md` file in the working directory is appended to the system prompt as
+project instructions, so the agent honours per-project conventions. The REPL
+prints `[loaded CLAUDE.md project instructions]` at startup when it is found.
+Run [`/init`](commands.md) to generate one.
+
+## API key
+
+The API key is read from the `DEEPSEEK_API_KEY` environment variable. CCHarbour
+exits with an error if it is not set.
