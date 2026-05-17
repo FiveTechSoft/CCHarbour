@@ -27,4 +27,22 @@ FUNCTION Test_Config()
    // default base url
    hR := DSCFG_Resolve( { "api_key" => "k" } )
    T_Equal( hR[ "base_url" ], "https://api.deepseek.com", "cfg: default base url" )
+
+   // --- DSCFG_ResolveKey ---
+
+   // settings hash value is used when the env var is unset
+   hR := DSCFG_ResolveKey( "CCHARBOUR_NO_SUCH_ENV", "tavily_api_key", ;
+                           { "tavily_api_key" => "from-settings" } )
+   T_Equal( hR, "from-settings", "resolvekey: settings fallback" )
+
+   // empty everywhere -> empty string
+   hR := DSCFG_ResolveKey( "CCHARBOUR_NO_SUCH_ENV", "github_token", {=>} )
+   T_Equal( hR, "", "resolvekey: empty when unset" )
+
+   // env var wins over the settings hash
+   hb_SetEnv( "CCHARBOUR_TEST_KEY", "from-env" )
+   hR := DSCFG_ResolveKey( "CCHARBOUR_TEST_KEY", "tavily_api_key", ;
+                           { "tavily_api_key" => "from-settings" } )
+   T_Equal( hR, "from-env", "resolvekey: env wins" )
+   hb_SetEnv( "CCHARBOUR_TEST_KEY", "" )
    RETURN NIL
