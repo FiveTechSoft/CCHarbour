@@ -88,9 +88,13 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
 
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
 // so UTF-8 output is not re-encoded. The console code page is set to UTF-8
-// by DSREPL_InitConsole, so these bytes render correctly.
+// by DSREPL_InitConsole, so these bytes render correctly. Line feeds are
+// normalised to CRLF: bypassing the GT also loses its LF -> CRLF translation,
+// and a Windows console needs the CR to return to column 0.
 STATIC FUNCTION DSREPL_Out( cText )
    IF !Empty( cText )
+      cText := StrTran( cText, Chr(13), "" )
+      cText := StrTran( cText, Chr(10), Chr(13) + Chr(10) )
       FWrite( hb_GetStdOut(), cText )
    ENDIF
    RETURN NIL
