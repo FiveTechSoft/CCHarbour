@@ -10,6 +10,7 @@ src/dstools.prg
 src/dstools_file.prg
 src/dstools_search.prg
 src/dstools_shell.prg
+src/dsdiff.prg
 src/dssettings.prg
 src/dsperm.prg
 src/dsui.prg

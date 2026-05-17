@@ -13,6 +13,7 @@ FUNCTION Main()
    Test_UI()
    Test_Settings()
    Test_Perm()
+   Test_Diff()
    ? ""
    ? "pass: " + LTrim( Str( s_nPass ) ) + "   fail: " + LTrim( Str( s_nFail ) )
    ErrorLevel( iif( s_nFail > 0, 1, 0 ) )

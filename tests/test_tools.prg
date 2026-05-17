@@ -81,7 +81,7 @@ FUNCTION Test_Tools()
    hb_MemoWrit( cTmp, "one two one" )
    cRes := Eval( bExec, "edit", hb_jsonEncode( { "path" => cTmp, ;
       "old_string" => "two", "new_string" => "TWO" } ) )
-   T_Assert( "Edited" $ cRes, "tools: edit reports success" )
+   T_Assert( "removed" $ cRes, "tools: edit returns a diff" )
    T_Equal( hb_MemoRead( cTmp ), "one TWO one", "tools: edit applied" )
 
    // edit tool: non-unique target without replace_all -> error

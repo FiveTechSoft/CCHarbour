@@ -61,15 +61,21 @@ FUNCTION DSTool_Write()
             "handler" => {| hArgs | DSTool_WriteRun( hArgs ) } }
 
 STATIC FUNCTION DSTool_WriteRun( hArgs )
-   LOCAL cPath, cContent, cDir
+   LOCAL cPath, cContent, cDir, lExisted, cBefore
    cPath    := hb_CStr( hArgs[ "path" ] )
    cContent := hb_CStr( hArgs[ "content" ] )
+   lExisted := hb_FileExists( cPath )
+   cBefore  := iif( lExisted, hb_MemoRead( cPath ), "" )
    cDir     := hb_FNameDir( cPath )
    IF !Empty( cDir ) .AND. !hb_DirExists( cDir )
       hb_DirBuild( cDir )
    ENDIF
    IF !hb_MemoWrit( cPath, cContent )
       RETURN "Error: cannot write " + cPath
+   ENDIF
+   // overwriting an existing file -> show the diff; a brand-new file -> note
+   IF lExisted
+      RETURN DSDiff_Lines( cBefore, cContent )
    ENDIF
    RETURN "Wrote " + LTrim( Str( hb_BLen( cContent ) ) ) + " bytes to " + cPath
 
@@ -91,7 +97,7 @@ FUNCTION DSTool_Edit()
             "handler" => {| hArgs | DSTool_EditRun( hArgs ) } }
 
 STATIC FUNCTION DSTool_EditRun( hArgs )
-   LOCAL cPath, cOld, cNew, lAll, cText, nCount
+   LOCAL cPath, cOld, cNew, lAll, cBefore, cText, nCount
    cPath := hb_CStr( hArgs[ "path" ] )
    cOld  := hb_CStr( hArgs[ "old_string" ] )
    cNew  := hb_CStr( hArgs[ "new_string" ] )
@@ -99,8 +105,9 @@ STATIC FUNCTION DSTool_EditRun( hArgs )
    IF !hb_FileExists( cPath )
       RETURN "Error: file not found: " + cPath
    ENDIF
-   cText  := hb_MemoRead( cPath )
-   nCount := DSTool_CountSub( cText, cOld )
+   cBefore := hb_MemoRead( cPath )
+   cText   := cBefore
+   nCount  := DSTool_CountSub( cText, cOld )
    IF nCount == 0
       RETURN "Error: old_string not found in " + cPath
    ENDIF
@@ -116,8 +123,7 @@ STATIC FUNCTION DSTool_EditRun( hArgs )
    IF !hb_MemoWrit( cPath, cText )
       RETURN "Error: cannot write " + cPath
    ENDIF
-   RETURN "Edited " + cPath + " (" + LTrim( Str( iif( lAll, nCount, 1 ) ) ) + ;
-          " replacement(s))"
+   RETURN DSDiff_Lines( cBefore, cText )
 
 // Counts non-overlapping occurrences of cSub in cText.
 STATIC FUNCTION DSTool_CountSub( cText, cSub )

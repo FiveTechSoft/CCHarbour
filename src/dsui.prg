@@ -86,15 +86,23 @@ STATIC FUNCTION DSUI_ToolLabel( cName, cArgsJson )
 // Builds a Claude Code-style result block: the first line prefixed with the
 // corner glyph, continuation lines aligned under it, capped at 8 lines.
 STATIC FUNCTION DSUI_ResultBlock( cText )
-   LOCAL aLines, cOut := "", i, nShow, nMax := 8
+   LOCAL aLines, cOut := "", i, nShow, cLine, cMark, nMax := 50
    aLines := hb_ATokens( StrTran( cText, Chr(13), "" ), Chr(10) )
    DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
       hb_ADel( aLines, Len( aLines ), .T. )
    ENDDO
    nShow := Min( Len( aLines ), nMax )
    FOR i := 1 TO nShow
-      cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + ;
-              aLines[ i ]
+      cLine := aLines[ i ]
+      // colour diff lines: added on a green background, removed on dark red
+      cMark := DSUI_DiffMark( cLine )
+      DO CASE
+      CASE cMark == "+"
+         cLine := DSUI_Color( cLine, "42" )
+      CASE cMark == "-"
+         cLine := DSUI_Color( cLine, "48;5;52" )
+      ENDCASE
+      cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + cLine
       IF i < nShow
          cOut += Chr(10)
       ENDIF
@@ -104,6 +112,28 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
               LTrim( Str( Len( aLines ) - nMax ) ) + " more lines)"
    ENDIF
    RETURN cOut
+
+// Detects a diff line ("<6-wide number> <+|-|space> <text>"); returns the
+// marker "+" or "-", or "" when the line is not a diff line.
+STATIC FUNCTION DSUI_DiffMark( cLine )
+   LOCAL cM, cNum, i
+   IF Len( cLine ) < 9
+      RETURN ""
+   ENDIF
+   cM := SubStr( cLine, 8, 1 )
+   IF !( cM == "+" .OR. cM == "-" )
+      RETURN ""
+   ENDIF
+   IF !( SubStr( cLine, 7, 1 ) == " " .AND. SubStr( cLine, 9, 1 ) == " " )
+      RETURN ""
+   ENDIF
+   cNum := SubStr( cLine, 1, 6 )
+   FOR i := 1 TO 6
+      IF !( IsDigit( SubStr( cNum, i, 1 ) ) .OR. SubStr( cNum, i, 1 ) == " " )
+         RETURN ""
+      ENDIF
+   NEXT
+   RETURN cM
 
 // Enables or disables ANSI colour output. Off by default; the REPL turns it on
 // from the settings "color" key. Only enable it on a VT-capable terminal.
