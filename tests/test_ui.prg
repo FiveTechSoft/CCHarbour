@@ -43,15 +43,15 @@ FUNCTION Test_UI()
    // DSUI_RenderEvent
    T_Equal( DSUI_RenderEvent( { "type" => "text_delta", "text" => "hi" } ), "hi", ;
             "ui: render text_delta" )
-   T_Assert( "read" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
+   T_Assert( "Read(x)" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
              "name" => "read", "arguments" => '{"path":"x"}' } ), ;
-             "ui: render tool_call shows name" )
-   T_Assert( "->" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
-             "name" => "read", "arguments" => "{}" } ), ;
-             "ui: render tool_call has arrow" )
-   T_Assert( "chars]" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
+             "ui: render tool_call shows labelled name" )
+   T_Assert( ( Chr(226) + Chr(151) + Chr(143) ) $ DSUI_RenderEvent( { ;
+             "type" => "tool_call", "id" => "c1", "name" => "read", ;
+             "arguments" => "{}" } ), "ui: render tool_call has bullet" )
+   T_Assert( "line two" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
              "content" => "line one" + Chr(10) + "line two" } ), ;
-             "ui: render tool_result summarises" )
+             "ui: render tool_result shows result lines" )
    T_Assert( "error" $ DSUI_RenderEvent( { "type" => "error", ;
              "error_type" => "network", "message" => "boom" } ), ;
              "ui: render error" )

@@ -48,16 +48,62 @@ FUNCTION DSUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "tool_call"
-      RETURN Chr(10) + DSUI_Color( "  -> " + hb_CStr( hEv[ "name" ] ) + " " + ;
-             hb_CStr( hEv[ "arguments" ] ), "36" ) + Chr(10)
+      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(151)+Chr(143) + " " + ;
+             DSUI_ToolLabel( hEv[ "name" ], hEv[ "arguments" ] ), "1;36" ) + Chr(10)
    CASE cType == "tool_result"
-      RETURN DSUI_Color( "  <- " + ;
-             DSUI_Summarize( hb_CStr( hEv[ "content" ] ), 80 ), "90" ) + Chr(10)
+      RETURN DSUI_Color( DSUI_ResultBlock( hb_CStr( hEv[ "content" ] ) ), ;
+             "90" ) + Chr(10)
    CASE cType == "error"
       RETURN Chr(10) + DSUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
              "31" ) + Chr(10)
    ENDCASE
    RETURN ""
+
+// Builds a Claude Code-style tool label: "Read(src/x.prg)", "Shell(echo hi)".
+// The tool name is capitalised; the most relevant argument goes in parentheses.
+STATIC FUNCTION DSUI_ToolLabel( cName, cArgsJson )
+   LOCAL cProper, xArgs, cArg := ""
+   cName := hb_CStr( cName )
+   cProper := iif( Empty( cName ), "Tool", ;
+                   Upper( Left( cName, 1 ) ) + SubStr( cName, 2 ) )
+   xArgs := hb_jsonDecode( hb_CStr( cArgsJson ) )
+   IF ValType( xArgs ) == "H"
+      DO CASE
+      CASE hb_HHasKey( xArgs, "command" )
+         cArg := hb_CStr( xArgs[ "command" ] )
+      CASE hb_HHasKey( xArgs, "path" )
+         cArg := hb_CStr( xArgs[ "path" ] )
+      CASE hb_HHasKey( xArgs, "pattern" )
+         cArg := hb_CStr( xArgs[ "pattern" ] )
+      ENDCASE
+   ENDIF
+   cArg := StrTran( StrTran( cArg, Chr(13), " " ), Chr(10), " " )
+   IF Len( cArg ) > 80
+      cArg := Left( cArg, 80 ) + "..."
+   ENDIF
+   RETURN cProper + "(" + cArg + ")"
+
+// Builds a Claude Code-style result block: the first line prefixed with the
+// corner glyph, continuation lines aligned under it, capped at 8 lines.
+STATIC FUNCTION DSUI_ResultBlock( cText )
+   LOCAL aLines, cOut := "", i, nShow, nMax := 8
+   aLines := hb_ATokens( StrTran( cText, Chr(13), "" ), Chr(10) )
+   DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
+      hb_ADel( aLines, Len( aLines ), .T. )
+   ENDDO
+   nShow := Min( Len( aLines ), nMax )
+   FOR i := 1 TO nShow
+      cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + ;
+              aLines[ i ]
+      IF i < nShow
+         cOut += Chr(10)
+      ENDIF
+   NEXT
+   IF Len( aLines ) > nMax
+      cOut += Chr(10) + "     ... (" + ;
+              LTrim( Str( Len( aLines ) - nMax ) ) + " more lines)"
+   ENDIF
+   RETURN cOut
 
 // Enables or disables ANSI colour output. Off by default; the REPL turns it on
 // from the settings "color" key. Only enable it on a VT-capable terminal.
