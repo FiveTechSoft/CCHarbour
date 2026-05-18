@@ -43,15 +43,6 @@ FUNCTION Test_UI()
    // DSUI_RenderEvent
    T_Equal( DSUI_RenderEvent( { "type" => "text_delta", "text" => "hi" } ), "hi", ;
             "ui: render text_delta" )
-   T_Assert( "Read(x)" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
-             "name" => "read", "arguments" => '{"path":"x"}' } ), ;
-             "ui: render tool_call shows labelled name" )
-   T_Assert( ( Chr(226) + Chr(143) + Chr(186) ) $ DSUI_RenderEvent( { ;
-             "type" => "tool_call", "id" => "c1", "name" => "read", ;
-             "arguments" => "{}" } ), "ui: render tool_call has bullet" )
-   T_Assert( "line two" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
-             "content" => "line one" + Chr(10) + "line two" } ), ;
-             "ui: render tool_result shows result lines" )
    T_Assert( "error" $ DSUI_RenderEvent( { "type" => "error", ;
              "error_type" => "network", "message" => "boom" } ), ;
              "ui: render error" )
@@ -65,7 +56,7 @@ FUNCTION Test_UI()
    T_Assert( "/exit" $ DSUI_Help(), "ui: help mentions /exit" )
 
    // colour palette: codes returned regardless of colour state
-   T_Equal( DSUI_Pal( "accent" ), "38;5;215", "ui: accent palette code" )
+   T_Equal( DSUI_Pal( "accent" ), "38;2;217;119;87", "ui: accent palette code" )
    T_Equal( DSUI_Pal( "dim" ), "90", "ui: dim palette code" )
    T_Equal( DSUI_Pal( "error" ), "31", "ui: error palette code" )
    T_Equal( DSUI_Pal( "bold" ), "1", "ui: bold palette code" )
@@ -95,4 +86,32 @@ FUNCTION Test_UI()
    // system prompt asks for a suggested next prompt
    T_Assert( "Suggested next:" $ DSUI_SystemPrompt(), ;
              "ui: system prompt requests a suggested next line" )
+
+   // --- tool-call line + result summary ---
+   DSUI_SetColor( .F. )
+   T_Assert( "Read(x.prg)" $ DSUI_ToolCallLine( "read", '{"path":"x.prg"}' ), ;
+             "ui: tool-call line has the label" )
+   T_Assert( ( Chr(226)+Chr(143)+Chr(186) ) $ DSUI_ToolCallLine( "read", "{}" ), ;
+             "ui: tool-call line has the dot glyph" )
+
+   T_Equal( "  " + Chr(226)+Chr(142)+Chr(191) + "  Read 3 lines" + Chr(10), ;
+            DSUI_ResultSummary( "read", "a" + Chr(10) + "b" + Chr(10) + "c" + Chr(10) ), ;
+            "ui: read result summary" )
+   T_Assert( "Found 2 matches" $ ;
+             DSUI_ResultSummary( "grep", "f:1:x" + Chr(10) + "f:2:y" + Chr(10) ), ;
+             "ui: grep result summary" )
+   T_Assert( "No matches for zzz" $ ;
+             DSUI_ResultSummary( "grep", "No matches for zzz" ), ;
+             "ui: grep no-matches passthrough" )
+   T_Assert( "Wrote a.prg" $ DSUI_ResultSummary( "write", "Wrote a.prg" ), ;
+             "ui: write result passthrough" )
+   T_Assert( "Listed 2 files" $ ;
+             DSUI_ResultSummary( "glob", "a.prg" + Chr(10) + "b.prg" + Chr(10) ), ;
+             "ui: glob result summary" )
+   T_Assert( "Error: file not found" $ ;
+             DSUI_ResultSummary( "read", "Error: file not found: x" ), ;
+             "ui: error result shows the error line" )
+   T_Assert( "+ added" $ DSUI_ResultSummary( "edit", ;
+             "     1 + added" + Chr(10) + "     2   kept" + Chr(10) ), ;
+             "ui: diff content keeps the diff block" )
    RETURN NIL

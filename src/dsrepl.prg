@@ -43,7 +43,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, oMd, cSuggest, hUsage
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, oRender
    aMsgs    := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -104,61 +104,83 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                       DSUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
-         hUsage := {=>}
-         oMd := DSMD_New()
+         oRender := DSREPL_RenderNew()
          hRes := DS_AgentRun( oClient, aTurn, ;
             { "model" => cModel, ;
               "tools" => DSTools_Schemas( oReg ), ;
               "tool_executor" => bGate, ;
               "max_iterations" => nMaxIter }, ;
-            {| hEv | DSREPL_RenderEv( hEv, oMd ) } )
-         DSREPL_Out( DSMD_Flush( oMd ) )
+            {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
+         DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
          DSREPL_Out( Chr(10) )
-         DSREPL_MergeUsage( hUsage, hRes[ "usage" ] )
          // when the turn stopped on the iteration cap, offer to resume it
          // with 25 more iterations -- repeatably, until done or declined.
          DO WHILE hRes[ "success" ] .AND. ;
                   hRes[ "stop_reason" ] == "max_iterations" .AND. ;
                   DSREPL_AskExtend()
-            oMd := DSMD_New()
+            oRender := DSREPL_RenderNew()
             hRes := DS_AgentRun( oClient, hRes[ "messages" ], ;
                { "model" => cModel, ;
                  "tools" => DSTools_Schemas( oReg ), ;
                  "tool_executor" => bGate, ;
                  "max_iterations" => 25 }, ;
-               {| hEv | DSREPL_RenderEv( hEv, oMd ) } )
-            DSREPL_Out( DSMD_Flush( oMd ) )
+               {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
+            DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
             DSREPL_Out( Chr(10) )
-            DSREPL_MergeUsage( hUsage, hRes[ "usage" ] )
          ENDDO
-         cSuggest := DSMD_Suggestion( oMd )
+         cSuggest := DSMD_Suggestion( oRender[ "md" ] )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
                DSREPL_Out( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
             ENDIF
-            DSREPL_Out( DSUI_Color( DSREPL_UsageLine( hUsage ), "90" ) + Chr(10) )
          ELSE
             DSREPL_Out( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
                     hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
          ENDIF
       ENDCASE
    ENDDO
-   DSREPL_Out( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
    RETURN NIL
 
-// Renders one agent event. A text_delta is fed to the per-turn markdown
-// renderer oMd; every other event goes through DSUI_RenderEvent unchanged.
-STATIC FUNCTION DSREPL_RenderEv( hEv, oMd )
-   IF ValType( hEv ) == "H" .AND. hb_HHasKey( hEv, "type" ) .AND. ;
-      hEv[ "type" ] == "text_delta"
-      DSREPL_Out( DSMD_Feed( oMd, hb_CStr( hEv[ "text" ] ) ) )
-   ELSE
-      // flush any buffered partial line so streamed narration prints before
-      // a tool-call / tool-result / error block, not after it
-      DSREPL_Out( DSMD_Flush( oMd ) )
-      DSREPL_Out( DSUI_RenderEvent( hEv ) )
+// Creates a per-turn render state: the markdown renderer, an id->tool-name
+// map (to label tool results), and the assistant-bullet run flag.
+STATIC FUNCTION DSREPL_RenderNew()
+   RETURN { "md" => DSMD_New(), "tools" => {=>}, "inText" => .F. }
+
+// Renders one agent event into the terminal, using the render state oRender.
+STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
+   LOCAL cType, cId
+   IF ValType( hEv ) != "H" .OR. !hb_HHasKey( hEv, "type" )
+      RETURN NIL
    ENDIF
+   cType := hEv[ "type" ]
+   DO CASE
+   CASE cType == "text_delta"
+      IF !oRender[ "inText" ]
+         DSREPL_Out( DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " ", ;
+                                 DSUI_Pal( "accent" ) ) )
+         oRender[ "inText" ] := .T.
+      ENDIF
+      DSREPL_Out( DSMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) ) )
+   CASE cType == "tool_call"
+      DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
+      oRender[ "inText" ] := .F.
+      IF hb_HHasKey( hEv, "id" )
+         oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
+      ENDIF
+      DSREPL_Out( DSUI_ToolCallLine( hEv[ "name" ], hEv[ "arguments" ] ) )
+   CASE cType == "tool_result"
+      DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
+      oRender[ "inText" ] := .F.
+      cId := hb_CStr( hb_HGetDef( hEv, "id", "" ) )
+      DSREPL_Out( DSUI_ResultSummary( ;
+         hb_HGetDef( oRender[ "tools" ], cId, "" ), ;
+         hb_CStr( hEv[ "content" ] ) ) )
+   OTHERWISE
+      DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
+      oRender[ "inText" ] := .F.
+      DSREPL_Out( DSUI_RenderEvent( hEv ) )
+   ENDCASE
    RETURN NIL
 
 // Asks whether to continue a capped turn with 25 more iterations.
@@ -173,19 +195,6 @@ STATIC FUNCTION DSREPL_AskExtend()
       RETURN .F.
    ENDIF
    RETURN Lower( Left( AllTrim( cLine ), 1 ) ) == "y"
-
-// Adds the numeric token counts of xUsage into the accumulator hash hAcc.
-STATIC FUNCTION DSREPL_MergeUsage( hAcc, xUsage )
-   LOCAL cKey
-   IF ValType( xUsage ) == "H"
-      FOR EACH cKey IN hb_HKeys( xUsage )
-         IF ValType( xUsage[ cKey ] ) == "N"
-            hAcc[ cKey ] := iif( hb_HHasKey( hAcc, cKey ), hAcc[ cKey ], 0 ) + ;
-                            xUsage[ cKey ]
-         ENDIF
-      NEXT
-   ENDIF
-   RETURN hAcc
 
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
 // so UTF-8 output is not re-encoded. The console code page is set to UTF-8
@@ -279,18 +288,3 @@ STATIC FUNCTION DSREPL_ReadLine()
    ENDIF
    RETURN cLine
 
-// Formats the per-turn token usage line from a DS_AgentRun usage hash.
-STATIC FUNCTION DSREPL_UsageLine( xUsage )
-   LOCAL nP := 0, nC := 0
-   IF ValType( xUsage ) == "H"
-      IF hb_HHasKey( xUsage, "prompt_tokens" ) .AND. ;
-         ValType( xUsage[ "prompt_tokens" ] ) == "N"
-         nP := xUsage[ "prompt_tokens" ]
-      ENDIF
-      IF hb_HHasKey( xUsage, "completion_tokens" ) .AND. ;
-         ValType( xUsage[ "completion_tokens" ] ) == "N"
-         nC := xUsage[ "completion_tokens" ]
-      ENDIF
-   ENDIF
-   RETURN "[tokens: prompt " + LTrim( Str( nP ) ) + ", completion " + ;
-          LTrim( Str( nC ) ) + "]"
