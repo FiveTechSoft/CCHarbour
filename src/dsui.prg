@@ -64,7 +64,7 @@ FUNCTION DSUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "tool_call"
-      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(151)+Chr(143) + " " + ;
+      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " " + ;
              DSUI_ToolLabel( hEv[ "name" ], hEv[ "arguments" ] ), "1;36" ) + Chr(10)
    CASE cType == "tool_result"
       RETURN DSUI_Color( DSUI_ResultBlock( hb_CStr( hEv[ "content" ] ) ), ;
@@ -170,6 +170,21 @@ FUNCTION DSUI_Color( cText, cSGR )
 FUNCTION DSUI_ColorOn()
    RETURN s_lColor
 
+// The Claude Code-style colour palette: maps a name to an ANSI SGR code so
+// the codes live in one place. Unknown names return "0" (reset).
+FUNCTION DSUI_Pal( cName )
+   DO CASE
+   CASE cName == "accent"     ; RETURN "38;5;215"   // tan/orange
+   CASE cName == "dim"        ; RETURN "90"         // grey borders / secondary
+   CASE cName == "bold"       ; RETURN "1"
+   CASE cName == "error"      ; RETURN "31"
+   CASE cName == "tool"       ; RETURN "1;36"       // bright cyan tool label
+   CASE cName == "warn"       ; RETURN "33"
+   CASE cName == "diff_add"   ; RETURN "42"
+   CASE cName == "diff_del"   ; RETURN "48;5;52"
+   ENDCASE
+   RETURN "0"
+
 // Emits an ANSI control sequence (e.g. "1A" = cursor up one line,
 // "1G" = move to column 1) when ANSI output is enabled, else "".
 FUNCTION DSUI_VT( cSeq )
@@ -186,7 +201,9 @@ FUNCTION DSUI_SystemPrompt()
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
-            "tasks. Be concise."
+            "tasks. Be concise. " + ;
+            "End every reply with a final line in the exact form " + ;
+            "'Suggested next: <a short prompt the user might send next>'."
    cProj := DSUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
@@ -207,7 +224,7 @@ FUNCTION DSUI_ProjectContext()
 
 // Returns a UTF-8 box-drawing glyph by name, built from raw bytes so the
 // source file's encoding does not matter.
-STATIC FUNCTION DSUI_Glyph( cName )
+FUNCTION DSUI_Glyph( cName )
    DO CASE
    CASE cName == "tl"
       RETURN Chr(226)+Chr(149)+Chr(173)   // ╭
@@ -244,82 +261,59 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    ENDCASE
    RETURN cText + Space( nPad )
 
-// Builds one content row of the banner: a left cell and a right cell divided
-// by the vertical glyph. aL/aR are { text, align } pairs. lTitle highlights the
-// left cell (the welcome line). A right text of "<HR>" draws a panel divider.
-STATIC FUNCTION DSUI_BanRow( aL, aR, nLW, nRW )
-   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), "90" )
-   LOCAL cL, cR
-   cL := DSUI_PadCell( aL[ 1 ], nLW, aL[ 2 ] )
-   IF aL[ 3 ]
-      cL := DSUI_Color( cL, "1;36" )
-   ENDIF
-   IF aR[ 1 ] == "<HR>"
-      cR := DSUI_Color( Replicate( DSUI_Glyph( "h" ), nRW ), "90" )
-   ELSE
-      cR := DSUI_PadCell( aR[ 1 ], nRW, aR[ 2 ] )
-      IF aR[ 3 ]
-         cR := DSUI_Color( cR, "1" )
-      ENDIF
-   ENDIF
-   RETURN cV + " " + cL + " " + cV + " " + cR + " " + cV
-
-// Builds the Claude Code-style startup banner: a rounded box with a welcome
-// panel (logo, model, working directory) on the left and a tips / what's-new
-// panel on the right. Returns the whole banner as one string ending in LF.
+// Builds the Claude Code-style startup banner: a single-panel rounded box
+// with an accent welcome line, the /help hint, and the model and working
+// directory. Returns the whole banner as one string ending in LF.
 FUNCTION DSUI_Banner( cModel, cCwd, cUser )
-   LOCAL nLW := 38, nRW := 34
-   LOCAL cH := DSUI_Glyph( "h" )
-   LOCAL cOut, i, aL, aR
+   LOCAL nInner := 75, cH := DSUI_Glyph( "h" ), cV
+   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B sextile glyph
+   LOCAL aRows, cOut, i, cText, cSGR, cCell
 
+   HB_SYMBOL_UNUSED( cUser )
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
-   cUser  := AllTrim( hb_CStr( cUser ) )
-   IF Empty( cUser )
-      cUser := "developer"
-   ENDIF
+   cV     := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
 
-   // left panel rows: { text, align, isTitle }
-   aL := { ;
-      { "",                                       "L", .F. }, ;
-      { "Welcome to CCHarbour, " + cUser + "!",    "C", .T. }, ;
-      { "",                                       "L", .F. }, ;
-      { "  \  |  /  ",                             "C", .F. }, ;
-      { "-- (CC) -- ",                             "C", .F. }, ;
-      { "  /  |  \  ",                             "C", .F. }, ;
-      { "",                                       "L", .F. }, ;
-      { "model: " + cModel,                        "C", .F. }, ;
-      { cCwd,                                      "C", .F. }, ;
-      { "",                                       "L", .F. }, ;
-      { "",                                       "L", .F. } }
+   // each row: { plain text, SGR code or "" }
+   aRows := { ;
+      { cAccent + " Welcome to CCHarbour", DSUI_Pal( "accent" ) }, ;
+      { "",                                "" }, ;
+      { "  /help for help",                DSUI_Pal( "dim" ) }, ;
+      { "",                                "" }, ;
+      { "  model: " + cModel,              "" }, ;
+      { "  cwd: " + cCwd,                  "" } }
 
-   // right panel rows: { text, align, isBold }
-   aR := { ;
-      { "Tips for getting started",   "L", .T. }, ;
-      { "",                           "L", .F. }, ;
-      { "Type a request to begin",    "L", .F. }, ;
-      { "Run /help to list commands", "L", .F. }, ;
-      { "<HR>",                       "L", .F. }, ;
-      { "What's new",                 "L", .T. }, ;
-      { "",                           "L", .F. }, ;
-      { "Streamed tool output",       "L", .F. }, ;
-      { "Inline diffs on edits",      "L", .F. }, ;
-      { "Auto colour detection",      "L", .F. }, ;
-      { "",                           "L", .F. } }
-
-   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + ;
-           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "tr" ), "90" ) + Chr(10)
-   FOR i := 1 TO Len( aL )
-      cOut += DSUI_BanRow( aL[ i ], aR[ i ], nLW, nRW ) + Chr(10)
+   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
+           DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   FOR i := 1 TO Len( aRows )
+      cText := aRows[ i ][ 1 ]
+      cSGR  := aRows[ i ][ 2 ]
+      cCell := DSUI_PadCell( cText, nInner, "L" )
+      IF !Empty( cSGR )
+         cCell := DSUI_Color( cCell, cSGR )
+      ENDIF
+      cOut += cV + " " + cCell + " " + cV + Chr(10)
    NEXT
-   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + ;
-           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "br" ), "90" ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
+           DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
-// A horizontal rule as wide as the startup banner box, used to frame the
-// input prompt the way Claude Code does.
-FUNCTION DSUI_Rule()
-   RETURN Replicate( DSUI_Glyph( "h" ), 79 )
+// The rounded top border of the input frame, 79 columns wide.
+FUNCTION DSUI_FrameTop()
+   RETURN DSUI_Color( DSUI_Glyph( "tl" ) + ;
+          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "tr" ), ;
+          DSUI_Pal( "dim" ) )
+
+// The rounded bottom border of the input frame, 79 columns wide.
+FUNCTION DSUI_FrameBottom()
+   RETURN DSUI_Color( DSUI_Glyph( "bl" ) + ;
+          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "br" ), ;
+          DSUI_Pal( "dim" ) )
+
+// The dim hint line shown beneath the input frame.
+FUNCTION DSUI_InputHint()
+   RETURN DSUI_Color( "  /help for commands  " + Chr(226)+Chr(128)+Chr(162) + ;
+          "  /exit to quit", DSUI_Pal( "dim" ) )
 
 // The text shown by the /help command.
 FUNCTION DSUI_Help()

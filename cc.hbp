@@ -16,4 +16,6 @@ src/dsdiff.prg
 src/dssettings.prg
 src/dsperm.prg
 src/dsui.prg
+src/dsmarkdown.prg
+src/dsconsole.c
 src/dsrepl.prg

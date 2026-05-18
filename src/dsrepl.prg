@@ -43,34 +43,43 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, bRender, cLine, hAction, aTurn, hRes, cMsg
-   aMsgs   := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
-   bRender := {| hEv | DSREPL_Out( DSUI_RenderEvent( hEv ) ) }
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, oMd, cSuggest
+   aMsgs    := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
+   cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
    IF !Empty( DSUI_ProjectContext() )
       DSREPL_Out( DSUI_Color( "[loaded CLAUDE.md project instructions]", ;
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
+      IF !Empty( cSuggest )
+         DSCON_PrefillInput( StrTran( StrTran( cSuggest, Chr(13), " " ), ;
+                                      Chr(10), " " ) )
+         cSuggest := ""
+      ENDIF
+      // the cursor-up-2 below assumes each frame line is one screen row
+      // (true for a console at least 79 columns wide)
       IF DSUI_ColorOn()
-         // Draw both rules, then move the cursor back up onto the prompt line
-         // between them, so the bottom rule is visible before the user types.
-         DSREPL_Out( Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + Chr(10) + ;
-                     Chr(10) + DSUI_Color( DSUI_Rule(), "90" ) + ;
-                     DSUI_VT( "1A" ) + DSUI_VT( "1G" ) + ;
+         // top border, blank prompt line, bottom border, hint; then move the
+         // cursor back up onto the prompt line so the frame is fully drawn
+         // before the user types.
+         DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + ;
+                     Chr(10) + ;
+                     DSUI_FrameBottom() + Chr(10) + ;
+                     DSUI_InputHint() + ;
+                     DSUI_VT( "2A" ) + DSUI_VT( "1G" ) + ;
                      DSUI_Color( "> ", "1;36" ) )
       ELSE
-         DSREPL_Out( Chr(10) + DSUI_Rule() + Chr(10) + "> " )
+         DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + "> " )
       ENDIF
       cLine := DSREPL_ReadLine()
       IF cLine == NIL
          EXIT
       ENDIF
       IF DSUI_ColorOn()
-         // The bottom rule is already drawn; step below it before any output.
          DSREPL_Out( Chr(10) )
       ELSE
-         DSREPL_Out( DSUI_Rule() + Chr(10) )
+         DSREPL_Out( DSUI_FrameBottom() + Chr(10) )
       ENDIF
       hAction := DSUI_ParseCommand( cLine )
       DO CASE
@@ -95,13 +104,16 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                       DSUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
+         oMd := DSMD_New()
          hRes := DS_AgentRun( oClient, aTurn, ;
             { "model" => cModel, ;
               "tools" => DSTools_Schemas( oReg ), ;
               "tool_executor" => bGate, ;
               "max_iterations" => nMaxIter }, ;
-            bRender )
+            {| hEv | DSREPL_RenderEv( hEv, oMd ) } )
+         DSREPL_Out( DSMD_Flush( oMd ) )
          DSREPL_Out( Chr(10) )
+         cSuggest := DSMD_Suggestion( oMd )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
@@ -115,6 +127,20 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       ENDCASE
    ENDDO
    DSREPL_Out( Chr(10) + DSUI_Color( "bye", "90" ) + Chr(10) )
+   RETURN NIL
+
+// Renders one agent event. A text_delta is fed to the per-turn markdown
+// renderer oMd; every other event goes through DSUI_RenderEvent unchanged.
+STATIC FUNCTION DSREPL_RenderEv( hEv, oMd )
+   IF ValType( hEv ) == "H" .AND. hb_HHasKey( hEv, "type" ) .AND. ;
+      hEv[ "type" ] == "text_delta"
+      DSREPL_Out( DSMD_Feed( oMd, hb_CStr( hEv[ "text" ] ) ) )
+   ELSE
+      // flush any buffered partial line so streamed narration prints before
+      // a tool-call / tool-result / error block, not after it
+      DSREPL_Out( DSMD_Flush( oMd ) )
+      DSREPL_Out( DSUI_RenderEvent( hEv ) )
+   ENDIF
    RETURN NIL
 
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer

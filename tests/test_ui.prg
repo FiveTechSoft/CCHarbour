@@ -46,7 +46,7 @@ FUNCTION Test_UI()
    T_Assert( "Read(x)" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
              "name" => "read", "arguments" => '{"path":"x"}' } ), ;
              "ui: render tool_call shows labelled name" )
-   T_Assert( ( Chr(226) + Chr(151) + Chr(143) ) $ DSUI_RenderEvent( { ;
+   T_Assert( ( Chr(226) + Chr(143) + Chr(186) ) $ DSUI_RenderEvent( { ;
              "type" => "tool_call", "id" => "c1", "name" => "read", ;
              "arguments" => "{}" } ), "ui: render tool_call has bullet" )
    T_Assert( "line two" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
@@ -63,4 +63,36 @@ FUNCTION Test_UI()
    T_Assert( "/help" $ DSUI_Help(), "ui: help mentions /help" )
    T_Assert( "/clear" $ DSUI_Help(), "ui: help mentions /clear" )
    T_Assert( "/exit" $ DSUI_Help(), "ui: help mentions /exit" )
+
+   // colour palette: codes returned regardless of colour state
+   T_Equal( DSUI_Pal( "accent" ), "38;5;215", "ui: accent palette code" )
+   T_Equal( DSUI_Pal( "dim" ), "90", "ui: dim palette code" )
+   T_Equal( DSUI_Pal( "error" ), "31", "ui: error palette code" )
+   T_Equal( DSUI_Pal( "bold" ), "1", "ui: bold palette code" )
+   T_Equal( DSUI_Pal( "nope" ), "0", "ui: unknown palette name -> reset" )
+
+   // banner: single-panel Claude Code-style box
+   DSUI_SetColor( .F. )
+   T_Assert( "Welcome to CCHarbour" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has welcome line" )
+   T_Assert( "model: deepseek-chat" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has model line" )
+   T_Assert( "cwd: C:\proj" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has cwd line" )
+   T_Assert( "/help for help" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has help hint" )
+   T_Assert( DSUI_Glyph( "tl" ) $ DSUI_Banner( "m", "c", "u" ), ;
+             "ui: banner has a rounded top-left corner" )
+
+   // input frame helpers
+   DSUI_SetColor( .F. )
+   T_Equal( hb_UTF8Len( DSUI_FrameTop() ), 79, "ui: frame top is 79 columns" )
+   T_Equal( hb_UTF8Len( DSUI_FrameBottom() ), 79, "ui: frame bottom is 79 columns" )
+   T_Assert( DSUI_Glyph( "tl" ) $ DSUI_FrameTop(), "ui: frame top rounded corner" )
+   T_Assert( DSUI_Glyph( "bl" ) $ DSUI_FrameBottom(), "ui: frame bottom rounded corner" )
+   T_Assert( "/help" $ DSUI_InputHint(), "ui: input hint mentions /help" )
+
+   // system prompt asks for a suggested next prompt
+   T_Assert( "Suggested next:" $ DSUI_SystemPrompt(), ;
+             "ui: system prompt requests a suggested next line" )
    RETURN NIL
