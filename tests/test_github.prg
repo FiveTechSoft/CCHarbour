@@ -74,4 +74,45 @@ FUNCTION Test_Github()
             "github_read: transport failure" )
    DSHTTP_SetTestTransport( NIL )
 
+   // --- github_write schema ---
+   hTool := DSTool_GithubWrite( "tok" )
+   T_Equal( hTool[ "name" ], "github_write", "github_write: tool name" )
+
+   // --- missing token ---
+   hTool := DSTool_GithubWrite( "" )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "create_issue", "repo" => "a/b", "title" => "T" } )
+   T_Equal( cRes, "Error: GITHUB_TOKEN not set", "github_write: missing token" )
+
+   // --- argument validation ---
+   hTool := DSTool_GithubWrite( "tok" )
+   cRes := Eval( hTool[ "handler" ], { "operation" => "create_issue", "repo" => "a/b" } )
+   T_Equal( cRes, "Error: github_write 'create_issue' requires 'title'", ;
+            "github_write: missing title" )
+   cRes := Eval( hTool[ "handler" ], { "operation" => "comment", "repo" => "a/b" } )
+   T_Equal( cRes, "Error: github_write 'comment' requires 'number'", ;
+            "github_write: missing number" )
+
+   // --- create_issue posts and reports the created URL ---
+   DSHTTP_SetTestTransport( {| hR | ;
+      T_Equal( hR[ "method" ], "POST", "github_write: uses POST" ), ;
+      { "ok" => .T., "status" => 201, "error" => "", ;
+        "body" => hb_jsonEncode( { "html_url" => "https://github.com/a/b/issues/7" } ) } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "create_issue", "repo" => "a/b", ;
+                   "title" => "Bug", "body" => "desc" } )
+   T_Equal( cRes, "Created: https://github.com/a/b/issues/7", ;
+            "github_write: create_issue result" )
+   DSHTTP_SetTestTransport( NIL )
+
+   // --- non-2xx surfaces the API message ---
+   DSHTTP_SetTestTransport( {| hR | HB_SYMBOL_UNUSED( hR ), ;
+      { "ok" => .T., "status" => 422, "error" => "", ;
+        "body" => hb_jsonEncode( { "message" => "Validation Failed" } ) } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "create_issue", "repo" => "a/b", "title" => "X" } )
+   T_Equal( cRes, "Error: github_write HTTP 422: Validation Failed", ;
+            "github_write: non-2xx with message" )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL

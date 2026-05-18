@@ -137,3 +137,80 @@ STATIC FUNCTION DSGithub_FormatRead( cOp, cBody )
       RETURN hb_BLeft( cBody, 30000 ) + Chr( 10 ) + "[output truncated]" + Chr( 10 )
    ENDIF
    RETURN cBody
+
+// github_write: GitHub mutations. cToken is mandatory — an empty token yields
+// a clear error at call time.
+FUNCTION DSTool_GithubWrite( cToken )
+   RETURN { "name" => "github_write", ;
+            "description" => "Write to GitHub: create an issue, comment on an issue, or open a pull request. Requires GITHUB_TOKEN.", ;
+            "parameters" => { "type" => "object", ;
+               "properties" => { ;
+                  "operation" => { "type" => "string", ;
+                     "description" => "One of: create_issue, comment, create_pr" }, ;
+                  "repo" => { "type" => "string", ;
+                     "description" => "Repository as owner/name" }, ;
+                  "number" => { "type" => "integer", ;
+                     "description" => "Issue number (comment)" }, ;
+                  "title" => { "type" => "string", ;
+                     "description" => "Title (create_issue, create_pr)" }, ;
+                  "body" => { "type" => "string", ;
+                     "description" => "Body text (issue, comment, or PR description)" }, ;
+                  "head" => { "type" => "string", ;
+                     "description" => "Source branch (create_pr)" }, ;
+                  "base" => { "type" => "string", ;
+                     "description" => "Target branch (create_pr)" } }, ;
+               "required" => { "operation", "repo" } }, ;
+            "handler" => {| hArgs | DSTool_GithubWriteRun( hArgs, cToken ) } }
+
+// The executor validates only `operation` and `repo`; this handler validates
+// the per-operation arguments (title, number, head, base).
+STATIC FUNCTION DSTool_GithubWriteRun( hArgs, cToken )
+   LOCAL cOp, cRepo, cUrl, cReqBody, hRes, xJson
+   IF Empty( cToken )
+      RETURN "Error: GITHUB_TOKEN not set"
+   ENDIF
+   cOp := Lower( hb_CStr( hArgs[ "operation" ] ) )
+   cRepo := hb_CStr( hArgs[ "repo" ] )
+   DO CASE
+   CASE cOp == "create_issue"
+      IF !hb_HHasKey( hArgs, "title" ) .OR. Empty( hArgs[ "title" ] )
+         RETURN "Error: github_write 'create_issue' requires 'title'"
+      ENDIF
+      cUrl := "https://api.github.com/repos/" + cRepo + "/issues"
+      cReqBody := hb_jsonEncode( { "title" => hb_CStr( hArgs[ "title" ] ), ;
+         "body" => iif( hb_HHasKey( hArgs, "body" ), hb_CStr( hArgs[ "body" ] ), "" ) } )
+   CASE cOp == "comment"
+      IF !hb_HHasKey( hArgs, "number" ) .OR. ValType( hArgs[ "number" ] ) != "N"
+         RETURN "Error: github_write 'comment' requires 'number'"
+      ENDIF
+      cUrl := "https://api.github.com/repos/" + cRepo + "/issues/" + ;
+              LTrim( Str( hArgs[ "number" ] ) ) + "/comments"
+      cReqBody := hb_jsonEncode( { "body" => ;
+         iif( hb_HHasKey( hArgs, "body" ), hb_CStr( hArgs[ "body" ] ), "" ) } )
+   CASE cOp == "create_pr"
+      IF !hb_HHasKey( hArgs, "title" ) .OR. Empty( hArgs[ "title" ] ) .OR. ;
+         !hb_HHasKey( hArgs, "head" ) .OR. Empty( hArgs[ "head" ] ) .OR. ;
+         !hb_HHasKey( hArgs, "base" ) .OR. Empty( hArgs[ "base" ] )
+         RETURN "Error: github_write 'create_pr' requires 'title', 'head', 'base'"
+      ENDIF
+      cUrl := "https://api.github.com/repos/" + cRepo + "/pulls"
+      cReqBody := hb_jsonEncode( { "title" => hb_CStr( hArgs[ "title" ] ), ;
+         "head" => hb_CStr( hArgs[ "head" ] ), "base" => hb_CStr( hArgs[ "base" ] ), ;
+         "body" => iif( hb_HHasKey( hArgs, "body" ), hb_CStr( hArgs[ "body" ] ), "" ) } )
+   OTHERWISE
+      RETURN "Error: github_write: unknown operation '" + cOp + "'"
+   ENDCASE
+   hRes := DSHTTP_Fetch( { "url" => cUrl, "method" => "POST", ;
+      "headers" => DSGithub_Headers( cToken ), "body" => cReqBody } )
+   IF !hRes[ "ok" ]
+      RETURN "Error: github_write failed: " + hRes[ "error" ]
+   ENDIF
+   IF hRes[ "status" ] < 200 .OR. hRes[ "status" ] >= 300
+      RETURN "Error: github_write HTTP " + LTrim( Str( hRes[ "status" ] ) ) + ": " + ;
+             DSGithub_ApiMessage( hRes[ "body" ] )
+   ENDIF
+   xJson := hb_jsonDecode( hRes[ "body" ] )
+   IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "html_url" )
+      RETURN "Created: " + hb_CStr( xJson[ "html_url" ] )
+   ENDIF
+   RETURN "OK"
