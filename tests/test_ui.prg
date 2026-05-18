@@ -70,4 +70,17 @@ FUNCTION Test_UI()
    T_Equal( DSUI_Pal( "error" ), "31", "ui: error palette code" )
    T_Equal( DSUI_Pal( "bold" ), "1", "ui: bold palette code" )
    T_Equal( DSUI_Pal( "nope" ), "0", "ui: unknown palette name -> reset" )
+
+   // banner: single-panel Claude Code-style box
+   DSUI_SetColor( .F. )
+   T_Assert( "Welcome to CCHarbour" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has welcome line" )
+   T_Assert( "model: deepseek-chat" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has model line" )
+   T_Assert( "cwd: C:\proj" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has cwd line" )
+   T_Assert( "/help for help" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+             "ui: banner has help hint" )
+   T_Assert( DSUI_Glyph( "tl" ) $ DSUI_Banner( "m", "c", "u" ), ;
+             "ui: banner has a rounded top-left corner" )
    RETURN NIL

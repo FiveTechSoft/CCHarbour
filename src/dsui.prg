@@ -222,7 +222,7 @@ FUNCTION DSUI_ProjectContext()
 
 // Returns a UTF-8 box-drawing glyph by name, built from raw bytes so the
 // source file's encoding does not matter.
-STATIC FUNCTION DSUI_Glyph( cName )
+FUNCTION DSUI_Glyph( cName )
    DO CASE
    CASE cName == "tl"
       RETURN Chr(226)+Chr(149)+Chr(173)   // ╭
@@ -241,7 +241,7 @@ STATIC FUNCTION DSUI_Glyph( cName )
 
 // Pads cText to nWidth display columns, counting UTF-8 characters (not bytes).
 // cAlign is "L" (default), "C" (centre) or "R" (right). Over-long text is cut.
-STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
+FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    LOCAL nLen, nPad, nLeft
    cText := hb_CStr( cText )
    nLen  := hb_UTF8Len( cText )
@@ -259,76 +259,41 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    ENDCASE
    RETURN cText + Space( nPad )
 
-// Builds one content row of the banner: a left cell and a right cell divided
-// by the vertical glyph. aL/aR are { text, align } pairs. lTitle highlights the
-// left cell (the welcome line). A right text of "<HR>" draws a panel divider.
-STATIC FUNCTION DSUI_BanRow( aL, aR, nLW, nRW )
-   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), "90" )
-   LOCAL cL, cR
-   cL := DSUI_PadCell( aL[ 1 ], nLW, aL[ 2 ] )
-   IF aL[ 3 ]
-      cL := DSUI_Color( cL, "1;36" )
-   ENDIF
-   IF aR[ 1 ] == "<HR>"
-      cR := DSUI_Color( Replicate( DSUI_Glyph( "h" ), nRW ), "90" )
-   ELSE
-      cR := DSUI_PadCell( aR[ 1 ], nRW, aR[ 2 ] )
-      IF aR[ 3 ]
-         cR := DSUI_Color( cR, "1" )
-      ENDIF
-   ENDIF
-   RETURN cV + " " + cL + " " + cV + " " + cR + " " + cV
-
-// Builds the Claude Code-style startup banner: a rounded box with a welcome
-// panel (logo, model, working directory) on the left and a tips / what's-new
-// panel on the right. Returns the whole banner as one string ending in LF.
+// Builds the Claude Code-style startup banner: a single-panel rounded box
+// with an accent welcome line, the /help hint, and the model and working
+// directory. Returns the whole banner as one string ending in LF.
 FUNCTION DSUI_Banner( cModel, cCwd, cUser )
-   LOCAL nLW := 38, nRW := 34
-   LOCAL cH := DSUI_Glyph( "h" )
-   LOCAL cOut, i, aL, aR
+   LOCAL nInner := 75, cH := DSUI_Glyph( "h" ), cV
+   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B sextile glyph
+   LOCAL aRows, cOut, i, cText, cSGR, cCell
 
+   HB_SYMBOL_UNUSED( cUser )
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
-   cUser  := AllTrim( hb_CStr( cUser ) )
-   IF Empty( cUser )
-      cUser := "developer"
-   ENDIF
+   cV     := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
 
-   // left panel rows: { text, align, isTitle }
-   aL := { ;
-      { "",                                       "L", .F. }, ;
-      { "Welcome to CCHarbour, " + cUser + "!",    "C", .T. }, ;
-      { "",                                       "L", .F. }, ;
-      { "  \  |  /  ",                             "C", .F. }, ;
-      { "-- (CC) -- ",                             "C", .F. }, ;
-      { "  /  |  \  ",                             "C", .F. }, ;
-      { "",                                       "L", .F. }, ;
-      { "model: " + cModel,                        "C", .F. }, ;
-      { cCwd,                                      "C", .F. }, ;
-      { "",                                       "L", .F. }, ;
-      { "",                                       "L", .F. } }
+   // each row: { plain text, SGR code or "" }
+   aRows := { ;
+      { cAccent + " Welcome to CCHarbour", DSUI_Pal( "accent" ) }, ;
+      { "",                                "" }, ;
+      { "  /help for help",                DSUI_Pal( "dim" ) }, ;
+      { "",                                "" }, ;
+      { "  model: " + cModel,              "" }, ;
+      { "  cwd: " + cCwd,                  "" } }
 
-   // right panel rows: { text, align, isBold }
-   aR := { ;
-      { "Tips for getting started",   "L", .T. }, ;
-      { "",                           "L", .F. }, ;
-      { "Type a request to begin",    "L", .F. }, ;
-      { "Run /help to list commands", "L", .F. }, ;
-      { "<HR>",                       "L", .F. }, ;
-      { "What's new",                 "L", .T. }, ;
-      { "",                           "L", .F. }, ;
-      { "Streamed tool output",       "L", .F. }, ;
-      { "Inline diffs on edits",      "L", .F. }, ;
-      { "Auto colour detection",      "L", .F. }, ;
-      { "",                           "L", .F. } }
-
-   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + ;
-           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "tr" ), "90" ) + Chr(10)
-   FOR i := 1 TO Len( aL )
-      cOut += DSUI_BanRow( aL[ i ], aR[ i ], nLW, nRW ) + Chr(10)
+   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
+           DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   FOR i := 1 TO Len( aRows )
+      cText := aRows[ i ][ 1 ]
+      cSGR  := aRows[ i ][ 2 ]
+      cCell := DSUI_PadCell( cText, nInner, "L" )
+      IF !Empty( cSGR )
+         cCell := DSUI_Color( cCell, cSGR )
+      ENDIF
+      cOut += cV + " " + cCell + " " + cV + Chr(10)
    NEXT
-   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + ;
-           Replicate( cH, nLW + nRW + 5 ) + DSUI_Glyph( "br" ), "90" ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
+           DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
 // A horizontal rule as wide as the startup banner box, used to frame the
