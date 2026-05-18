@@ -41,4 +41,31 @@ FUNCTION Test_Web()
             "web_fetch: transport failure error" )
    DSHTTP_SetTestTransport( NIL )
 
+   // --- web_search schema ---
+   hTool := DSTool_WebSearch( "fake-key" )
+   T_Equal( hTool[ "name" ], "web_search", "web_search: tool name" )
+
+   // --- web_search missing key ---
+   hTool := DSTool_WebSearch( "" )
+   cRes := Eval( hTool[ "handler" ], { "query" => "harbour lang" } )
+   T_Equal( cRes, "Error: TAVILY_API_KEY not set", "web_search: missing key" )
+
+   // --- web_search formats a Tavily response ---
+   hTool := DSTool_WebSearch( "fake-key" )
+   DSHTTP_SetTestTransport( {| hR | HB_SYMBOL_UNUSED( hR ), ;
+      { "ok" => .T., "status" => 200, "error" => "", ;
+        "body" => hb_jsonEncode( { "results" => { ;
+           { "title" => "T1", "url" => "U1", "content" => "C1" } } } ) } } )
+   cRes := Eval( hTool[ "handler" ], { "query" => "x" } )
+   T_Assert( "T1" $ cRes .AND. "U1" $ cRes .AND. "C1" $ cRes, ;
+             "web_search: formats results" )
+   DSHTTP_SetTestTransport( NIL )
+
+   // --- web_search reports a non-2xx status ---
+   DSHTTP_SetTestTransport( {| hR | HB_SYMBOL_UNUSED( hR ), ;
+      { "ok" => .T., "status" => 401, "body" => "", "error" => "" } } )
+   cRes := Eval( hTool[ "handler" ], { "query" => "x" } )
+   T_Equal( cRes, "Error: web_search HTTP 401", "web_search: non-2xx error" )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL
