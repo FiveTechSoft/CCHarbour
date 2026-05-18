@@ -129,6 +129,67 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
    ENDIF
    RETURN cOut
 
+// The Claude Code-style tool-call line: an accent dot, then Tool(args). The
+// dot is accent-coloured; the label is left in the default foreground.
+FUNCTION DSUI_ToolCallLine( cName, cArgsJson )
+   RETURN Chr(10) + ;
+          DSUI_Color( Chr(226)+Chr(143)+Chr(186), DSUI_Pal( "accent" ) ) + ;
+          " " + DSUI_ToolLabel( cName, cArgsJson ) + Chr(10)
+
+// True when any line of cText is diff-formatted (per DSUI_DiffMark).
+STATIC FUNCTION DSUI_HasDiff( cText )
+   LOCAL cLine
+   FOR EACH cLine IN hb_ATokens( cText, Chr(10) )
+      IF !Empty( DSUI_DiffMark( cLine ) )
+         RETURN .T.
+      ENDIF
+   NEXT
+   RETURN .F.
+
+// Renders the block printed under a tool call. Diff-formatted content keeps
+// the coloured diff block; otherwise a compact tool-aware one-line summary.
+// Result ends in LF.
+FUNCTION DSUI_ResultSummary( cToolName, cContent )
+   LOCAL cClean, aLines, nLines, cFirst, cSum
+   cToolName := Lower( hb_CStr( cToolName ) )
+   cContent  := hb_CStr( cContent )
+   cClean    := StrTran( cContent, Chr(13), "" )
+
+   IF DSUI_HasDiff( cClean )
+      RETURN DSUI_Color( DSUI_ResultBlock( cContent ), DSUI_Pal( "dim" ) ) + Chr(10)
+   ENDIF
+
+   IF Left( cClean, 6 ) == "Error:"
+      cSum := DSUI_Summarize( cClean, 200 )
+   ELSE
+      aLines := hb_ATokens( cClean, Chr(10) )
+      DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
+         hb_ADel( aLines, Len( aLines ), .T. )
+      ENDDO
+      nLines := Len( aLines )
+      cFirst := Left( iif( nLines > 0, aLines[ 1 ], "" ), 120 )
+      DO CASE
+      CASE cToolName == "read"
+         cSum := "Read " + LTrim( Str( nLines ) ) + " lines"
+      CASE cToolName == "write" .OR. cToolName == "edit"
+         cSum := cFirst
+      CASE cToolName == "glob"
+         cSum := iif( Left( cFirst, 11 ) == "No matches ", cFirst, ;
+                      "Listed " + LTrim( Str( nLines ) ) + " files" )
+      CASE cToolName == "grep"
+         cSum := iif( Left( cFirst, 11 ) == "No matches ", cFirst, ;
+                      "Found " + LTrim( Str( nLines ) ) + " matches" )
+      CASE cToolName == "shell"
+         cSum := iif( nLines > 1, ;
+                      cFirst + " (" + LTrim( Str( nLines ) ) + " lines)", cFirst )
+      OTHERWISE
+         cSum := LTrim( Str( nLines ) ) + " lines"
+      ENDCASE
+   ENDIF
+
+   RETURN DSUI_Color( "  " + Chr(226)+Chr(142)+Chr(191) + "  " + cSum, ;
+                      DSUI_Pal( "dim" ) ) + Chr(10)
+
 // Detects a diff line ("<6-wide number> <+|-|space> <text>"); returns the
 // marker "+" or "-", or "" when the line is not a diff line.
 STATIC FUNCTION DSUI_DiffMark( cLine )
@@ -174,7 +235,7 @@ FUNCTION DSUI_ColorOn()
 // the codes live in one place. Unknown names return "0" (reset).
 FUNCTION DSUI_Pal( cName )
    DO CASE
-   CASE cName == "accent"     ; RETURN "38;5;215"   // tan/orange
+   CASE cName == "accent"     ; RETURN "38;2;217;119;87"   // Claude Code coral
    CASE cName == "dim"        ; RETURN "90"         // grey borders / secondary
    CASE cName == "bold"       ; RETURN "1"
    CASE cName == "error"      ; RETURN "31"
