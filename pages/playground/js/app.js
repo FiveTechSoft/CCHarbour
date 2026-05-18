@@ -50,29 +50,35 @@ async function handleSubmit(text) {
   running = true;
   ui.setBusy(true);
 
-  const result = await runAgent(
-    {
-      messages: conversation,
-      model: config.model,
-      tools: schemas,
-      toolExecutor: executor,
-      deepseekOpts: { apiKey: config.deepseekKey },
-    },
-    onEvent,
-  );
+  try {
+    const result = await runAgent(
+      {
+        messages: conversation,
+        model: config.model,
+        tools: schemas,
+        toolExecutor: executor,
+        deepseekOpts: { apiKey: config.deepseekKey },
+      },
+      onEvent,
+    );
 
-  ui.endAssistant();
-  if (result.success) {
-    conversation = result.messages;
-    ui.setUsage(result.usage);
-    if (result.stopReason === "max_iterations") {
-      ui.addNotice("[stopped: reached the iteration limit]");
+    ui.endAssistant();
+    if (result.success) {
+      conversation = result.messages;
+      ui.setUsage(result.usage);
+      if (result.stopReason === "max_iterations") {
+        ui.addNotice("[stopped: reached the iteration limit]");
+      }
+    } else {
+      ui.addError(result.message || "the request failed");
     }
-  } else {
-    ui.addError(result.message || "the request failed");
+  } catch (e) {
+    ui.endAssistant();
+    ui.addError("unexpected error: " + ((e && e.message) || e));
+  } finally {
+    running = false;
+    ui.setBusy(false);
   }
-  running = false;
-  ui.setBusy(false);
 }
 
 function onEvent(ev) {
