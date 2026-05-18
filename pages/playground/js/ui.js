@@ -108,6 +108,28 @@ export function createUI(handlers) {
       });
     },
 
+    // Inline prompt to continue a turn that hit the iteration cap.
+    // Returns a Promise<boolean>.
+    confirmExtend() {
+      return new Promise((resolve) => {
+        const box = document.createElement("div");
+        box.className = "confirm";
+        const msg = document.createElement("div");
+        msg.textContent =
+          "Iteration cap reached — continue with 25 more iterations?";
+        const yes = document.createElement("button");
+        yes.textContent = "Continue";
+        const no = document.createElement("button");
+        no.textContent = "Stop";
+        const done = (v) => { yes.disabled = no.disabled = true; resolve(v); };
+        yes.addEventListener("click", () => done(true));
+        no.addEventListener("click", () => done(false));
+        box.append(msg, yes, no);
+        scrollback.appendChild(box);
+        scrollback.scrollTop = scrollback.scrollHeight;
+      });
+    },
+
     setUsage(usage) {
       const t = usage && usage.total_tokens;
       $("usage").textContent = t ? `tokens used: ${t}` : "no usage yet";

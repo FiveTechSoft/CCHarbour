@@ -51,7 +51,7 @@ async function handleSubmit(text) {
   ui.setBusy(true);
 
   try {
-    const result = await runAgent(
+    let result = await runAgent(
       {
         messages: conversation,
         model: config.model,
@@ -61,11 +61,33 @@ async function handleSubmit(text) {
       },
       onEvent,
     );
-
     ui.endAssistant();
+
+    const totalUsage = {};
+    mergeUsage(totalUsage, result.usage);
+
+    // when the turn hit the iteration cap, offer to resume it with 25 more
+    // iterations — repeatably, until done or the user stops.
+    while (result.success && result.stopReason === "max_iterations") {
+      if (!(await ui.confirmExtend())) break;
+      result = await runAgent(
+        {
+          messages: result.messages,
+          model: config.model,
+          tools: schemas,
+          toolExecutor: executor,
+          maxIterations: 25,
+          deepseekOpts: { apiKey: config.deepseekKey },
+        },
+        onEvent,
+      );
+      ui.endAssistant();
+      mergeUsage(totalUsage, result.usage);
+    }
+
     if (result.success) {
       conversation = result.messages;
-      ui.setUsage(result.usage);
+      ui.setUsage(totalUsage);
       if (result.stopReason === "max_iterations") {
         ui.addNotice("[stopped: reached the iteration limit]");
       }
@@ -106,4 +128,13 @@ function handleReset() {
   vfs = createVfs(DEMO_PROJECT);
   conversation = [{ role: "system", content: systemPrompt(vfs) }];
   ui.addNotice("Project and conversation reset.");
+}
+
+// Sums the numeric token counts of `usage` into the accumulator `acc`.
+function mergeUsage(acc, usage) {
+  if (usage && typeof usage === "object") {
+    for (const k of Object.keys(usage)) {
+      if (typeof usage[k] === "number") acc[k] = (acc[k] || 0) + usage[k];
+    }
+  }
 }
