@@ -50,3 +50,16 @@ STATIC FUNCTION DSCFG_FromFile( cPath )
       RETURN xJson[ "api_key" ]
    ENDIF
    RETURN ""
+
+// Resolves a secret value. Precedence: environment variable cEnvName, then
+// hSettings[ cSettingKey ]. Returns "" when neither is set.
+FUNCTION DSCFG_ResolveKey( cEnvName, cSettingKey, hSettings )
+   LOCAL cEnv := hb_GetEnv( cEnvName )
+   IF !Empty( cEnv )
+      RETURN cEnv
+   ENDIF
+   IF ValType( hSettings ) == "H" .AND. hb_HHasKey( hSettings, cSettingKey ) .AND. ;
+      ValType( hSettings[ cSettingKey ] ) == "C"
+      RETURN hSettings[ cSettingKey ]
+   ENDIF
+   RETURN ""

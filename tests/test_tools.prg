@@ -153,13 +153,25 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
-   // end-to-end: the default registry exposes all six builtin tools
+   // end-to-end: the default registry exposes all ten builtin tools
    aSchemas := DSTools_Schemas( DSTools_Registry() )
-   T_Equal( Len( aSchemas ), 6, "tools: registry has six builtins" )
+   T_Equal( Len( aSchemas ), 10, "tools: registry has ten builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
    T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
    T_Assert( FindSchema( aSchemas, "edit" )  != NIL, "tools: builtin edit" )
    T_Assert( FindSchema( aSchemas, "glob" )  != NIL, "tools: builtin glob" )
    T_Assert( FindSchema( aSchemas, "grep" )  != NIL, "tools: builtin grep" )
    T_Assert( FindSchema( aSchemas, "shell" ) != NIL, "tools: builtin shell" )
+
+   // the four new tools are registered
+   oReg := DSTools_Registry()
+   T_Equal( hb_HHasKey( oReg, "web_search" ), .T., "tools: web_search registered" )
+   T_Equal( hb_HHasKey( oReg, "web_fetch" ), .T., "tools: web_fetch registered" )
+   T_Equal( hb_HHasKey( oReg, "github_read" ), .T., "tools: github_read registered" )
+   T_Equal( hb_HHasKey( oReg, "github_write" ), .T., "tools: github_write registered" )
+
+   // keys passed via hKeys reach the tool handler
+   oReg := DSTools_Registry( { "tavily" => "", "github" => "" } )
+   cRes := Eval( oReg[ "web_search" ][ "handler" ], { "query" => "x" } )
+   T_Equal( cRes, "Error: TAVILY_API_KEY not set", "tools: empty tavily key flows through" )
    RETURN NIL

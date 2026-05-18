@@ -29,4 +29,10 @@ FUNCTION Test_Settings()
    hL := DSSettings_Load( cTmp )
    T_Equal( hL[ "model" ], "deepseek-chat", "settings: malformed file uses defaults" )
    FErase( cTmp )
+
+   hL := DSSettings_Defaults()
+   T_Equal( hL[ "permissions" ][ "web_search" ], "ask", "settings: web_search perm" )
+   T_Equal( hL[ "permissions" ][ "web_fetch" ], "ask", "settings: web_fetch perm" )
+   T_Equal( hL[ "permissions" ][ "github_read" ], "allow", "settings: github_read perm" )
+   T_Equal( hL[ "permissions" ][ "github_write" ], "ask", "settings: github_write perm" )
    RETURN NIL
