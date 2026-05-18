@@ -9,6 +9,7 @@ test_api.prg
 test_agent.prg
 test_tools.prg
 test_web.prg
+test_github.prg
 test_ui.prg
 test_settings.prg
 test_perm.prg
@@ -23,6 +24,7 @@ test_diff.prg
 ../src/dstools_search.prg
 ../src/dstools_shell.prg
 ../src/dstools_web.prg
+../src/dstools_github.prg
 ../src/dsdiff.prg
 ../src/dsui.prg
 ../src/dssettings.prg
