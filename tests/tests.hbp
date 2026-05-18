@@ -11,6 +11,7 @@ test_tools.prg
 test_web.prg
 test_github.prg
 test_ui.prg
+test_markdown.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
@@ -27,5 +28,6 @@ test_diff.prg
 ../src/dstools_github.prg
 ../src/dsdiff.prg
 ../src/dsui.prg
+../src/dsmarkdown.prg
 ../src/dssettings.prg
 ../src/dsperm.prg
