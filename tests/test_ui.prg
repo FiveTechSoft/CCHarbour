@@ -46,7 +46,7 @@ FUNCTION Test_UI()
    T_Assert( "Read(x)" $ DSUI_RenderEvent( { "type" => "tool_call", "id" => "c1", ;
              "name" => "read", "arguments" => '{"path":"x"}' } ), ;
              "ui: render tool_call shows labelled name" )
-   T_Assert( ( Chr(226) + Chr(151) + Chr(143) ) $ DSUI_RenderEvent( { ;
+   T_Assert( ( Chr(226) + Chr(143) + Chr(186) ) $ DSUI_RenderEvent( { ;
              "type" => "tool_call", "id" => "c1", "name" => "read", ;
              "arguments" => "{}" } ), "ui: render tool_call has bullet" )
    T_Assert( "line two" $ DSUI_RenderEvent( { "type" => "tool_result", "id" => "c1", ;
@@ -63,4 +63,11 @@ FUNCTION Test_UI()
    T_Assert( "/help" $ DSUI_Help(), "ui: help mentions /help" )
    T_Assert( "/clear" $ DSUI_Help(), "ui: help mentions /clear" )
    T_Assert( "/exit" $ DSUI_Help(), "ui: help mentions /exit" )
+
+   // colour palette: codes returned regardless of colour state
+   T_Equal( DSUI_Pal( "accent" ), "38;5;215", "ui: accent palette code" )
+   T_Equal( DSUI_Pal( "dim" ), "90", "ui: dim palette code" )
+   T_Equal( DSUI_Pal( "error" ), "31", "ui: error palette code" )
+   T_Equal( DSUI_Pal( "bold" ), "1", "ui: bold palette code" )
+   T_Equal( DSUI_Pal( "nope" ), "0", "ui: unknown palette name -> reset" )
    RETURN NIL

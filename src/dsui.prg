@@ -64,7 +64,7 @@ FUNCTION DSUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "tool_call"
-      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(151)+Chr(143) + " " + ;
+      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " " + ;
              DSUI_ToolLabel( hEv[ "name" ], hEv[ "arguments" ] ), "1;36" ) + Chr(10)
    CASE cType == "tool_result"
       RETURN DSUI_Color( DSUI_ResultBlock( hb_CStr( hEv[ "content" ] ) ), ;
@@ -169,6 +169,21 @@ FUNCTION DSUI_Color( cText, cSGR )
 // Returns .T. when ANSI output (colour and cursor control) is enabled.
 FUNCTION DSUI_ColorOn()
    RETURN s_lColor
+
+// The Claude Code-style colour palette: maps a name to an ANSI SGR code so
+// the codes live in one place. Unknown names return "0" (reset).
+FUNCTION DSUI_Pal( cName )
+   DO CASE
+   CASE cName == "accent"     ; RETURN "38;5;215"   // tan/orange
+   CASE cName == "dim"        ; RETURN "90"         // grey borders / secondary
+   CASE cName == "bold"       ; RETURN "1"
+   CASE cName == "error"      ; RETURN "31"
+   CASE cName == "tool"       ; RETURN "1;36"       // bright cyan tool label
+   CASE cName == "warn"       ; RETURN "33"
+   CASE cName == "diff_add"   ; RETURN "42"
+   CASE cName == "diff_del"   ; RETURN "48;5;52"
+   ENDCASE
+   RETURN "0"
 
 // Emits an ANSI control sequence (e.g. "1A" = cursor up one line,
 // "1G" = move to column 1) when ANSI output is enabled, else "".
