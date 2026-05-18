@@ -67,3 +67,17 @@ test("deepseek: no opts is a config error, not a throw", async () => {
   assert.equal(res.success, false);
   assert.equal(res.errorType, "config");
 });
+
+test("deepseek: captures reasoning_content", async () => {
+  const chunks = [
+    dataLine({ choices: [{ delta: { reasoning_content: "think " } }] }),
+    dataLine({ choices: [{ delta: { reasoning_content: "more" } }] }),
+    dataLine({ choices: [{ delta: { content: "answer" }, finish_reason: "stop" }] }),
+    "data: [DONE]\n\n",
+  ];
+  const res = await chatCompletion(
+    { apiKey: "k", model: "m", messages: [{ role: "user", content: "x" }],
+      fetchImpl: async () => fakeStreamResponse(chunks) });
+  assert.equal(res.reasoningContent, "think more");
+  assert.equal(res.content, "answer");
+});

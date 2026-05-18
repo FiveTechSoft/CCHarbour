@@ -35,6 +35,12 @@ STATIC FUNCTION DSSSE_Line( cLine, bEmit )
             !Empty( hDelta[ "content" ] )
             Eval( bEmit, { "type" => "text_delta", "text" => hDelta[ "content" ] } )
          ENDIF
+         IF hb_HHasKey( hDelta, "reasoning_content" ) .AND. ;
+            ValType( hDelta[ "reasoning_content" ] ) == "C" .AND. ;
+            !Empty( hDelta[ "reasoning_content" ] )
+            Eval( bEmit, { "type" => "reasoning_delta", ;
+                           "text" => hDelta[ "reasoning_content" ] } )
+         ENDIF
          IF hb_HHasKey( hDelta, "tool_calls" )
             DSSSE_ToolCalls( hDelta[ "tool_calls" ], bEmit )
          ENDIF

@@ -1,6 +1,6 @@
 // Returns the built-in default settings hash.
 FUNCTION DSSettings_Defaults()
-   RETURN { "model"          => "deepseek-chat", ;
+   RETURN { "model"          => "deepseek-v4-flash", ;
             "base_url"       => "https://api.deepseek.com", ;
             "max_iterations" => 25, ;
             "color"          => .T., ;

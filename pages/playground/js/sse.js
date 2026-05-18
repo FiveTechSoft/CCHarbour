@@ -34,6 +34,9 @@ function eventsFromChunk(json) {
   if (typeof delta.content === "string" && delta.content.length) {
     out.push({ type: "text_delta", text: delta.content });
   }
+  if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length) {
+    out.push({ type: "reasoning_delta", text: delta.reasoning_content });
+  }
   if (Array.isArray(delta.tool_calls)) {
     for (const tc of delta.tool_calls) {
       out.push({

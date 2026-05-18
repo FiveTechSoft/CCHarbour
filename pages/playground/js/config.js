@@ -12,7 +12,7 @@ export function loadConfig() {
     deepseekKey: localStorage.getItem(KEYS.deepseek) || "",
     tavilyKey: localStorage.getItem(KEYS.tavily) || "",
     githubToken: localStorage.getItem(KEYS.github) || "",
-    model: localStorage.getItem(KEYS.model) || "deepseek-chat",
+    model: localStorage.getItem(KEYS.model) || "deepseek-v4-flash",
   };
 }
 
@@ -20,5 +20,5 @@ export function saveConfig(cfg) {
   localStorage.setItem(KEYS.deepseek, cfg.deepseekKey || "");
   localStorage.setItem(KEYS.tavily, cfg.tavilyKey || "");
   localStorage.setItem(KEYS.github, cfg.githubToken || "");
-  localStorage.setItem(KEYS.model, cfg.model || "deepseek-chat");
+  localStorage.setItem(KEYS.model, cfg.model || "deepseek-v4-flash");
 }

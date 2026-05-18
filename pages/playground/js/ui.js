@@ -38,7 +38,7 @@ export function createUI(handlers) {
       deepseekKey: $("key-deepseek").value.trim(),
       tavilyKey: $("key-tavily").value.trim(),
       githubToken: $("key-github").value.trim(),
-      model: $("model").value.trim() || "deepseek-chat",
+      model: $("model").value.trim() || "deepseek-v4-flash",
     });
     $("settings").classList.add("hidden");
   });
@@ -50,7 +50,7 @@ export function createUI(handlers) {
       $("key-deepseek").value = cfg.deepseekKey || "";
       $("key-tavily").value = cfg.tavilyKey || "";
       $("key-github").value = cfg.githubToken || "";
-      $("model").value = cfg.model || "deepseek-chat";
+      $("model").value = cfg.model || "deepseek-v4-flash";
     },
     openSettings() { $("settings").classList.remove("hidden"); },
 
