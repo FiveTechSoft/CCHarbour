@@ -48,3 +48,22 @@ test("deepseek: missing key is a config error", async () => {
   const res = await chatCompletion({ model: "m", messages: [{ role: "user", content: "x" }] });
   assert.equal(res.errorType, "config");
 });
+
+test("deepseek: captures usage from the final chunk", async () => {
+  const chunks = [
+    dataLine({ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }),
+    dataLine({ choices: [], usage: { total_tokens: 42 } }),
+    "data: [DONE]\n\n",
+  ];
+  const res = await chatCompletion(
+    { apiKey: "k", model: "m", messages: [{ role: "user", content: "x" }],
+      fetchImpl: async () => fakeStreamResponse(chunks) });
+  assert.equal(res.success, true);
+  assert.equal(res.usage.total_tokens, 42);
+});
+
+test("deepseek: no opts is a config error, not a throw", async () => {
+  const res = await chatCompletion();
+  assert.equal(res.success, false);
+  assert.equal(res.errorType, "config");
+});

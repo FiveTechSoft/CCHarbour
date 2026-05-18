@@ -13,7 +13,7 @@ export async function chatCompletion(opts, onEvent) {
     temperature,
     maxTokens,
     fetchImpl = fetch,
-  } = opts;
+  } = opts || {};
 
   const result = {
     success: false, content: "", toolCalls: [], finishReason: null,
@@ -54,7 +54,7 @@ export async function chatCompletion(opts, onEvent) {
   }
 
   const parser = createSSEParser();
-  const state = { content: "", tools: [], finish: null, usage: null };
+  const state = { content: "", tools: [], finish: null, usage: null, done: false };
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   while (true) {
@@ -64,6 +64,13 @@ export async function chatCompletion(opts, onEvent) {
       foldEvent(ev, state);
       emit(onEvent, ev);
     }
+  }
+
+  if (!state.done) {
+    result.errorType = "network";
+    result.message = "stream ended before completion";
+    emit(onEvent, { type: "error", errorType: "network", message: result.message });
+    return result;
   }
 
   result.success = true;
@@ -79,6 +86,7 @@ function foldEvent(ev, state) {
   else if (ev.type === "tool_call_delta") accTool(state.tools, ev);
   else if (ev.type === "finish") state.finish = ev.finish_reason;
   else if (ev.type === "usage") state.usage = ev.usage;
+  else if (ev.type === "done") state.done = true;
 }
 
 function accTool(tools, ev) {
