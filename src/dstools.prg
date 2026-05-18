@@ -1,13 +1,22 @@
 // Creates a fresh tool registry with all builtin tools registered.
-// (Builtin registrations are added by Tasks 3-6.)
-FUNCTION DSTools_Registry()
+// hKeys (optional): { tavily => <api key>, github => <token> } — captured by
+// the web/github tool handlers. Omitting it leaves those keys empty; the
+// affected tools then return a clear error at call time.
+FUNCTION DSTools_Registry( hKeys )
    LOCAL oReg := {=>}
+   IF ValType( hKeys ) != "H"
+      hKeys := {=>}
+   ENDIF
    DSTools_Register( oReg, DSTool_Read() )
    DSTools_Register( oReg, DSTool_Write() )
    DSTools_Register( oReg, DSTool_Edit() )
    DSTools_Register( oReg, DSTool_Glob() )
    DSTools_Register( oReg, DSTool_Grep() )
    DSTools_Register( oReg, DSTool_Shell() )
+   DSTools_Register( oReg, DSTool_WebSearch( hb_HGetDef( hKeys, "tavily", "" ) ) )
+   DSTools_Register( oReg, DSTool_WebFetch() )
+   DSTools_Register( oReg, DSTool_GithubRead( hb_HGetDef( hKeys, "github", "" ) ) )
+   DSTools_Register( oReg, DSTool_GithubWrite( hb_HGetDef( hKeys, "github", "" ) ) )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

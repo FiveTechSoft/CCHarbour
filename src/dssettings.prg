@@ -6,7 +6,9 @@ FUNCTION DSSettings_Defaults()
             "color"          => .T., ;
             "permissions"    => { "read"  => "allow", "glob"  => "allow", ;
                                   "grep"  => "allow", "write" => "ask", ;
-                                  "edit"  => "ask",   "shell" => "ask" } }
+                                  "edit"  => "ask",   "shell" => "ask", ;
+                                  "web_search"   => "ask",   "web_fetch"    => "ask", ;
+                                  "github_read"  => "allow", "github_write" => "ask" } }
 
 // Loads settings.json merged over the defaults.
 // cPath omitted -> env CCHARBOUR_CONFIG, else .ccharbour/settings.json under cwd.
