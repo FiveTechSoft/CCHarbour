@@ -43,7 +43,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, oMd, cSuggest
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, oMd, cSuggest, hUsage
    aMsgs    := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -104,6 +104,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                       DSUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
+         hUsage := {=>}
          oMd := DSMD_New()
          hRes := DS_AgentRun( oClient, aTurn, ;
             { "model" => cModel, ;
@@ -113,13 +114,30 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             {| hEv | DSREPL_RenderEv( hEv, oMd ) } )
          DSREPL_Out( DSMD_Flush( oMd ) )
          DSREPL_Out( Chr(10) )
+         DSREPL_MergeUsage( hUsage, hRes[ "usage" ] )
+         // when the turn stopped on the iteration cap, offer to resume it
+         // with 25 more iterations -- repeatably, until done or declined.
+         DO WHILE hRes[ "success" ] .AND. ;
+                  hRes[ "stop_reason" ] == "max_iterations" .AND. ;
+                  DSREPL_AskExtend()
+            oMd := DSMD_New()
+            hRes := DS_AgentRun( oClient, hRes[ "messages" ], ;
+               { "model" => cModel, ;
+                 "tools" => DSTools_Schemas( oReg ), ;
+                 "tool_executor" => bGate, ;
+                 "max_iterations" => 25 }, ;
+               {| hEv | DSREPL_RenderEv( hEv, oMd ) } )
+            DSREPL_Out( DSMD_Flush( oMd ) )
+            DSREPL_Out( Chr(10) )
+            DSREPL_MergeUsage( hUsage, hRes[ "usage" ] )
+         ENDDO
          cSuggest := DSMD_Suggestion( oMd )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
                DSREPL_Out( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
             ENDIF
-            DSREPL_Out( DSUI_Color( DSREPL_UsageLine( hRes[ "usage" ] ), "90" ) + Chr(10) )
+            DSREPL_Out( DSUI_Color( DSREPL_UsageLine( hUsage ), "90" ) + Chr(10) )
          ELSE
             DSREPL_Out( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
                     hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
@@ -142,6 +160,32 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oMd )
       DSREPL_Out( DSUI_RenderEvent( hEv ) )
    ENDIF
    RETURN NIL
+
+// Asks whether to continue a capped turn with 25 more iterations.
+// Returns .T. for a "y" answer; end-of-input (piped stdin) -> .F. (no hang).
+STATIC FUNCTION DSREPL_AskExtend()
+   LOCAL cLine
+   DSREPL_Out( Chr(10) + DSUI_Color( ;
+      "[iteration cap reached -- continue with 25 more? y/n] ", ;
+      DSUI_Pal( "warn" ) ) )
+   cLine := DSREPL_ReadLine()
+   IF cLine == NIL
+      RETURN .F.
+   ENDIF
+   RETURN Lower( Left( AllTrim( cLine ), 1 ) ) == "y"
+
+// Adds the numeric token counts of xUsage into the accumulator hash hAcc.
+STATIC FUNCTION DSREPL_MergeUsage( hAcc, xUsage )
+   LOCAL cKey
+   IF ValType( xUsage ) == "H"
+      FOR EACH cKey IN hb_HKeys( xUsage )
+         IF ValType( xUsage[ cKey ] ) == "N"
+            hAcc[ cKey ] := iif( hb_HHasKey( hAcc, cKey ), hAcc[ cKey ], 0 ) + ;
+                            xUsage[ cKey ]
+         ENDIF
+      NEXT
+   ENDIF
+   RETURN hAcc
 
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
 // so UTF-8 output is not re-encoded. The console code page is set to UTF-8
