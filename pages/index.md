@@ -18,6 +18,10 @@ from a single console executable.
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
+Try the **[Web Playground](playground/index.html)** — a browser-based version
+of the assistant that runs entirely in the browser. You will need your own
+[DeepSeek API key](https://platform.deepseek.com/api_keys) to use it.
+
 ## Highlights
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming

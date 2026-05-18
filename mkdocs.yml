@@ -18,6 +18,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Playground: playground/index.html
   - Getting started: getting-started.md
   - Commands: commands.md
   - Configuration: configuration.md
