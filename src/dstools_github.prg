@@ -10,16 +10,17 @@ STATIC FUNCTION DSGithub_Headers( cToken )
    ENDIF
    RETURN aHdr
 
-// Percent-encodes a string for use in a URL query component.
+// Percent-encodes a string for use in a URL query component. Byte-wise so
+// multi-byte (UTF-8) input is encoded one octet at a time.
 STATIC FUNCTION DSGithub_UrlEncode( cText )
    LOCAL cOut := "", i, c
-   FOR i := 1 TO Len( cText )
-      c := SubStr( cText, i, 1 )
+   FOR i := 1 TO hb_BLen( cText )
+      c := hb_BSubStr( cText, i, 1 )
       IF ( c >= "A" .AND. c <= "Z" ) .OR. ( c >= "a" .AND. c <= "z" ) .OR. ;
          ( c >= "0" .AND. c <= "9" ) .OR. c $ "-_.~"
          cOut += c
       ELSE
-         cOut += "%" + PadL( Upper( hb_NumToHex( Asc( c ) ) ), 2, "0" )
+         cOut += "%" + PadL( Upper( hb_NumToHex( hb_BCode( c ) ) ), 2, "0" )
       ENDIF
    NEXT
    RETURN cOut
@@ -52,7 +53,8 @@ FUNCTION DSTool_GithubRead( cToken )
                "required" => { "operation" } }, ;
             "handler" => {| hArgs | DSTool_GithubReadRun( hArgs, cToken ) } }
 
-// Assumes the executor (DSTools_Dispatch) has already validated required args.
+// The executor validates only `operation`; this handler validates the
+// per-operation arguments (repo, path, number, query).
 STATIC FUNCTION DSTool_GithubReadRun( hArgs, cToken )
    LOCAL cOp, cRepo, cUrl, hRes
    cOp := Lower( hb_CStr( hArgs[ "operation" ] ) )
@@ -79,16 +81,16 @@ STATIC FUNCTION DSTool_GithubReadRun( hArgs, cToken )
       CASE cOp == "issues"
          cUrl := "https://api.github.com/repos/" + cRepo + "/issues"
       CASE cOp == "issue"
-         IF !hb_HHasKey( hArgs, "number" )
-            RETURN "Error: github_read 'issue' requires 'number'"
+         IF !hb_HHasKey( hArgs, "number" ) .OR. ValType( hArgs[ "number" ] ) != "N"
+            RETURN "Error: github_read 'issue' requires a numeric 'number'"
          ENDIF
          cUrl := "https://api.github.com/repos/" + cRepo + "/issues/" + ;
                  LTrim( Str( hArgs[ "number" ] ) )
       CASE cOp == "prs"
          cUrl := "https://api.github.com/repos/" + cRepo + "/pulls"
       CASE cOp == "pr"
-         IF !hb_HHasKey( hArgs, "number" )
-            RETURN "Error: github_read 'pr' requires 'number'"
+         IF !hb_HHasKey( hArgs, "number" ) .OR. ValType( hArgs[ "number" ] ) != "N"
+            RETURN "Error: github_read 'pr' requires a numeric 'number'"
          ENDIF
          cUrl := "https://api.github.com/repos/" + cRepo + "/pulls/" + ;
                  LTrim( Str( hArgs[ "number" ] ) )
@@ -122,7 +124,10 @@ STATIC FUNCTION DSGithub_FormatRead( cOp, cBody )
       IF ValType( xJson ) == "A"
          cText := ""
          FOR EACH h1 IN xJson
-            cText += hb_CStr( h1[ "type" ] ) + "  " + hb_CStr( h1[ "name" ] ) + Chr( 10 )
+            IF ValType( h1 ) == "H" .AND. hb_HHasKey( h1, "name" )
+               cText += hb_CStr( hb_HGetDef( h1, "type", "" ) ) + "  " + ;
+                        hb_CStr( h1[ "name" ] ) + Chr( 10 )
+            ENDIF
          NEXT
          RETURN cText
       ENDIF
