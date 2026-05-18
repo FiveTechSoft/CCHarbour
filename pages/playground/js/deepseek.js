@@ -57,29 +57,12 @@ export async function chatCompletion(opts, onEvent) {
   const state = { content: "", tools: [], finish: null, usage: null };
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
-  let rawBuffer = "";
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    const text = decoder.decode(value, { stream: true });
-    rawBuffer += text;
-    for (const ev of parser.feed(text)) {
+    for (const ev of parser.feed(decoder.decode(value, { stream: true }))) {
       foldEvent(ev, state);
       emit(onEvent, ev);
-    }
-  }
-  // Some DeepSeek stream chunks carry finish_reason at the top level of the
-  // JSON object rather than inside choices[0]. Scan the raw buffer for these
-  // so finishReason is always populated.
-  if (state.finish === null) {
-    for (const line of rawBuffer.split("\n")) {
-      if (!line.startsWith("data:")) continue;
-      const data = line.slice(5).trim();
-      if (data === "[DONE]") continue;
-      try {
-        const j = JSON.parse(data);
-        if (j && j.finish_reason) { state.finish = j.finish_reason; break; }
-      } catch { /* skip */ }
     }
   }
 

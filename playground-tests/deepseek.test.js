@@ -8,7 +8,7 @@ function dataLine(obj) { return "data: " + JSON.stringify(obj) + "\n\n"; }
 test("deepseek: streams text and reports success", async () => {
   const chunks = [
     dataLine({ choices: [{ delta: { content: "Hi" } }] }),
-    dataLine({ choices: [{ delta: { content: " there" } }], finish_reason: "stop" }),
+    dataLine({ choices: [{ delta: { content: " there" }, finish_reason: "stop" }] }),
     "data: [DONE]\n\n",
   ];
   const fetchImpl = async () => fakeStreamResponse(chunks);
@@ -24,7 +24,7 @@ test("deepseek: accumulates a tool call", async () => {
     dataLine({ choices: [{ delta: { tool_calls: [
       { index: 0, id: "c1", function: { name: "read", arguments: '{"path":' } } ] } }] }),
     dataLine({ choices: [{ delta: { tool_calls: [
-      { index: 0, function: { arguments: '"a.txt"}' } } ] } }], finish_reason: "tool_calls" }),
+      { index: 0, function: { arguments: '"a.txt"}' } } ] }, finish_reason: "tool_calls" }] }),
     "data: [DONE]\n\n",
   ];
   const res = await chatCompletion(
