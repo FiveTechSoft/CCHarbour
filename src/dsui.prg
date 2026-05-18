@@ -241,7 +241,7 @@ FUNCTION DSUI_Glyph( cName )
 
 // Pads cText to nWidth display columns, counting UTF-8 characters (not bytes).
 // cAlign is "L" (default), "C" (centre) or "R" (right). Over-long text is cut.
-FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
+STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    LOCAL nLen, nPad, nLeft
    cText := hb_CStr( cText )
    nLen  := hb_UTF8Len( cText )
