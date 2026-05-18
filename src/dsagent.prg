@@ -118,6 +118,13 @@ STATIC FUNCTION DS_AgentAsstMsg( hChat )
                                       "arguments" => tc[ "arguments" ] } } )
       NEXT
       hMsg[ "tool_calls" ] := aTC
+      // thinking models require their reasoning_content to be passed back on
+      // the assistant message that carries tool_calls
+      IF hb_HHasKey( hChat, "reasoning_content" ) .AND. ;
+         ValType( hChat[ "reasoning_content" ] ) == "C" .AND. ;
+         !Empty( hChat[ "reasoning_content" ] )
+         hMsg[ "reasoning_content" ] := hChat[ "reasoning_content" ]
+      ENDIF
    ENDIF
    RETURN hMsg
 

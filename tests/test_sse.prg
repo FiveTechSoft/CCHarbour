@@ -61,4 +61,13 @@ FUNCTION Test_SSE()
    oP := DSSSE_New()
    DSSSE_Feed( oP, "data: [DONE]" + Chr(10), {| h | AAdd( aEvents, h ) } )
    T_Equal( aEvents[ 1 ][ "type" ], "done", "sse: done event" )
+
+   // a reasoning_content delta emits a reasoning_delta event
+   aEvents := {}
+   oP := DSSSE_New()
+   DSSSE_Feed( oP, 'data: {"choices":[{"delta":{"reasoning_content":"hmm"}}]}' + Chr(10), ;
+               {| h | AAdd( aEvents, h ) } )
+   T_Equal( Len( aEvents ), 1, "sse: one event from a reasoning delta" )
+   T_Equal( aEvents[ 1 ][ "type" ], "reasoning_delta", "sse: reasoning event type" )
+   T_Equal( aEvents[ 1 ][ "text" ], "hmm", "sse: reasoning delta text" )
    RETURN NIL

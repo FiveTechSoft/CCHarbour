@@ -3,7 +3,7 @@ FUNCTION Test_Settings()
 
    // defaults
    hD := DSSettings_Defaults()
-   T_Equal( hD[ "model" ], "deepseek-chat", "settings: default model" )
+   T_Equal( hD[ "model" ], "deepseek-v4-flash", "settings: default model" )
    T_Equal( hD[ "base_url" ], "https://api.deepseek.com", "settings: default base_url" )
    T_Equal( hD[ "max_iterations" ], 25, "settings: default max_iterations" )
    T_Equal( hD[ "permissions" ][ "shell" ], "ask", "settings: default shell mode" )
@@ -11,7 +11,7 @@ FUNCTION Test_Settings()
 
    // missing file -> defaults
    hL := DSSettings_Load( hb_DirTemp() + "no_such_settings.json" )
-   T_Equal( hL[ "model" ], "deepseek-chat", "settings: missing file uses defaults" )
+   T_Equal( hL[ "model" ], "deepseek-v4-flash", "settings: missing file uses defaults" )
 
    // a file overriding model and one permission
    cTmp := hb_DirTemp() + "ccharbour_test_settings.json"
@@ -27,7 +27,7 @@ FUNCTION Test_Settings()
    cTmp := hb_DirTemp() + "ccharbour_bad_settings.json"
    hb_MemoWrit( cTmp, "{not valid json" )
    hL := DSSettings_Load( cTmp )
-   T_Equal( hL[ "model" ], "deepseek-chat", "settings: malformed file uses defaults" )
+   T_Equal( hL[ "model" ], "deepseek-v4-flash", "settings: malformed file uses defaults" )
    FErase( cTmp )
 
    hL := DSSettings_Defaults()

@@ -24,7 +24,7 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    hResult := { "success" => .F., "content" => "", "tool_calls" => {}, ;
                 "finish_reason" => NIL, "usage" => NIL, "error_type" => NIL, ;
                 "status" => NIL, "curl_code" => NIL, "retryable" => .F., ;
-                "message" => NIL }
+                "message" => NIL, "reasoning_content" => "" }
 
    // 1. resolve key/url (fail fast, no HTTP)
    hCfg := DSCFG_Resolve( oClient[ "opts" ] )
@@ -56,7 +56,7 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
 
    // 3. stream: feed every chunk to a fresh parser; assemble into hState
    hState  := { "content" => "", "tools" => {}, "finish" => NIL, ;
-                "usage" => NIL, "got_done" => .F., "raw" => "" }
+                "usage" => NIL, "got_done" => .F., "raw" => "", "reasoning" => "" }
    oParser := DSSSE_New()
    bEmit   := {| hEv | DS_OnEvent( hEv, hState, bOnEvent ) }
 
@@ -93,11 +93,12 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
       RETURN hResult
    ENDIF
 
-   hResult[ "success" ]       := .T.
-   hResult[ "content" ]       := hState[ "content" ]
-   hResult[ "tool_calls" ]    := hState[ "tools" ]
-   hResult[ "finish_reason" ] := hState[ "finish" ]
-   hResult[ "usage" ]         := hState[ "usage" ]
+   hResult[ "success" ]           := .T.
+   hResult[ "content" ]           := hState[ "content" ]
+   hResult[ "tool_calls" ]        := hState[ "tools" ]
+   hResult[ "finish_reason" ]     := hState[ "finish" ]
+   hResult[ "usage" ]             := hState[ "usage" ]
+   hResult[ "reasoning_content" ] := hState[ "reasoning" ]
    RETURN hResult
 
 STATIC FUNCTION DS_BuildBody( cModel, aMessages, hParams )
@@ -129,6 +130,8 @@ STATIC FUNCTION DS_OnEvent( hEv, hState, bOnEvent )
    DO CASE
    CASE hEv[ "type" ] == "text_delta"
       hState[ "content" ] += hEv[ "text" ]
+   CASE hEv[ "type" ] == "reasoning_delta"
+      hState[ "reasoning" ] += hEv[ "text" ]
    CASE hEv[ "type" ] == "tool_call_delta"
       DS_AccTool( hState[ "tools" ], hEv )
    CASE hEv[ "type" ] == "finish"

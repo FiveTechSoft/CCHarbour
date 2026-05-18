@@ -31,11 +31,19 @@ STATIC FUNCTION SSE_Tool( cId, cName )
           'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}' + Chr(10) + ;
           "data: [DONE]" + Chr(10)
 
+// SSE for a thinking-model turn: reasoning then tool call.
+STATIC FUNCTION SSE_ThinkTool( cReasoning, cId, cName )
+   RETURN 'data: {"choices":[{"delta":{"reasoning_content":"' + cReasoning + '"}}]}' + Chr(10) + ;
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"' + cId + ;
+          '","function":{"name":"' + cName + '","arguments":"{}"}}]}}]}' + Chr(10) + ;
+          'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}' + Chr(10) + ;
+          "data: [DONE]" + Chr(10)
+
 STATIC FUNCTION HttpOK()
    RETURN { "ok" => .T., "status" => 200, "curl_code" => 0, "error" => "" }
 
 FUNCTION Test_Agent()
-   LOCAL oClient, hRes, bTransport, aInput
+   LOCAL oClient, hRes, bTransport, aInput, hAsstMsg, i
 
    oClient := DS_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
 
@@ -130,4 +138,29 @@ FUNCTION Test_Agent()
    T_Equal( hRes[ "success" ], .F., "agent: api failure success flag" )
    T_Equal( hRes[ "error_type" ], "network", "agent: api failure error_type" )
    T_Equal( hRes[ "stop_reason" ], "error", "agent: api failure stop reason" )
+
+   // reasoning_content round-trip: thinking model emits reasoning before tool call;
+   // the assistant message carrying tool_calls must include reasoning_content
+   bTransport := AgentTransport( { ;
+      { "sse" => SSE_ThinkTool( "think", "c1", "noop" ), "http" => HttpOK() }, ;
+      { "sse" => SSE_Text( "done" ),                     "http" => HttpOK() } } )
+   hRes := DS_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "go" } }, ;
+      { "transport" => bTransport, ;
+        "tool_executor" => {| cName, cArgs | ;
+           HB_SYMBOL_UNUSED( cName ), HB_SYMBOL_UNUSED( cArgs ), "ok" } }, NIL )
+   T_Equal( hRes[ "success" ], .T., "agent: thinking tool turn success" )
+   // find the assistant message that has tool_calls
+   hAsstMsg := NIL
+   FOR i := 1 TO Len( hRes[ "messages" ] )
+      IF hb_HHasKey( hRes[ "messages" ][ i ], "tool_calls" )
+         hAsstMsg := hRes[ "messages" ][ i ]
+         EXIT
+      ENDIF
+   NEXT
+   T_Assert( hAsstMsg != NIL, "agent: found tool_calls assistant message" )
+   T_Assert( hb_HHasKey( hAsstMsg, "reasoning_content" ), ;
+             "agent: tool_calls message has reasoning_content" )
+   T_Equal( hAsstMsg[ "reasoning_content" ], "think", ;
+            "agent: reasoning_content value round-trips" )
    RETURN NIL
