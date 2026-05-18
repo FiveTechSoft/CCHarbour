@@ -148,4 +148,25 @@ FUNCTION Test_Github()
             "github_write: create_pr result" )
    DSHTTP_SetTestTransport( NIL )
 
+   // file content over 30000 bytes is truncated
+   hTool := DSTool_GithubRead( "" )
+   DSHTTP_SetTestTransport( {| hR | HB_SYMBOL_UNUSED( hR ), ;
+      { "ok" => .T., "status" => 200, "error" => "", ;
+        "body" => hb_jsonEncode( { "content" => ;
+           hb_base64Encode( Replicate( "a", 30001 ) ) } ) } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "file", "repo" => "a/b", "path" => "big.txt" } )
+   T_Assert( "[output truncated]" $ cRes, "github_read: file truncated" )
+   DSHTTP_SetTestTransport( NIL )
+
+   // file/list path is percent-encoded in the URL
+   DSHTTP_SetTestTransport( {| hR | ;
+      T_Equal( hR[ "url" ], ;
+               "https://api.github.com/repos/a/b/contents/my%20dir/f.txt", ;
+               "github_read: path encoded" ), ;
+      { "ok" => .T., "status" => 200, "body" => "{}", "error" => "" } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "list", "repo" => "a/b", "path" => "my dir/f.txt" } )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL

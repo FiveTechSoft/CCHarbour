@@ -47,4 +47,9 @@ FUNCTION Test_Http()
    T_Equal( hRes[ "ok" ], .F., "fetch: missing url ok flag" )
    T_Equal( hRes[ "error" ], "missing url", "fetch: missing url error" )
 
+   // url with an embedded quote is rejected before reaching the command line
+   hRes := DSHTTP_Fetch( { "url" => 'https://x/' + Chr( 34 ) + ' bad' } )
+   T_Equal( hRes[ "ok" ], .F., "fetch: unsafe url ok flag" )
+   T_Equal( hRes[ "error" ], "invalid url", "fetch: unsafe url error" )
+
    RETURN NIL

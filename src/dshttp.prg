@@ -109,6 +109,18 @@ FUNCTION DSHTTP_Fetch( hReq )
    ENDIF
    RETURN DSHTTP_CurlFetch( hReq )
 
+// True when a URL contains characters unsafe on the curl command line:
+// a double-quote, whitespace, or any control character (byte <= 32).
+STATIC FUNCTION DSHTTP_UnsafeUrl( cUrl )
+   LOCAL i, nByte
+   FOR i := 1 TO hb_BLen( cUrl )
+      nByte := hb_BCode( hb_BSubStr( cUrl, i, 1 ) )
+      IF nByte <= 32 .OR. nByte == 34
+         RETURN .T.
+      ENDIF
+   NEXT
+   RETURN .F.
+
 // Real transport: spawns curl.exe and accumulates its whole stdout.
 STATIC FUNCTION DSHTTP_CurlFetch( hReq )
    LOCAL hProc, hIn, hOut, hErr, hTmp
@@ -120,6 +132,11 @@ STATIC FUNCTION DSHTTP_CurlFetch( hReq )
    IF !hb_HHasKey( hReq, "url" ) .OR. Empty( hReq[ "url" ] )
       RETURN { "ok" => .F., "status" => 0, "body" => "", ;
                "error" => "missing url" }
+   ENDIF
+
+   IF DSHTTP_UnsafeUrl( hb_CStr( hReq[ "url" ] ) )
+      RETURN { "ok" => .F., "status" => 0, "body" => "", ;
+               "error" => "invalid url" }
    ENDIF
 
    cMethod := iif( hb_HHasKey( hReq, "method" ) .AND. !Empty( hReq[ "method" ] ), ;

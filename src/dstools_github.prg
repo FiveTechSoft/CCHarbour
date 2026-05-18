@@ -25,6 +25,14 @@ STATIC FUNCTION DSGithub_UrlEncode( cText )
    NEXT
    RETURN cOut
 
+// Percent-encodes a file path for a URL, preserving the "/" separators.
+STATIC FUNCTION DSGithub_UrlEncodePath( cPath )
+   LOCAL aSeg := hb_ATokens( cPath, "/" ), cOut := "", i
+   FOR i := 1 TO Len( aSeg )
+      cOut += iif( i > 1, "/", "" ) + DSGithub_UrlEncode( aSeg[ i ] )
+   NEXT
+   RETURN cOut
+
 // Extracts the "message" field from a GitHub error JSON body, or "".
 STATIC FUNCTION DSGithub_ApiMessage( cBody )
    LOCAL xJson := hb_jsonDecode( cBody )
@@ -77,7 +85,7 @@ STATIC FUNCTION DSTool_GithubReadRun( hArgs, cToken )
             RETURN "Error: github_read '" + cOp + "' requires 'path'"
          ENDIF
          cUrl := "https://api.github.com/repos/" + cRepo + "/contents/" + ;
-                 hb_CStr( hArgs[ "path" ] )
+                 DSGithub_UrlEncodePath( hb_CStr( hArgs[ "path" ] ) )
       CASE cOp == "issues"
          cUrl := "https://api.github.com/repos/" + cRepo + "/issues"
       CASE cOp == "issue"
@@ -109,6 +117,13 @@ STATIC FUNCTION DSTool_GithubReadRun( hArgs, cToken )
    ENDIF
    RETURN DSGithub_FormatRead( cOp, hRes[ "body" ] )
 
+// Caps a string at 30000 bytes, appending a marker when it had to be cut.
+STATIC FUNCTION DSGithub_Cap( cText )
+   IF hb_BLen( cText ) > 30000
+      RETURN hb_BLeft( cText, 30000 ) + Chr( 10 ) + "[output truncated]" + Chr( 10 )
+   ENDIF
+   RETURN cText
+
 // Formats a successful github_read response by operation.
 STATIC FUNCTION DSGithub_FormatRead( cOp, cBody )
    LOCAL xJson, cText, h1
@@ -116,9 +131,9 @@ STATIC FUNCTION DSGithub_FormatRead( cOp, cBody )
    CASE cOp == "file"
       xJson := hb_jsonDecode( cBody )
       IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "content" )
-         RETURN hb_base64Decode( StrTran( hb_CStr( xJson[ "content" ] ), Chr( 10 ), "" ) )
+         RETURN DSGithub_Cap( hb_base64Decode( StrTran( hb_CStr( xJson[ "content" ] ), Chr( 10 ), "" ) ) )
       ENDIF
-      RETURN cBody
+      RETURN DSGithub_Cap( cBody )
    CASE cOp == "list"
       xJson := hb_jsonDecode( cBody )
       IF ValType( xJson ) == "A"
@@ -129,14 +144,11 @@ STATIC FUNCTION DSGithub_FormatRead( cOp, cBody )
                         hb_CStr( h1[ "name" ] ) + Chr( 10 )
             ENDIF
          NEXT
-         RETURN cText
+         RETURN DSGithub_Cap( cText )
       ENDIF
-      RETURN cBody
+      RETURN DSGithub_Cap( cBody )
    ENDCASE
-   IF hb_BLen( cBody ) > 30000
-      RETURN hb_BLeft( cBody, 30000 ) + Chr( 10 ) + "[output truncated]" + Chr( 10 )
-   ENDIF
-   RETURN cBody
+   RETURN DSGithub_Cap( cBody )
 
 // github_write: GitHub mutations. cToken is mandatory — an empty token yields
 // a clear error at call time.
