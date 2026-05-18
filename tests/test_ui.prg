@@ -83,4 +83,16 @@ FUNCTION Test_UI()
              "ui: banner has help hint" )
    T_Assert( DSUI_Glyph( "tl" ) $ DSUI_Banner( "m", "c", "u" ), ;
              "ui: banner has a rounded top-left corner" )
+
+   // input frame helpers
+   DSUI_SetColor( .F. )
+   T_Equal( hb_UTF8Len( DSUI_FrameTop() ), 79, "ui: frame top is 79 columns" )
+   T_Equal( hb_UTF8Len( DSUI_FrameBottom() ), 79, "ui: frame bottom is 79 columns" )
+   T_Assert( DSUI_Glyph( "tl" ) $ DSUI_FrameTop(), "ui: frame top rounded corner" )
+   T_Assert( DSUI_Glyph( "bl" ) $ DSUI_FrameBottom(), "ui: frame bottom rounded corner" )
+   T_Assert( "/help" $ DSUI_InputHint(), "ui: input hint mentions /help" )
+
+   // system prompt asks for a suggested next prompt
+   T_Assert( "Suggested next:" $ DSUI_SystemPrompt(), ;
+             "ui: system prompt requests a suggested next line" )
    RETURN NIL

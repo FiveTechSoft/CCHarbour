@@ -201,7 +201,9 @@ FUNCTION DSUI_SystemPrompt()
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
-            "tasks. Be concise."
+            "tasks. Be concise. " + ;
+            "End every reply with a final line in the exact form " + ;
+            "'Suggested next: <a short prompt the user might send next>'."
    cProj := DSUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
@@ -300,6 +302,23 @@ FUNCTION DSUI_Banner( cModel, cCwd, cUser )
 // input prompt the way Claude Code does.
 FUNCTION DSUI_Rule()
    RETURN Replicate( DSUI_Glyph( "h" ), 79 )
+
+// The rounded top border of the input frame, 79 columns wide.
+FUNCTION DSUI_FrameTop()
+   RETURN DSUI_Color( DSUI_Glyph( "tl" ) + ;
+          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "tr" ), ;
+          DSUI_Pal( "dim" ) )
+
+// The rounded bottom border of the input frame, 79 columns wide.
+FUNCTION DSUI_FrameBottom()
+   RETURN DSUI_Color( DSUI_Glyph( "bl" ) + ;
+          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "br" ), ;
+          DSUI_Pal( "dim" ) )
+
+// The dim hint line shown beneath the input frame.
+FUNCTION DSUI_InputHint()
+   RETURN DSUI_Color( "  /help for commands  " + Chr(226)+Chr(128)+Chr(162) + ;
+          "  /exit to quit", DSUI_Pal( "dim" ) )
 
 // The text shown by the /help command.
 FUNCTION DSUI_Help()
