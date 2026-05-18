@@ -114,4 +114,11 @@ FUNCTION Test_UI()
    T_Assert( "+ added" $ DSUI_ResultSummary( "edit", ;
              "     1 + added" + Chr(10) + "     2   kept" + Chr(10) ), ;
              "ui: diff content keeps the diff block" )
+
+   // input box: inner width and the framed prompt line
+   DSUI_SetColor( .F. )
+   T_Equal( DSUI_InputInnerWidth(), 73, "ui: input inner width" )
+   T_Equal( hb_UTF8Len( DSUI_InputBoxLine( "hi" ) ), 79, "ui: input box line is 79 columns" )
+   T_Assert( "> hi" $ DSUI_InputBoxLine( "hi" ), "ui: input box line has the prompt + text" )
+   T_Assert( DSUI_Glyph( "v" ) $ DSUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
    RETURN NIL

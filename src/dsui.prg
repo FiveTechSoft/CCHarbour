@@ -372,6 +372,19 @@ FUNCTION DSUI_InputHint()
    RETURN DSUI_Color( "  /help for commands  " + Chr(226)+Chr(128)+Chr(162) + ;
           "  /exit to quit", DSUI_Pal( "dim" ) )
 
+// The text-column width available inside the input box (79 total: 2 borders,
+// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 73).
+FUNCTION DSUI_InputInnerWidth()
+   RETURN 73
+
+// One framed input-box prompt line: side borders, the "> " prompt, and cText
+// padded (or truncated) to the inner width. 79 display columns wide.
+FUNCTION DSUI_InputBoxLine( cText )
+   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
+   RETURN cV + " " + DSUI_Color( "> ", "1;36" ) + ;
+          DSUI_PadCell( hb_CStr( cText ), DSUI_InputInnerWidth(), "L" ) + ;
+          " " + cV
+
 // The text shown by the /help command.
 FUNCTION DSUI_Help()
    RETURN "Commands:" + Chr(10) + ;

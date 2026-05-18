@@ -203,7 +203,7 @@ STATIC FUNCTION DSREPL_AskExtend()
 // by DSREPL_InitConsole, so these bytes render correctly. Line feeds are
 // normalised to CRLF: bypassing the GT also loses its LF -> CRLF translation,
 // and a Windows console needs the CR to return to column 0.
-STATIC FUNCTION DSREPL_Out( cText )
+FUNCTION DSREPL_Out( cText )
    // Test the length, not Empty(): Empty() is true for a whitespace-only
    // string, so a streamed delta of just "\n" would be dropped and the line
    // break lost.
