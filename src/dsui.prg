@@ -54,6 +54,8 @@ FUNCTION DSUI_Summarize( cText, nMax )
    RETURN cFirst
 
 // Maps one agent/SSE event hash to display text ("" when the event is ignored).
+// tool_call and tool_result are rendered by the REPL render layer, which has
+// the tool-name state they need.
 FUNCTION DSUI_RenderEvent( hEv )
    LOCAL cType
    IF ValType( hEv ) != "H" .OR. !hb_HHasKey( hEv, "type" )
@@ -63,12 +65,6 @@ FUNCTION DSUI_RenderEvent( hEv )
    DO CASE
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
-   CASE cType == "tool_call"
-      RETURN Chr(10) + DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " " + ;
-             DSUI_ToolLabel( hEv[ "name" ], hEv[ "arguments" ] ), "1;36" ) + Chr(10)
-   CASE cType == "tool_result"
-      RETURN DSUI_Color( DSUI_ResultBlock( hb_CStr( hEv[ "content" ] ) ), ;
-             "90" ) + Chr(10)
    CASE cType == "error"
       RETURN Chr(10) + DSUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
              "31" ) + Chr(10)
