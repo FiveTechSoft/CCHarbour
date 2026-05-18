@@ -298,11 +298,6 @@ FUNCTION DSUI_Banner( cModel, cCwd, cUser )
            DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
-// A horizontal rule as wide as the startup banner box, used to frame the
-// input prompt the way Claude Code does.
-FUNCTION DSUI_Rule()
-   RETURN Replicate( DSUI_Glyph( "h" ), 79 )
-
 // The rounded top border of the input frame, 79 columns wide.
 FUNCTION DSUI_FrameTop()
    RETURN DSUI_Color( DSUI_Glyph( "tl" ) + ;
