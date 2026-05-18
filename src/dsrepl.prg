@@ -53,9 +53,12 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    ENDIF
    DO WHILE .T.
       IF !Empty( cSuggest )
-         DSCON_PrefillInput( cSuggest )
+         DSCON_PrefillInput( StrTran( StrTran( cSuggest, Chr(13), " " ), ;
+                                      Chr(10), " " ) )
          cSuggest := ""
       ENDIF
+      // the cursor-up-2 below assumes each frame line is one screen row
+      // (true for a console at least 79 columns wide)
       IF DSUI_ColorOn()
          // top border, blank prompt line, bottom border, hint; then move the
          // cursor back up onto the prompt line so the frame is fully drawn
@@ -133,6 +136,9 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oMd )
       hEv[ "type" ] == "text_delta"
       DSREPL_Out( DSMD_Feed( oMd, hb_CStr( hEv[ "text" ] ) ) )
    ELSE
+      // flush any buffered partial line so streamed narration prints before
+      // a tool-call / tool-result / error block, not after it
+      DSREPL_Out( DSMD_Flush( oMd ) )
       DSREPL_Out( DSUI_RenderEvent( hEv ) )
    ENDIF
    RETURN NIL
