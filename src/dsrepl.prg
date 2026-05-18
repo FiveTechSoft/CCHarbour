@@ -157,8 +157,10 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
    DO CASE
    CASE cType == "text_delta"
       IF !oRender[ "inText" ]
-         DSREPL_Out( DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " ", ;
-                                 DSUI_Pal( "accent" ) ) )
+         // blank line before the assistant bullet, so an answer that follows
+         // a tool result is separated from it -- matches Claude Code spacing
+         DSREPL_Out( Chr(10) + DSUI_Color( Chr(226)+Chr(143)+Chr(186) + " ", ;
+                                           DSUI_Pal( "accent" ) ) )
          oRender[ "inText" ] := .T.
       ENDIF
       DSREPL_Out( DSMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) ) )
