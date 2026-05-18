@@ -38,3 +38,9 @@ test("sse: finish and usage", () => {
     { type: "finish", finish_reason: "stop" },
   ]);
 });
+
+test("sse: reasoning_content delta", () => {
+  const p = createSSEParser();
+  const ev = p.feed(dataLine({ choices: [{ delta: { reasoning_content: "hmm" } }] }));
+  assert.deepEqual(ev, [{ type: "reasoning_delta", text: "hmm" }]);
+});

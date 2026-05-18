@@ -17,7 +17,7 @@ export async function chatCompletion(opts, onEvent) {
 
   const result = {
     success: false, content: "", toolCalls: [], finishReason: null,
-    usage: null, errorType: null, message: null,
+    usage: null, errorType: null, message: null, reasoningContent: "",
   };
 
   if (!apiKey) { result.errorType = "config"; result.message = "No DeepSeek API key"; return result; }
@@ -54,7 +54,7 @@ export async function chatCompletion(opts, onEvent) {
   }
 
   const parser = createSSEParser();
-  const state = { content: "", tools: [], finish: null, usage: null, done: false };
+  const state = { content: "", tools: [], finish: null, usage: null, done: false, reasoning: "" };
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   while (true) {
@@ -78,11 +78,13 @@ export async function chatCompletion(opts, onEvent) {
   result.toolCalls = state.tools.map((t) => ({ id: t.id, name: t.name, arguments: t.arguments }));
   result.finishReason = state.finish;
   result.usage = state.usage;
+  result.reasoningContent = state.reasoning;
   return result;
 }
 
 function foldEvent(ev, state) {
   if (ev.type === "text_delta") state.content += ev.text;
+  else if (ev.type === "reasoning_delta") state.reasoning += ev.text;
   else if (ev.type === "tool_call_delta") accTool(state.tools, ev);
   else if (ev.type === "finish") state.finish = ev.finish_reason;
   else if (ev.type === "usage") state.usage = ev.usage;

@@ -88,6 +88,8 @@ function assistantMessage(chat) {
       id: tc.id, type: "function",
       function: { name: tc.name, arguments: tc.arguments },
     }));
+    // thinking models require reasoning_content back on the tool-call turn
+    if (chat.reasoningContent) m.reasoning_content = chat.reasoningContent;
   }
   return m;
 }

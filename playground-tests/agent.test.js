@@ -75,3 +75,22 @@ test("agent: a failed completion ends the loop", async () => {
   assert.equal(res.stopReason, "error");
   assert.equal(res.errorType, "config");
 });
+
+test("agent: reasoning_content rides the tool-call message", async () => {
+  const reasoningToolTurn = [
+    dataLine({ choices: [{ delta: { reasoning_content: "think" } }] }),
+    dataLine({ choices: [{ delta: { tool_calls: [
+      { index: 0, id: "c1", function: { name: "noop", arguments: "{}" } } ] }, finish_reason: "tool_calls" }] }),
+    DONE,
+  ];
+  const res = await runAgent({
+    messages: [{ role: "user", content: "go" }],
+    model: "m",
+    tools: [{ type: "function", function: { name: "noop" } }],
+    toolExecutor: async () => "ok",
+    deepseekOpts: { apiKey: "k", fetchImpl: scriptedFetch([reasoningToolTurn, textTurn("done")]) },
+  });
+  const asst = res.messages.find((m) => m.role === "assistant" && m.tool_calls);
+  assert.ok(asst, "an assistant message with tool_calls exists");
+  assert.equal(asst.reasoning_content, "think");
+});
