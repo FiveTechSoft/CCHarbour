@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run playground tests
-        run: node --test playground-tests/
+        run: node --test playground-tests/*.test.js
