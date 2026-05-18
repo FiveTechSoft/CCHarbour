@@ -115,4 +115,37 @@ FUNCTION Test_Github()
             "github_write: non-2xx with message" )
    DSHTTP_SetTestTransport( NIL )
 
+   // --- create_pr missing args ---
+   hTool := DSTool_GithubWrite( "tok" )
+   cRes := Eval( hTool[ "handler" ], { "operation" => "create_pr", "repo" => "a/b", ;
+                                       "title" => "T" } )
+   T_Equal( cRes, "Error: github_write 'create_pr' requires 'title', 'head', 'base'", ;
+            "github_write: create_pr missing args" )
+
+   // --- comment posts to the issue comments URL ---
+   DSHTTP_SetTestTransport( {| hR | ;
+      T_Equal( hR[ "url" ], "https://api.github.com/repos/a/b/issues/9/comments", ;
+               "github_write: comment url" ), ;
+      { "ok" => .T., "status" => 201, "error" => "", ;
+        "body" => hb_jsonEncode( { "html_url" => "https://github.com/a/b/issues/9#c1" } ) } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "comment", "repo" => "a/b", "number" => 9, ;
+                   "body" => "nice" } )
+   T_Equal( cRes, "Created: https://github.com/a/b/issues/9#c1", ;
+            "github_write: comment result" )
+   DSHTTP_SetTestTransport( NIL )
+
+   // --- create_pr posts to the pulls URL ---
+   DSHTTP_SetTestTransport( {| hR | ;
+      T_Equal( hR[ "url" ], "https://api.github.com/repos/a/b/pulls", ;
+               "github_write: create_pr url" ), ;
+      { "ok" => .T., "status" => 201, "error" => "", ;
+        "body" => hb_jsonEncode( { "html_url" => "https://github.com/a/b/pull/3" } ) } } )
+   cRes := Eval( hTool[ "handler" ], ;
+                 { "operation" => "create_pr", "repo" => "a/b", "title" => "PR", ;
+                   "head" => "feature", "base" => "master", "body" => "desc" } )
+   T_Equal( cRes, "Created: https://github.com/a/b/pull/3", ;
+            "github_write: create_pr result" )
+   DSHTTP_SetTestTransport( NIL )
+
    RETURN NIL
