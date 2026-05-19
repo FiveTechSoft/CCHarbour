@@ -147,3 +147,9 @@ user-defined slash commands.
 
 **v0.5 — providers.** Pluggable backends beyond DeepSeek; `CLAUDE.md` discovery
 up the directory tree and from the home directory.
+
+## Ideas
+
+A running scratch list of UI/UX ideas to explore — terminal tricks, status
+display, and ergonomics borrowed from Claude Code — is kept in
+[`todo.txt`](todo.txt).
