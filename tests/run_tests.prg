@@ -53,7 +53,3 @@ FUNCTION CCREPL_Out( cText )
 FUNCTION CCREPL_ReadLine()
    RETURN ""
 
-// Stub for CCCON_Size used by ccprompt.prg. CCPROMPT_New is always called
-// with an explicit hSize in tests, so this stub is never executed.
-FUNCTION CCCON_Size()
-   RETURN { "rows" => 24, "cols" => 80 }
