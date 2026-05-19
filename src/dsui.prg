@@ -438,7 +438,7 @@ FUNCTION DSUI_InputBoxLine( cText )
 FUNCTION DSUI_Help()
    RETURN "Commands:" + Chr(10) + ;
           "  /help          show this help" + Chr(10) + ;
-          "  /init          analyse the project and write CLAUDE.md" + Chr(10) + ;
+          "  /init          analyse the project and write CC.md" + Chr(10) + ;
           "  /model [name]  show the model, or switch to <name>" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;

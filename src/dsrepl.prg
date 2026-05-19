@@ -49,7 +49,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
    IF !Empty( DSUI_ProjectContext() )
-      DSREPL_Out( DSUI_Color( "[loaded CLAUDE.md project instructions]", ;
+      DSREPL_Out( DSUI_Color( "[loaded CC.md project instructions]", ;
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
