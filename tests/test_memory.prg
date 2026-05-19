@@ -37,6 +37,13 @@ FUNCTION Test_Memory()
    cRes := Eval( hTool[ "handler" ], { "operation" => "bogus" } )
    T_Equal( cRes, "Error: memory: unknown operation 'bogus'", "memory: unknown op" )
 
+   // append separates from an existing file that lacks a trailing newline
+   hb_MemoWrit( cTmp, "seed line" )
+   Eval( hTool[ "handler" ], { "operation" => "append", "text" => "next line" } )
+   cRes := Eval( hTool[ "handler" ], { "operation" => "read" } )
+   T_Assert( ( "seed line" + Chr(10) + "next line" ) $ cRes, ;
+             "memory: append normalises a missing trailing newline" )
+
    // append to an unwritable path returns an error
    hTool := DSTool_Memory( "Z:\no_such_dir\deep\mem.md" )
    cRes := Eval( hTool[ "handler" ], { "operation" => "append", "text" => "x" } )

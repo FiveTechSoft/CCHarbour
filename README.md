@@ -15,7 +15,7 @@ project, and run shell commands, all from a single console executable.
 │                \  |  /                 │ Type a request to begin            │
 │              -- (CC) --                │ Run /help to list commands         │
 │                /  |  \                 │ ────────────────────────────────── │
-│          model: deepseek-chat          │ What's new ...                     │
+│        model: deepseek-v4-flash        │ What's new ...                     │
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
