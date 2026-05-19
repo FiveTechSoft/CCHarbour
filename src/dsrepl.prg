@@ -43,7 +43,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, oRender
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, oRender, lCooked
    aMsgs    := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -52,14 +52,17 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
+      lCooked := .F.
       IF DSCON_HasConsole()
          cLine := DSIN_ReadLine( cSuggest )
          IF ValType( cLine ) == "H"   // the no-console sentinel
+            lCooked := .T.
             DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + "> " )
             cLine := DSREPL_ReadLine()
          ENDIF
       ELSE
          // piped / non-interactive input: the cooked reader, no box editor
+         lCooked := .T.
          DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + "> " )
          cLine := DSREPL_ReadLine()
       ENDIF
@@ -67,7 +70,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       IF cLine == NIL
          EXIT
       ENDIF
-      IF !DSCON_HasConsole()
+      IF lCooked
          DSREPL_Out( DSUI_FrameBottom() + Chr(10) )
       ENDIF
       hAction := DSUI_ParseCommand( cLine )
