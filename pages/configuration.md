@@ -59,8 +59,9 @@ freeze the agent. The limit is chosen in this order:
    commands like `echo` or `dir` get a few seconds; builds and network
    commands get more.
 
-A command that exceeds its limit is abandoned and its output ends with
-`[timed out after N seconds]`.
+While a command runs, the REPL shows a live countdown — the configured
+timeout and the seconds still left. A command that exceeds its limit is
+abandoned and its output ends with `[timed out after N seconds]`.
 
 ## CC.md
 

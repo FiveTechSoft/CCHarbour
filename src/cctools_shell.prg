@@ -31,7 +31,7 @@ FUNCTION CCTool_Shell( cCoAuthor, nTimeout )
 STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    LOCAL cCommand, cCmdLine, cOut := "", cErr := "", nExit, cResult
    LOCAL cOutFile, hProc, hIn, hOut, hErr, nStart, lTimedOut := .F.
-   LOCAL nActualTimeout
+   LOCAL nActualTimeout, lShow, nLeft, nShown := -1
 
    cCommand := hb_CStr( hArgs[ "command" ] )
 
@@ -77,7 +77,9 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
       FClose( hErr )
 
       // Poll the process: hb_processValue( hProc, .F. ) returns -1 while the
-      // process is still running, otherwise its real exit code.
+      // process is still running, otherwise its real exit code. While it
+      // runs, show a live countdown of the remaining timeout.
+      lShow  := CCUI_ColorOn()
       nExit  := -1
       nStart := Seconds()
       DO WHILE .T.
@@ -85,12 +87,22 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
          IF nExit != -1
             EXIT   // command finished
          ENDIF
-         IF Seconds() - nStart >= nActualTimeout
+         nLeft := nActualTimeout - ( Seconds() - nStart )
+         IF nLeft <= 0
             lTimedOut := .T.
             EXIT
          ENDIF
+         IF lShow .AND. Int( nLeft ) != nShown
+            nShown := Int( nLeft )
+            CCTool_ShowCountdown( nActualTimeout, nShown )
+         ENDIF
          hb_IdleSleep( 0.05 )
       ENDDO
+
+      // erase the countdown line so the result summary prints cleanly
+      IF lShow
+         CCTool_ClearCountdown()
+      ENDIF
 
       // On timeout, release the process handle (the orphaned cmd.exe ends
       // on its own); on normal completion hb_processValue already reaped it.
@@ -130,6 +142,22 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    ENDIF
    cResult += "[exit code: " + LTrim( Str( nExit ) ) + "]"
    RETURN cResult
+
+// Renders the shell countdown line in place (carriage return + clear-to-EOL):
+// the configured timeout and the seconds still left before it fires.
+STATIC FUNCTION CCTool_ShowCountdown( nTotal, nLeft )
+   LOCAL cBr := Chr(226)+Chr(142)+Chr(191)   // the ⎿ result glyph
+   FWrite( hb_GetStdOut(), ;
+      Chr(13) + "  " + cBr + " " + Chr(27) + "[90m" + ;
+      "timeout " + LTrim( Str( Int( nTotal ) ) ) + "s · " + ;
+      LTrim( Str( Int( nLeft ) ) ) + "s left" + ;
+      Chr(27) + "[0m" + Chr(27) + "[K" )
+   RETURN NIL
+
+// Erases the in-place countdown line so the result summary prints cleanly.
+STATIC FUNCTION CCTool_ClearCountdown()
+   FWrite( hb_GetStdOut(), Chr(13) + Chr(27) + "[K" )
+   RETURN NIL
 
 // Returns .T. when cCmd looks like a "git commit" invocation.
 // Checks that the command contains "git commit" and does not already have
