@@ -68,6 +68,18 @@ via the environment.
 
 Anything else is sent to the assistant.
 
+### Key bindings (raw-mode input box)
+
+| Key           | Action                        |
+|---------------|-------------------------------|
+| ← / →         | move cursor left / right      |
+| ↑ / ↓         | navigate input history        |
+| Home / End    | jump to start / end of line   |
+| Delete        | delete character at cursor    |
+| Backspace     | delete character before cursor|
+| Ctrl+C        | cancel / return to prompt     |
+| Enter         | submit the line               |
+
 ### Configuration
 
 Settings load from `.ccharbour/settings.json` under the working directory (or
@@ -101,6 +113,8 @@ directory is appended to the system prompt as project instructions.
 | `src/dssettings.prg`   | `settings.json` loading                     |
 | `src/dsperm.prg`       | permission gate (allow / deny / ask)        |
 | `src/dsconfig.prg`     | API-key resolution                          |
+| `src/dsinput.prg`      | raw-mode line editor with input history     |
+| `src/dsconsole.c`      | Win32 console layer (raw mode, key reading) |
 | `tests/`               | test suite (`test_*.prg`)                   |
 | `docs/superpowers/`    | design specs and implementation plans       |
 
@@ -110,43 +124,43 @@ directory is appended to the system prompt as project instructions.
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
 - Agent loop with tool calls and an iteration cap
-- Tools: read, write, edit, glob, grep, shell
+- Tools: read, write, edit, glob, grep, shell, web, github, memory
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading with defaults
 - `CC.md` project-instruction loading
 - Diff rendering on edit / write
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
   framed prompt and tool-call rendering
+- Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete
 - Commands: `/help`, `/init`, `/model`, `/clear`, `/exit`
 - `build.bat` build script
-- Test suite
+- Test suite (340 tests, 0 failures)
 
 ### Missing
 
-- REPL line editing — no arrow keys, no input history, no `Ctrl+C` to cancel
-  a running stream
-- Conversation persistence — history is lost on exit; no resume
+- `Ctrl+C` to cancel a running stream
 - Multi-line / pasted-block input
+- Conversation persistence — history is lost on exit; no resume
 - More commands — `/cost`, `/tools`, user-defined commands
-- More tools — task list, web fetch
+- More tools — task list, web fetch result formatting
 - Multi-provider support — DeepSeek only today
 - `CC.md` discovery from parent and home directories
 
 ## Roadmap
 
-**v0.1 — current.** Working agent: streaming, tools, permissions, settings,
-project context, themed terminal UI.
+**v0.2 — current.** Raw-mode line editor with arrow keys, input history,
+Home/End/Delete support.
 
-**v0.2 — REPL experience.** Raw-mode line editor: arrow keys, input history,
-`Ctrl+C` to cancel a stream, multi-line input for pasted code.
+**v0.3 — REPL experience.** `Ctrl+C` to cancel a stream, multi-line input
+for pasted code.
 
-**v0.3 — persistence.** Save and resume conversations; `/cost` session summary;
+**v0.4 — persistence.** Save and resume conversations; `/cost` session summary;
 per-project history.
 
-**v0.4 — tools & commands.** Task-list tool, web fetch, `/tools`, and
-user-defined slash commands.
+**v0.5 — tools & commands.** Task-list tool, `/tools`, and user-defined
+slash commands.
 
-**v0.5 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
+**v0.6 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
 ## Ideas

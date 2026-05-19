@@ -16,6 +16,33 @@
 /tests/test.prg
 /tests/test_output.txt
 
+# build scripts and temp files
+/build_*.bat
+/capture_wrapper.bat
+/cc_new.exe
+/cc_new.tds
+/temp_cc/
+/temp/
+/temp_cc.c
+/test*.prg
+/ejemplo.prg
+/fib.prg
+/leer_csv.prg
+/primos.prg
+/test.hbp
+/test2.hbp
+/test_output.txt
+/tests/build_out.txt
+/tests/build_tests.bat
+/ejemplos/
+/datos.csv
+/resultado.txt
+/output.txt
+/salida_test.txt
+/bcc_cmd.txt
+/build_out.txt
+/build_err.txt
+
 # session transcripts
 *-puedes-implementar-*.txt
 

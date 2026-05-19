@@ -56,3 +56,74 @@ FUNCTION Test_Input()
    T_Equal( DSIN_Utf8Chr( 233 ), Chr(195)+Chr(169), "input: utf8chr 2-byte (e-acute)" )
 
    RETURN NIL
+
+FUNCTION Test_InputHistory()
+   LOCAL cLine, i, nCount
+
+   // Start clean
+   DSIN_HistoryClear()
+   T_Equal( DSIN_HistoryCount(), 0, "history: count 0 after clear" )
+
+   // Add entries
+   DSIN_HistoryAdd( "hello" )
+   DSIN_HistoryAdd( "world" )
+   DSIN_HistoryAdd( "foo" )
+   T_Equal( DSIN_HistoryCount(), 3, "history: count 3 after adds" )
+
+   // Empty lines are ignored
+   DSIN_HistoryAdd( "" )
+   DSIN_HistoryAdd( "   " )
+   T_Equal( DSIN_HistoryCount(), 3, "history: empty lines ignored" )
+
+   // Duplicate of most recent is ignored
+   DSIN_HistoryAdd( "foo" )
+   T_Equal( DSIN_HistoryCount(), 3, "history: duplicate most-recent ignored" )
+
+   // Navigate: Prev goes from most-recent to oldest
+   DSIN_HistoryReset()
+   cLine := DSIN_HistoryPrev( "draft" )
+   T_Equal( cLine, "foo", "history: prev #1 -> most recent (foo)" )
+   cLine := DSIN_HistoryPrev( "draft" )
+   T_Equal( cLine, "world", "history: prev #2 -> world" )
+   cLine := DSIN_HistoryPrev( "draft" )
+   T_Equal( cLine, "hello", "history: prev #3 -> hello" )
+   cLine := DSIN_HistoryPrev( "draft" )
+   T_Equal( cLine, NIL, "history: prev #4 -> NIL (at oldest)" )
+
+   // Navigate: Next goes forward
+   cLine := DSIN_HistoryNext( "draft" )
+   T_Equal( cLine, "world", "history: next #1 -> world" )
+   cLine := DSIN_HistoryNext( "draft" )
+   T_Equal( cLine, "foo", "history: next #2 -> foo" )
+   cLine := DSIN_HistoryNext( "draft" )
+   T_Equal( cLine, "draft", "history: next #3 -> back to draft" )
+
+   // Draft is saved on first Prev
+   DSIN_HistoryReset()
+   cLine := DSIN_HistoryPrev( "my draft text" )
+   T_Equal( cLine, "foo", "history: prev with draft saved" )
+   // Navigate all the way down: from pos=0 (foo), next -> draft
+   cLine := DSIN_HistoryNext( "draft" )
+   T_Equal( cLine, "my draft text", "history: next from foo -> saved draft" )
+
+   // History is bounded
+   DSIN_HistoryClear()
+   FOR i := 1 TO 100
+      DSIN_HistoryAdd( "line " + LTrim( Str( i ) ) )
+   NEXT
+   T_Equal( DSIN_HistoryCount(), 50, "history: max 50 entries" )
+
+   // History after bounds: oldest entries dropped
+   cLine := DSIN_HistoryPrev( "" )
+   T_Equal( cLine, "line 100", "history: bounded -> most recent is line 100" )
+   cLine := DSIN_HistoryPrev( "" )
+   T_Equal( cLine, "line 99", "history: bounded -> second is line 99" )
+   // Go to the oldest
+   nCount := DSIN_HistoryCount()
+   FOR i := 1 TO nCount - 2
+      cLine := DSIN_HistoryPrev( "" )
+   NEXT
+   T_Equal( cLine, "line 51", "history: bounded -> oldest is line 51 (not 1)" )
+
+   DSIN_HistoryClear()
+   RETURN NIL
