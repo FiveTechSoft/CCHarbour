@@ -14,6 +14,7 @@ test_memory.prg
 test_ui.prg
 test_markdown.prg
 test_input.prg
+test_prompt.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
@@ -33,6 +34,7 @@ test_diff.prg
 ../src/ccui.prg
 ../src/ccmarkdown.prg
 ../src/ccinput.prg
+../src/ccprompt.prg
 ../src/ccconsole.c
 ../src/ccsettings.prg
 ../src/ccperm.prg

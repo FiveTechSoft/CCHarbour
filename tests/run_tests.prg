@@ -17,6 +17,7 @@ FUNCTION Main()
    Test_Markdown()
    Test_Input()
    Test_InputHistory()
+   Test_Prompt()
    Test_Settings()
    Test_Perm()
    Test_Diff()
@@ -48,6 +49,11 @@ FUNCTION CCREPL_Out( cText )
    HB_SYMBOL_UNUSED( cText )
    RETURN NIL
  
-// Stub for CCREPL_ReadLine used by dsagent.prg (pause/Esc feature). 
-FUNCTION CCREPL_ReadLine() 
+// Stub for CCREPL_ReadLine used by dsagent.prg (pause/Esc feature).
+FUNCTION CCREPL_ReadLine()
    RETURN ""
+
+// Stub for CCCON_Size used by ccprompt.prg. CCPROMPT_New is always called
+// with an explicit hSize in tests, so this stub is never executed.
+FUNCTION CCCON_Size()
+   RETURN { "rows" => 24, "cols" => 80 }
