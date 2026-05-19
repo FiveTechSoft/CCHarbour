@@ -12,6 +12,7 @@ test_web.prg
 test_github.prg
 test_ui.prg
 test_markdown.prg
+test_input.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
@@ -29,5 +30,7 @@ test_diff.prg
 ../src/dsdiff.prg
 ../src/dsui.prg
 ../src/dsmarkdown.prg
+../src/dsinput.prg
+../src/dsconsole.c
 ../src/dssettings.prg
 ../src/dsperm.prg

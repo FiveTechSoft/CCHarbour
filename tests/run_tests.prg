@@ -14,6 +14,7 @@ FUNCTION Main()
    Test_Github()
    Test_UI()
    Test_Markdown()
+   Test_Input()
    Test_Settings()
    Test_Perm()
    Test_Diff()
@@ -37,3 +38,10 @@ FUNCTION T_Equal( xActual, xExpected, cName )
                 ( hb_CStr( xActual ) == hb_CStr( xExpected ) )
    RETURN T_Assert( lOk, cName + iif( lOk, "", ;
       " (got <" + hb_CStr( xActual ) + "> want <" + hb_CStr( xExpected ) + ">)" ) )
+
+// Stub so the test build links dsinput.prg (which calls DSREPL_Out) without
+// pulling in dsrepl.prg (which defines Main). DSIN_ReadLine is never called
+// from tests, so this stub is never executed.
+FUNCTION DSREPL_Out( cText )
+   HB_SYMBOL_UNUSED( cText )
+   RETURN NIL
