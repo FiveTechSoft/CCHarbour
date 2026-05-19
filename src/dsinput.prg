@@ -90,7 +90,10 @@ FUNCTION DSIN_Utf8Chr( n )
 FUNCTION DSIN_ReadLine( cInitial )
    LOCAL oSt, nKey, hW, cResult := NIL, lDone := .F.
 
-   IF !DSCON_RawMode( .T. )
+   // the box editor needs VT cursor control; without it (no console, or a
+   // console that rejected virtual-terminal mode) fall back to the cooked
+   // reader via the sentinel.
+   IF !DSUI_ColorOn() .OR. !DSCON_RawMode( .T. )
       RETURN { "no_console" => .T. }
    ENDIF
 
@@ -132,6 +135,7 @@ FUNCTION DSIN_ReadLine( cInitial )
          DSIN_Delete( oSt )
       CASE nKey > 0
          DSIN_Insert( oSt, DSIN_Utf8Chr( nKey ) )
+      // nKey == -99 (an unmapped key) matches no case above and is ignored
       ENDCASE
       // redraw the prompt line in place
       hW := DSIN_Window( oSt, DSUI_InputInnerWidth() )
