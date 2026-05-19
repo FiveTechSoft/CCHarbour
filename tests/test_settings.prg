@@ -35,4 +35,7 @@ FUNCTION Test_Settings()
    T_Equal( hL[ "permissions" ][ "web_fetch" ], "ask", "settings: web_fetch perm" )
    T_Equal( hL[ "permissions" ][ "github_read" ], "allow", "settings: github_read perm" )
    T_Equal( hL[ "permissions" ][ "github_write" ], "ask", "settings: github_write perm" )
+
+   hL := DSSettings_Defaults()
+   T_Equal( hL[ "permissions" ][ "memory" ], "allow", "settings: memory perm" )
    RETURN NIL
