@@ -140,4 +140,11 @@ FUNCTION Test_UI()
    T_Equal( hb_UTF8Len( DSUI_DiffPad( "ab" ) ), 74, "ui: diff pad fills short line to 74" )
    T_Equal( DSUI_DiffPad( Replicate( "x", 80 ) ), Replicate( "x", 80 ), ;
             "ui: diff pad leaves a long line unchanged" )
+
+   // CLAUDE.md renamed to CC.md
+   T_Assert( "CC.md" $ DSUI_InitPrompt(), "ui: init prompt names CC.md" )
+   T_Assert( !( "CLAUDE.md" $ DSUI_InitPrompt() ), "ui: init prompt drops CLAUDE.md" )
+   T_Assert( "memory" $ Lower( DSUI_SystemPrompt() ) .OR. ;
+             ValType( DSUI_MemoryContext() ) == "C", "ui: memory context available" )
+   T_Equal( ValType( DSUI_MemoryContext() ), "C", "ui: memory context returns a string" )
    RETURN NIL

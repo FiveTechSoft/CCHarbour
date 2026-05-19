@@ -17,6 +17,7 @@ FUNCTION DSTools_Registry( hKeys )
    DSTools_Register( oReg, DSTool_WebFetch() )
    DSTools_Register( oReg, DSTool_GithubRead( hb_HGetDef( hKeys, "github", "" ) ) )
    DSTools_Register( oReg, DSTool_GithubWrite( hb_HGetDef( hKeys, "github", "" ) ) )
+   DSTools_Register( oReg, DSTool_Memory( "memory.md" ) )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

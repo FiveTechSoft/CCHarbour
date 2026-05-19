@@ -14,7 +14,7 @@ from a single console executable.
 │                \  |  /                 │ Type a request to begin            │
 │              -- (CC) --                │ Run /help to list commands         │
 │                /  |  \                 │ ────────────────────────────────── │
-│          model: deepseek-chat          │ What's new ...                     │
+│        model: deepseek-v4-flash        │ What's new ...                     │
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -27,7 +27,8 @@ of the assistant that runs entirely in the browser. You will need your own
 - DeepSeek / OpenAI-compatible API client with SSE streaming
 - Tool-using agent loop: read, write, edit, glob, grep, shell
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
-- `settings.json` configuration and `CLAUDE.md` project context
+- `settings.json` configuration and `CC.md` project context
+- Persistent agent memory — a per-project `memory.md` the agent maintains
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style terminal UI
 
 [Get started](getting-started.md){ .md-button .md-button--primary }

@@ -12,6 +12,7 @@ src/dstools_search.prg
 src/dstools_shell.prg
 src/dstools_web.prg
 src/dstools_github.prg
+src/dstools_memory.prg
 src/dsdiff.prg
 src/dssettings.prg
 src/dsperm.prg

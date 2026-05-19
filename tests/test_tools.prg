@@ -153,9 +153,9 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
-   // end-to-end: the default registry exposes all ten builtin tools
+   // end-to-end: the default registry exposes all eleven builtin tools
    aSchemas := DSTools_Schemas( DSTools_Registry() )
-   T_Equal( Len( aSchemas ), 10, "tools: registry has ten builtins" )
+   T_Equal( Len( aSchemas ), 11, "tools: registry has eleven builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
    T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
    T_Assert( FindSchema( aSchemas, "edit" )  != NIL, "tools: builtin edit" )
@@ -174,4 +174,8 @@ FUNCTION Test_Tools()
    oReg := DSTools_Registry( { "tavily" => "", "github" => "" } )
    cRes := Eval( oReg[ "web_search" ][ "handler" ], { "query" => "x" } )
    T_Equal( cRes, "Error: TAVILY_API_KEY not set", "tools: empty tavily key flows through" )
+
+   // the memory tool is registered
+   oReg := DSTools_Registry()
+   T_Equal( hb_HHasKey( oReg, "memory" ), .T., "tools: memory registered" )
    RETURN NIL
