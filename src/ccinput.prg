@@ -166,14 +166,12 @@ FUNCTION CCIN_Window( oSt, nWidth )
             "col" => nOffset - nScr, "lines" => CCIN_LineCount( cBuf ) }
 
 // Returns the number of lines in a buffer (1 for no newlines).
+// Counts Chr(10) bytes directly: a newline byte (0x0A) can never occur
+// inside a multi-byte UTF-8 sequence, so this is exact and runs in O(n) --
+// the old per-character hb_UTF8SubStr scan was O(n^2) and lagged the editor
+// as the line grew.
 FUNCTION CCIN_LineCount( cBuf )
-   LOCAL nCount := 1, i
-   FOR i := 1 TO Len( cBuf )
-      IF hb_UTF8SubStr( cBuf, i, 1 ) == Chr(10)
-         nCount++
-      ENDIF
-   NEXT
-   RETURN nCount
+   RETURN 1 + ( Len( cBuf ) - Len( StrTran( cBuf, Chr(10), "" ) ) )
 
 // Encodes a Unicode codepoint (BMP) as a UTF-8 character string.
 FUNCTION CCIN_Utf8Chr( n )
