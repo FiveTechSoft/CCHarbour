@@ -144,5 +144,7 @@ FUNCTION Test_UI()
    // CLAUDE.md renamed to CC.md
    T_Assert( "CC.md" $ DSUI_InitPrompt(), "ui: init prompt names CC.md" )
    T_Assert( !( "CLAUDE.md" $ DSUI_InitPrompt() ), "ui: init prompt drops CLAUDE.md" )
+   T_Assert( "memory" $ Lower( DSUI_SystemPrompt() ) .OR. ;
+             ValType( DSUI_MemoryContext() ) == "C", "ui: memory context available" )
    T_Equal( ValType( DSUI_MemoryContext() ), "C", "ui: memory context returns a string" )
    RETURN NIL

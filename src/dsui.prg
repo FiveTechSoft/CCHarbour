@@ -261,7 +261,8 @@ FUNCTION DSUI_VT( cSeq )
 
 // The system message seeded into every conversation. When a CC.md file is
 // present in the working directory its contents are appended as project
-// instructions, so the agent honours per-project conventions.
+// instructions, so the agent honours per-project conventions. When a
+// memory.md file is present it is appended as the agent's persisted memory.
 FUNCTION DSUI_SystemPrompt()
    LOCAL cBase, cProj, cMem
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
