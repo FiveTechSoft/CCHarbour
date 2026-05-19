@@ -123,7 +123,7 @@ FUNCTION Test_UI()
    T_Assert( DSUI_Glyph( "v" ) $ DSUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
 
    // version + banner
-   T_Equal( DSUI_Version(), "0.2.0", "ui: version string" )
+   T_Equal( DSUI_Version(), "0.4.0", "ui: version string" )
    DSUI_SetColor( .F. )
    T_Assert( "v0.2.0" $ DSUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the version" )
