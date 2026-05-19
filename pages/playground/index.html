@@ -1,23 +1,24 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CCHarbour Playground</title>
+  <link rel="icon" type="image/svg+xml" href="../logo.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <header id="banner">
-      <pre class="logo">  ██████╗ ██████╗
- ██╔════╝██╔════╝
- ██║     ██║
- ██║     ██║
- ╚██████╗╚██████╗
-  ╚═════╝ ╚═════╝</pre>
+      <pre class="logo">  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—
+ â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â•â•
+ â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘
+ â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘
+ â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—
+  â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â•</pre>
       <div class="banner-text">
-        <strong>✻ CCHarbour Playground <span class="version">v0.2.0</span></strong>
-        <span>A browser playground for the CCHarbour coding assistant —
+        <strong>âœ» CCHarbour Playground <span class="version">v0.4.0</span></strong>
+        <span>A browser playground for the CCHarbour coding assistant â€”
           terminal coding, Claude Code-style. <a href="../">Documentation</a></span>
       </div>
       <button id="settings-toggle" type="button">Settings</button>
@@ -27,15 +28,15 @@
       <h2>Settings</h2>
       <label>DeepSeek API key
         <input id="key-deepseek" type="password" autocomplete="off"></label>
-      <label>Tavily API key — optional, enables web_search
+      <label>Tavily API key â€” optional, enables web_search
         <input id="key-tavily" type="password" autocomplete="off"></label>
-      <label>GitHub token — optional, enables github_write
+      <label>GitHub token â€” optional, enables github_write
         <input id="key-github" type="password" autocomplete="off"></label>
       <label>Model
         <input id="model" type="text" autocomplete="off"></label>
       <p class="warn">Keys are stored in this browser's localStorage and are sent
         only to the official DeepSeek, Tavily and GitHub APIs. This is a
-        client-side playground — do not use it on a shared or untrusted computer.</p>
+        client-side playground â€” do not use it on a shared or untrusted computer.</p>
       <button id="settings-save" type="button">Save</button>
     </section>
 
@@ -48,7 +49,7 @@
       </div>
       <form id="input-form">
         <input id="input" type="text" autocomplete="off"
-          placeholder="Type a request, then press Enter…">
+          placeholder="Type a request, then press Enterâ€¦">
         <button id="send" type="submit">Send</button>
       </form>
     </footer>
