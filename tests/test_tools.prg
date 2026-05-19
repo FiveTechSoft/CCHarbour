@@ -170,10 +170,9 @@ FUNCTION Test_Tools()
    T_Equal( hb_HHasKey( oReg, "github_read" ), .T., "tools: github_read registered" )
    T_Equal( hb_HHasKey( oReg, "github_write" ), .T., "tools: github_write registered" )
 
-   // keys passed via hKeys reach the tool handler
-   oReg := DSTools_Registry( { "tavily" => "", "github" => "" } )
-   cRes := Eval( oReg[ "web_search" ][ "handler" ], { "query" => "x" } )
-   T_Equal( cRes, "Error: TAVILY_API_KEY not set", "tools: empty tavily key flows through" )
+   // web_search no longer needs an API key (uses DuckDuckGo now)
+   oReg := DSTools_Registry( { "github" => "" } )
+   T_Assert( hb_HHasKey( oReg, "web_search" ), "tools: web_search still registered w/o tavily key" )
 
    // the memory tool is registered
    oReg := DSTools_Registry()
