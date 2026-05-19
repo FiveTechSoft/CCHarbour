@@ -107,23 +107,30 @@ directory is appended to the system prompt as project instructions.
 
 ## Project layout
 
-| File                   | Responsibility                              |
-|------------------------|---------------------------------------------|
-| `src/dsrepl.prg`       | entry point, REPL loop, console setup       |
-| `src/dsui.prg`         | banner, prompt, command parsing, rendering  |
-| `src/dsagent.prg`      | agent loop — tool-call orchestration        |
-| `src/dsapi.prg`        | DeepSeek/OpenAI-compatible API client       |
-| `src/dshttp.prg`       | HTTP client                                 |
-| `src/dssse.prg`        | server-sent-events stream parsing           |
-| `src/dstools*.prg`     | tool registry + file / search / shell tools |
-| `src/dsdiff.prg`       | unified-diff rendering for edits            |
-| `src/dssettings.prg`   | `settings.json` loading                     |
-| `src/dsperm.prg`       | permission gate (allow / deny / ask)        |
-| `src/dsconfig.prg`     | API-key resolution                          |
-| `src/dsinput.prg`      | raw-mode line editor with input history     |
-| `src/dsconsole.c`      | Win32 console layer (raw mode, key reading) |
-| `tests/`               | test suite (`test_*.prg`)                   |
-| `docs/superpowers/`    | design specs and implementation plans       |
+| Módulo (`src/`)       | Propósito |
+|-----------------------|-----------|
+| `dsrepl.prg`          | Punto de entrada (`Main`), bucle REPL interactivo, manejo de comandos `/`, ejecución de turnos del agente, renderizado de eventos, barra de tokens, spinner animado, carga/guardo de sesiones |
+| `dsagent.prg`         | Bucle multi-turno del agente: llama a la API DeepSeek, ejecuta herramientas, maneja pausa por Esc, límite de iteraciones con opción de extender |
+| `dsapi.prg`           | Cliente de la API DeepSeek (Chat Completions con streaming SSE), construcción del cuerpo de la petición, clasificación de errores HTTP/API/red |
+| `dshttp.prg`          | Transporte HTTP vía subproceso `curl.exe` (streaming y fetch), parseo del código de estado HTTP desde dump de cabeceras, soporte cancelación vía Ctrl+C |
+| `dssse.prg`           | Parser SSE (Server-Sent Events): extrae `text_delta`, `reasoning_delta`, `tool_call_delta`, `finish`, `usage` y `[DONE]` del stream |
+| `dsconfig.prg`        | Resolución de API key y base URL (precedencia: parámetro → entorno → archivo) |
+| `dssettings.prg`      | Carga de `settings.json` fusionado sobre valores por defecto; permisos, modelo, color, `co_author` |
+| `dstools.prg`         | Registro y despacho de herramientas: crea el registry, genera schemas OpenAI, ejecuta el handler con validación de argumentos y captura de errores |
+| `dstools_file.prg`    | Herramientas `read` (con line-numbered output, offset, max_lines), `write` (crea directorios, muestra diff), `edit` (reemplazo exacto con `replace_all`) |
+| `dstools_search.prg`  | Herramientas `glob` (lista archivos con máscara recursiva) y `grep` (regex sobre contenidos) |
+| `dstools_shell.prg`   | Herramienta `shell`: ejecuta comandos vía `cmd.exe /c`, inyecta automáticamente `Co-authored-by` en `git commit` |
+| `dstools_web.prg`     | Herramientas `web_fetch` (GET vía HTTP) y `web_search` (DuckDuckGo Instant Answer API sin API key) |
+| `dstools_github.prg`  | Herramientas `github_read` (repo, file, list, issues, issue, prs, pr, search) y `github_write` (create_issue, comment, create_pr) |
+| `dstools_memory.prg`  | Herramienta `memory`: operaciones `append`/`read`/`clear` sobre `memory.md`, persistente entre sesiones |
+| `dsperm.prg`          | Puerta de permisos: envuelve el executor raw con lógica `allow`/`deny`/`ask`; opción "a" (allow siempre) dura lo que dura la sesión |
+| `dsdiff.prg`          | Diff línea por línea vía LCS (Longest Common Subsequence): detecta líneas añadidas/eliminadas con 3 líneas de contexto, formato Claude Code-style |
+| `dsmarkdown.prg`      | Renderizado Markdown → ANSI en streaming: headings, listas, código (fence e inline), **bold**, *italic*, captura de "Suggested next:" |
+| `dsui.prg`            | UI completa: banner con logo "CC", parseo de comandos `/`, colores ANSI, palette, system prompt con CC.md + memory.md, resumen de tool calls, diff coloreado, caja de input con marco |
+| `dsinput.prg`         | Editor multilínea en raw-mode: cursor keys, Home/End, Delete, historial (↑/↓), paste detection (<50ms), sugerencias vía Tab, Shift+Enter para nueva línea |
+| `dsconsole.c`         | Soporte nativo Windows (Win32 API): detección de consola, raw mode, lectura de teclas, detección no-bloqueante de Ctrl+C y Escape |
+| `tests/`               | Suite de tests (340+ tests, 0 fallos) |
+| `docs/superpowers/`    | Especificaciones de diseño y planes de implementación |
 
 ## Status
 
