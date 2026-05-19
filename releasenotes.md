@@ -1,16 +1,25 @@
-CCHarbour v0.4.0 — Pause tool execution with Escape, plus all previous features.
+CCHarbour v0.5.1 — Playground fixes and updated documentation.
 
-## New since v0.3.0
+## New since v0.5.0
 
-- **Pause tool execution** — press **Esc** before a tool runs to see a pause menu:
-  - **Enter** — continue with the tool
-  - **c** — skip all remaining tools in this turn
-  - **a** — abort the entire turn
-- **Non-blocking Esc detection** — checks console input buffer between tool calls
-- **Pause UI** — yellow box with clear options, no disruption to output flow
+- **Playground fixes** — removed unused parameter in `web.js`, fixed registry test sort order
+- **Documentation** — updated module table in README with detailed descriptions for all components
 
-## Previous features (v0.1.0 — v0.3.0)
+## v0.5.0 — DuckDuckGo web search (no API key needed), refactored REPL, Harbour ship logo, and more.
 
+### New since v0.4.0
+
+- **DuckDuckGo web search** — replaced Tavily with DuckDuckGo Instant Answer API, no API key required
+  - Works in both the terminal client (`cc.exe`) and the web playground
+- **REPL refactor** — cleaner multi-turn agent loop, fixed `LoadSession` bug, portable path handling, deduplicated event emission
+- **Harbour-style ship logo** — new project branding in the startup banner
+- **Spinner throttle** — slowed down from 30 ms to 100 ms for less flicker
+- **Default model fix** — restored to `deepseek-v4-flash` (was inadvertently changed to `deepseek-chat`)
+- **Web playground** — DuckDuckGo integration, removed unused parameters, test sort-order fix
+
+## Previous features (v0.1.0 — v0.4.0)
+
+- **Pause tool execution** — press **Esc** before a tool runs to see a pause menu
 - **Web tools** — `web_search` and `web_fetch` for searching and fetching web content
 - **GitHub tools** — `github_read` and `github_write` for interacting with GitHub repos
 - **Memory tool** — persistent memory across sessions

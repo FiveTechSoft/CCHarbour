@@ -134,23 +134,24 @@ directory is appended to the system prompt as project instructions.
 
 ## Status
 
-### Done (v0.3.0)
+### Done (v0.5.0)
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
-- Agent loop with tool calls and an iteration cap with extend prompt
+- Agent loop with tool calls, iteration cap with extend prompt, **pause on Escape**
 - Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory
+- **DuckDuckGo web search** — no API key required (replaced Tavily)
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading with defaults and `co_author` setting
 - `CC.md` project-instruction loading
 - Diff rendering on edit / write
-- UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
-  framed prompt and tool-call rendering
+- UTF-8 console, auto-detected ANSI colour, Claude Code-style banner with
+  **Harbour ship logo**, framed prompt and tool-call rendering
 - Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete,
   multi-line input with Shift+Enter and paste detection
 - `Ctrl+C` to cancel a running stream
 - Conversation persistence — `/save` and `/load` commands
 - `/cost` command showing token usage and estimated cost per turn and session
-- Animated spinner with estimated token count during model reasoning
+- Animated reasoning spinner with estimated token count during model reasoning
 - Compact token-usage bar displayed after each turn
 - Web playground at <https://fivetechsoft.github.io/CCHarbour/playground/>
 - Documentation site at <https://fivetechsoft.github.io/CCHarbour/>
@@ -160,7 +161,7 @@ directory is appended to the system prompt as project instructions.
 - `update_cc.bat` hot-swap script to replace `cc.exe` without stopping the REPL
 - Test suite (340+ tests, 0 failures)
 
-### Missing
+### Missing / planned
 
 - Multi-provider support — DeepSeek only today
 - `CC.md` discovery from parent and home directories
@@ -169,15 +170,20 @@ directory is appended to the system prompt as project instructions.
 
 ## Releases
 
-**v0.3.0 — current.** Web & GitHub tools, memory tool, web playground,
+**v0.5.1 — current.** Playground fixes and updated documentation,
+plus all features from v0.5.0.
+
+**v0.5.0 — previous.** DuckDuckGo web search (no API key needed),
+REPL refactor (fixed `LoadSession` bug, portable paths, deduplicated events),
+Harbour ship logo, spinner throttle, plus all features from v0.4.0 and v0.3.0.
+
+**v0.4.0 — previous.** Pause tool execution with Escape key, plus all v0.3.0 features.
+
+**v0.3.0 — previous.** Web & GitHub tools, memory tool, web playground,
 animated reasoning spinner, conversation persistence (`/save`, `/load`),
-`/cost`, multi-line input, `Ctrl+C` cancel, `co_author` setting, and
-many UI/UX improvements.
+`/cost`, multi-line input, `Ctrl+C` cancel, `co_author` setting.
 
-**v0.4 — planned.** Task-list tool, `/tools`, and user-defined
-slash commands.
-
-**v0.5 — planned.** Pluggable backends beyond DeepSeek; `CC.md` discovery
+**v0.6 (planned).** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
 ## Ideas

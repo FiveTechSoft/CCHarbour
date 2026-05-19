@@ -442,7 +442,7 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
 
 // The CCHarbour version string.
 FUNCTION DSUI_Version()
-   RETURN "0.5.0"
+   RETURN "0.5.1"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
