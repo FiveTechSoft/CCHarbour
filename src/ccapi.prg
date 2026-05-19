@@ -1,4 +1,4 @@
-// Creates a client. hOpts: { api_key, base_url, model, timeout, config_path }.
+﻿// Creates a client. hOpts: { api_key, base_url, model, timeout, config_path }.
 // The returned hash holds only immutable data -> safe to share read-only
 // across pool threads.
 FUNCTION CC_Client( hOpts )
@@ -176,14 +176,21 @@ STATIC FUNCTION CC_AccTool( aTools, hEv )
    RETURN NIL
 
 STATIC FUNCTION CC_ApiErrorMessage( cRaw, nStatus )
-   LOCAL xJson
+   LOCAL xJson, cMsg, cSnippet
    xJson := hb_jsonDecode( cRaw )
    IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "error" ) .AND. ;
       ValType( xJson[ "error" ] ) == "H" .AND. ;
       hb_HHasKey( xJson[ "error" ], "message" )
-      RETURN xJson[ "error" ][ "message" ]
+      cMsg := hb_CStr( xJson[ "error" ][ "message" ] )
+      IF hb_HHasKey( xJson[ "error" ], "type" ) .AND. !Empty( xJson[ "error" ][ "type" ] )
+         cMsg += " (" + hb_CStr( xJson[ "error" ][ "type" ] ) + ")"
+      ENDIF
+      RETURN cMsg
    ENDIF
-   RETURN "HTTP " + LTrim( Str( nStatus ) )
+   cSnippet := Left( cRaw, 500 )
+   cSnippet := StrTran( cSnippet, Chr(10), "\\n" )
+   cSnippet := StrTran( cSnippet, Chr(13), "\\r" )
+   RETURN "HTTP " + LTrim( Str( nStatus ) ) + " - body: " + cSnippet
 
 FUNCTION CC_Emit( bOnEvent, hEv )
    IF bOnEvent != NIL
