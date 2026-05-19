@@ -1,7 +1,9 @@
-// Raw-mode single-line input editor for the main prompt. This file holds the
-// pure buffer-state operations; the raw-mode I/O loop is added in a later
-// task. State: { "buf" => <utf-8 text>, "cursor" => <char index> }.
-// All operations count UTF-8 characters, not bytes.
+// Raw-mode multi-line input editor for the main prompt. Supports:
+// - Single-line editing with cursor keys, Home/End, Delete
+// - Input history with Up/Down
+// - Multi-line input via Shift+Enter or paste detection
+// - Paste detection: rapid keystrokes (<50ms apart) with embedded
+//   newlines are buffered as multi-line instead of submitting.
 
 // ── History buffer (persists across calls to DSIN_ReadLine) ──────────────
 STATIC s_aHistory := {}          // array of history lines, oldest first
@@ -134,14 +136,41 @@ FUNCTION DSIN_End( oSt )
 // Returns { "text" => <slice that fits nWidth columns>, "col" => <cursor
 // column within the slice> }. When the buffer fits, the slice is the whole
 // buffer. When it is wider, it scrolls so the cursor stays visible.
+// For multi-line buffers, shows the LAST line (like a typical REPL).
 FUNCTION DSIN_Window( oSt, nWidth )
-   LOCAL nLen := hb_UTF8Len( oSt[ "buf" ] ), nCur := oSt[ "cursor" ], nOff
-   IF nLen <= nWidth
-      RETURN { "text" => oSt[ "buf" ], "col" => nCur }
+   LOCAL cBuf := oSt[ "buf" ], nLen := hb_UTF8Len( cBuf ), nCur := oSt[ "cursor" ]
+   LOCAL nNL, cLastLine, nLastLineLen, nOffset, nScr
+   // Count newlines to get the last line
+   nNL := RAt( Chr(10), cBuf )
+   IF nNL > 0
+      cLastLine := hb_UTF8SubStr( cBuf, nNL + 1, nLen - nNL )
+   ELSE
+      cLastLine := cBuf
    ENDIF
-   nOff := iif( nCur > nWidth, nCur - nWidth, 0 )
-   RETURN { "text" => hb_UTF8SubStr( oSt[ "buf" ], nOff + 1, nWidth ), ;
-            "col" => nCur - nOff }
+   nLastLineLen := hb_UTF8Len( cLastLine )
+   // For cursor positioning within the window, compute the cursor's
+   // offset relative to the start of the last line.
+   nOffset := iif( nNL > 0, nCur - nNL, nCur )
+   IF nOffset < 0
+      nOffset := 0
+   ENDIF
+   IF nLastLineLen <= nWidth
+      RETURN { "text" => cLastLine, "col" => nOffset, "lines" => DSIN_LineCount( cBuf ) }
+   ENDIF
+   // scroll the last line if it exceeds the width
+   nScr := iif( nOffset > nWidth, nOffset - nWidth, 0 )
+   RETURN { "text" => hb_UTF8SubStr( cLastLine, nScr + 1, nWidth ), ;
+            "col" => nOffset - nScr, "lines" => DSIN_LineCount( cBuf ) }
+
+// Returns the number of lines in a buffer (1 for no newlines).
+FUNCTION DSIN_LineCount( cBuf )
+   LOCAL nCount := 1, i
+   FOR i := 1 TO Len( cBuf )
+      IF hb_UTF8SubStr( cBuf, i, 1 ) == Chr(10)
+         nCount++
+      ENDIF
+   NEXT
+   RETURN nCount
 
 // Encodes a Unicode codepoint (BMP) as a UTF-8 character string.
 FUNCTION DSIN_Utf8Chr( n )
@@ -160,12 +189,19 @@ FUNCTION DSIN_Utf8Chr( n )
 
 // NOTE: requires DSUI_ColorOn() (VT enabled) — the editor positions the cursor
 // with DSUI_VT sequences; without VT the sentinel path is taken instead.
-// Reads one line through the raw-mode input box. cInitial pre-fills the buffer
-// (the suggested next prompt). Returns the typed string, or NIL on Ctrl-C /
-// end of input. Returns the sentinel hash { "no_console" => .T. } when there
-// is no interactive console, so the caller can fall back to a cooked reader.
+// Reads one line (possibly multi-line) through the raw-mode input box.
+// cInitial pre-fills the buffer (the suggested next prompt).
+// Returns the typed string, or NIL on Ctrl-C / end of input.
+// Returns the sentinel hash { "no_console" => .T. } when there is no
+// interactive console, so the caller can fall back to a cooked reader.
+// Multi-line input:
+//   - Shift+Enter inserts a newline (Chr(10)) without submitting.
+//   - A rapid sequence of keystrokes (<50ms apart) is treated as a paste;
+//     any Enter in the paste inserts a newline instead of submitting.
+//   - A plain Enter submits the full buffer (single or multi-line).
 FUNCTION DSIN_ReadLine( cInitial )
    LOCAL oSt, nKey, hW, cResult := NIL, lDone := .F., cHistoryLine
+   LOCAL nNow, nLastTime := 0, lPaste := .F., nLines
 
    // the box editor needs VT cursor control; without it (no console, or a
    // console that rejected virtual-terminal mode) fall back to the cooked
@@ -186,7 +222,7 @@ FUNCTION DSIN_ReadLine( cInitial )
    DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + ;
                DSUI_InputBoxLine( hW[ "text" ] ) + Chr(10) + ;
                DSUI_FrameBottom() + Chr(10) + ;
-               DSUI_InputHint() + DSUI_VT( "2A" ) )
+               DSUI_InputHint( hW[ "lines" ] ) + DSUI_VT( "2A" ) )
 
    DO WHILE !lDone
       // place the terminal cursor at the editing column: column 1 is the
@@ -195,17 +231,28 @@ FUNCTION DSIN_ReadLine( cInitial )
       DSREPL_Out( DSUI_VT( "1G" ) + ;
                   DSUI_VT( LTrim( Str( 5 + hW[ "col" ] ) ) + "G" ) )
       nKey := DSCON_ReadKey()
+      // paste detection: if keys arrive faster than 50ms apart, it's a paste
+      nNow := hb_MilliSeconds()
+      lPaste := ( nLastTime > 0 .AND. ( nNow - nLastTime ) < 50 )
+      nLastTime := nNow
       DO CASE
       CASE nKey == 0 .OR. nKey == -8
          cResult := NIL
          DSIN_HistoryReset()
          lDone := .T.
       CASE nKey == -1
-         // Enter: submit the line (add to history, return it)
-         DSIN_HistoryAdd( oSt[ "buf" ] )
-         cResult := oSt[ "buf" ]
-         DSIN_HistoryReset()
-         lDone := .T.
+         // Enter: in paste mode insert newline; otherwise submit
+         IF lPaste
+            DSIN_Insert( oSt, Chr(10) )
+         ELSE
+            DSIN_HistoryAdd( oSt[ "buf" ] )
+            cResult := oSt[ "buf" ]
+            DSIN_HistoryReset()
+            lDone := .T.
+         ENDIF
+      CASE nKey == -11
+         // Shift+Enter: always insert newline, never submit
+         DSIN_Insert( oSt, Chr(10) )
       CASE nKey == -2
          DSIN_Backspace( oSt )
       CASE nKey == -3
@@ -236,9 +283,12 @@ FUNCTION DSIN_ReadLine( cInitial )
          DSIN_Insert( oSt, DSIN_Utf8Chr( nKey ) )
       // nKey == -99 (an unmapped key) matches no case above and is ignored
       ENDCASE
-      // redraw the prompt line in place
+      // redraw the prompt line in place; update hint if line count changed
       hW := DSIN_Window( oSt, DSUI_InputInnerWidth() )
-      DSREPL_Out( DSUI_VT( "1G" ) + DSUI_InputBoxLine( hW[ "text" ] ) )
+      nLines := hW[ "lines" ]
+      DSREPL_Out( DSUI_VT( "1G" ) + DSUI_InputBoxLine( hW[ "text" ] ) + ;
+                  DSUI_VT( "1B" ) + DSUI_VT( "1G" ) + ;
+                  DSUI_InputHint( nLines ) + DSUI_VT( "2A" ) )
    ENDDO
 
    DSCON_RawMode( .F. )

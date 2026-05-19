@@ -455,9 +455,14 @@ FUNCTION DSUI_FrameBottom()
           DSUI_Pal( "dim" ) )
 
 // The dim hint line shown beneath the input frame.
-FUNCTION DSUI_InputHint()
-   RETURN DSUI_Color( "  /help for commands  " + Chr(226)+Chr(128)+Chr(162) + ;
-          "  /exit to quit", DSUI_Pal( "dim" ) )
+// nLines (optional) shows the line count for multi-line input.
+FUNCTION DSUI_InputHint( nLines )
+   LOCAL cSuffix := ""
+   IF ValType( nLines ) == "N" .AND. nLines > 1
+      cSuffix := "  " + Chr(226)+Chr(128)+Chr(162) + "  " + LTrim( Str( nLines ) ) + " lines"
+   ENDIF
+   RETURN DSUI_Color( "  /help for commands" + cSuffix + ;
+          "  " + Chr(226)+Chr(128)+Chr(162) + "  /exit to quit", DSUI_Pal( "dim" ) )
 
 // The text-column width available inside the input box (79 total: 2 borders,
 // 2 inside spaces, the "> " prompt = 6 of overhead, leaving 73).

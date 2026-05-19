@@ -39,7 +39,7 @@ HB_FUNC( DSCON_RAWMODE )
       }
       else if( s_dscon_modeSaved )
       {
-         if( SetConsoleMode( h, s_dscon_savedMode ) )
+         if( SetConsoleMode( h, s_dscon_modeSaved ) )
             fOk = HB_TRUE;
       }
    }
@@ -50,8 +50,9 @@ HB_FUNC( DSCON_RAWMODE )
 /* DSCON_ReadKey() -- blocks for one key-down event and returns an int:
  *   > 0  the Unicode codepoint of a printable character
  *     0  end of input
- *    -1 Enter  -2 Backspace  -3 Left  -4 Right  -5 Home  -6 End
- *    -7 Delete  -8 Ctrl+C   -9 Up  -10 Down   -99 an unmapped key (caller ignores it). */
+ *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
+ *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
+ *   -99 an unmapped key (caller ignores it). */
 HB_FUNC( DSCON_READKEY )
 {
    HANDLE       h = GetStdHandle( STD_INPUT_HANDLE );
@@ -79,9 +80,12 @@ HB_FUNC( DSCON_READKEY )
          WORD  vk   = rec.Event.KeyEvent.wVirtualKeyCode;
          WCHAR ch   = rec.Event.KeyEvent.uChar.UnicodeChar;
          DWORD cks  = rec.Event.KeyEvent.dwControlKeyState;
-         HB_BOOL ctrl = ( cks & ( LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED ) ) != 0;
+         HB_BOOL ctrl  = ( cks & ( LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED ) ) != 0;
+         HB_BOOL shift = ( cks & SHIFT_PRESSED ) != 0;
 
          if( ctrl && vk == 'C' )         { result = -8; done = HB_TRUE; }
+         else if( vk == VK_RETURN && shift )
+                                          { result = -11; done = HB_TRUE; }
          else if( vk == VK_RETURN )      { result = -1; done = HB_TRUE; }
          else if( vk == VK_BACK )        { result = -2; done = HB_TRUE; }
          else if( vk == VK_LEFT )        { result = -3; done = HB_TRUE; }
