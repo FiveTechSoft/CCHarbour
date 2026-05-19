@@ -34,8 +34,8 @@ jobs:
           export HB_COMPILER=clang
           export HB_BUILD_CONTRIBS=no
           export HB_INSTALL_PREFIX="$GITHUB_WORKSPACE/harbour-bin"
-          gmake
-          gmake install
+          make -j$(sysctl -n hw.logicalcpu)
+          make install
 
       - name: Build cc (macOS)
         run: |
