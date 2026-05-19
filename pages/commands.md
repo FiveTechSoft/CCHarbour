@@ -77,16 +77,20 @@ Search file contents for a regular-expression pattern.
 
 ### shell
 
-Run a shell command and return its output.
+Run a shell command via `cmd.exe` and return its combined output and exit code.
 
-| Parameter | Type   | Required | Description          |
-|-----------|--------|----------|----------------------|
-| `command` | string | yes      | command to execute   |
+| Parameter | Type   | Required | Description                         |
+|-----------|--------|----------|-------------------------------------|
+| `command` | string | yes      | command to execute                  |
+| `timeout` | number | no       | max seconds to run (`0` = no limit) |
+
+When `timeout` is omitted, the `shell_timeout` setting — or an automatic
+per-command estimate — applies (see [configuration](configuration.md)).
 
 ### web_search
 
-Search the web using the Tavily API and return a list of results. Requires a
-Tavily API key (see [configuration](configuration.md)).
+Search the web via the DuckDuckGo Instant Answer API and return a list of
+results. No API key required.
 
 | Parameter    | Type    | Required | Description                          |
 |--------------|---------|----------|--------------------------------------|

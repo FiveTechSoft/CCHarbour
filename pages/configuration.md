@@ -12,8 +12,9 @@ over the built-in defaults:
 | `base_url`        | `https://api.deepseek.com`  | API endpoint                  |
 | `max_iterations`  | `25`                        | tool-call loop cap per turn   |
 | `color`           | `true`                      | ANSI colour output            |
+| `co_author`       | *(none)*                    | `Co-authored-by` trailer auto-added to `git commit` |
+| `shell_timeout`   | `30`                        | max seconds a shell command may run (0 = auto-estimate) |
 | `permissions`     | see below                   | per-tool gate                 |
-| `tavily_api_key`  | *(none)*                    | Tavily API key for `web_search` — overridden by `TAVILY_API_KEY` env var |
 | `github_token`    | *(none)*                    | GitHub token for `github_read`/`github_write` — overridden by `GITHUB_TOKEN` env var |
 
 A missing or malformed file falls back to the pure defaults.
@@ -39,17 +40,27 @@ Defaults: `read`, `glob`, `grep`, `github_read` and `memory` are `allow`;
 }
 ```
 
-Two tools need credentials to operate:
+`web_search` uses the DuckDuckGo Instant Answer API and needs no credentials.
 
-- `web_search` — requires a Tavily API key (`TAVILY_API_KEY` env var or
-  `tavily_api_key` in `settings.json`). Without it the tool returns
-  `"Error: TAVILY_API_KEY not set"` at call time.
-- `github_write` — requires a GitHub personal access token (`GITHUB_TOKEN`
-  env var or `github_token` in `settings.json`). Without it the tool returns
-  `"Error: GITHUB_TOKEN not set"` at call time.
+`github_write` requires a GitHub personal access token (`GITHUB_TOKEN` env var
+or `github_token` in `settings.json`); without it the tool returns
+`"Error: GITHUB_TOKEN not set"` at call time. `github_read` works without a
+token but is rate-limited. The environment variable takes precedence over the
+value in `settings.json`.
 
-For both keys the environment variable takes precedence over the value in
-`settings.json`.
+## Shell timeout
+
+The `shell` tool bounds how long a command may run, so a hung command cannot
+freeze the agent. The limit is chosen in this order:
+
+1. A `timeout` argument the model passes with the call (seconds; `0` = no limit).
+2. The `shell_timeout` setting (default `30`).
+3. When `shell_timeout` is `0`, an automatic per-command estimate — fast
+   commands like `echo` or `dir` get a few seconds; builds and network
+   commands get more.
+
+A command that exceeds its limit is abandoned and its output ends with
+`[timed out after N seconds]`.
 
 ## CC.md
 

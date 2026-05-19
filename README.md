@@ -98,6 +98,8 @@ the path in `CCHARBOUR_CONFIG`), merged over the defaults:
 | `base_url`       | `https://api.deepseek.com`  | API endpoint                     |
 | `max_iterations` | `25`                        | tool-call loop cap per turn      |
 | `color`          | `true`                      | ANSI colour output               |
+| `co_author`      | *(none)*                    | `Co-authored-by` trailer auto-added to `git commit` |
+| `shell_timeout`  | `30`                        | max seconds a shell command may run (0 = auto-estimate) |
 | `permissions`    | see below                   | per-tool gate                    |
 
 Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
