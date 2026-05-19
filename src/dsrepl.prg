@@ -32,8 +32,9 @@ FUNCTION Main( cModel )
    ENDIF
    oClient := DS_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ] } )
    oReg    := DSTools_Registry( { ;
-      "tavily" => DSCFG_ResolveKey( "TAVILY_API_KEY", "tavily_api_key", hSet ), ;
-      "github" => DSCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ) } )
+      "tavily"    => DSCFG_ResolveKey( "TAVILY_API_KEY", "tavily_api_key", hSet ), ;
+      "github"    => DSCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ), ;
+      "co_author" => hb_HGetDef( hSet, "co_author", "" ) } )
    bGate   := DSPerm_Gate( DSTools_Executor( oReg ), hSet[ "permissions" ], ;
                            {| cN, cA | DSREPL_AskPerm( cN, cA ) } )
    BEGIN SEQUENCE WITH {| o | Break( o ) }

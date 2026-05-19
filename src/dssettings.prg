@@ -4,6 +4,7 @@ FUNCTION DSSettings_Defaults()
             "base_url"       => "https://api.deepseek.com", ;
             "max_iterations" => 25, ;
             "color"          => .T., ;
+            "co_author"      => "", ;
             "permissions"    => { "read"  => "allow", "glob"  => "allow", ;
                                   "grep"  => "allow", "write" => "ask", ;
                                   "edit"  => "ask",   "shell" => "ask", ;
