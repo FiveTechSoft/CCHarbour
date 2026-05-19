@@ -207,7 +207,7 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
       cMark := DSUI_DiffMark( cLine )
       DO CASE
       CASE cMark == "+"
-         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "30;42" )
+         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "37;42" )
       CASE cMark == "-"
          cLine := DSUI_Color( DSUI_DiffPad( cLine ), "48;5;52" )
       ENDCASE
@@ -343,6 +343,7 @@ FUNCTION DSUI_Pal( cName )
    CASE cName == "warn"       ; RETURN "33"
    CASE cName == "diff_add"   ; RETURN "42"
    CASE cName == "diff_del"   ; RETURN "48;5;52"
+   CASE cName == "suggestion" ; RETURN "38;2;144;238;144"
    ENDCASE
    RETURN "0"
 
@@ -526,6 +527,15 @@ FUNCTION DSUI_InputHint( nLines )
 // 2 inside spaces, the "> " prompt = 6 of overhead, leaving 73).
 FUNCTION DSUI_InputInnerWidth()
    RETURN 73
+
+// One framed input-box prompt line with the text rendered in the suggestion
+// (light-green) colour.
+FUNCTION DSUI_InputBoxSuggestion( cText )
+   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
+   RETURN cV + " " + DSUI_Color( "> ", "1;36" ) + ;
+          DSUI_Color( DSUI_PadCell( hb_CStr( cText ), DSUI_InputInnerWidth(), "L" ), ;
+                     DSUI_Pal( "suggestion" ) ) + ;
+          " " + cV
 
 // One framed input-box prompt line: side borders, the "> " prompt, and cText
 // padded (or truncated) to the inner width. 79 display columns wide.
