@@ -185,7 +185,7 @@ STATIC FUNCTION DS_ApiErrorMessage( cRaw, nStatus )
    ENDIF
    RETURN "HTTP " + LTrim( Str( nStatus ) )
 
-STATIC FUNCTION DS_Emit( bOnEvent, hEv )
+FUNCTION DS_Emit( bOnEvent, hEv )
    IF bOnEvent != NIL
       Eval( bOnEvent, hEv )
    ENDIF

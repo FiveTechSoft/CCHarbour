@@ -50,7 +50,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, oRender, lCooked
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, lCooked, hLoaded, hTurn
    aMsgs    := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
    cSuggest := ""
    DSREPL_Out( DSUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -104,55 +104,30 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CASE hAction[ "type" ] == "save"
          DSREPL_SaveSession( aMsgs, cModel, s_hSessionUsage, hAction[ "text" ] )
       CASE hAction[ "type" ] == "load"
-         DSREPL_LoadSession( @aMsgs, @cModel, @s_hSessionUsage, hAction[ "text" ] )
+         hLoaded := DSREPL_LoadSession( hAction[ "text" ] )
+         IF ValType( hLoaded ) == "H"
+            aMsgs    := hLoaded[ "messages" ]
+            cModel   := hb_HGetDef( hLoaded, "model", cModel )
+            s_hSessionUsage := iif( hb_HHasKey( hLoaded, "usage" ) .AND. ;
+                                    ValType( hLoaded[ "usage" ] ) == "H", ;
+                                    hLoaded[ "usage" ], {=>} )
+         ENDIF
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
          cMsg := iif( hAction[ "type" ] == "init", ;
                       DSUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
-         oRender := DSREPL_RenderNew()
-         hRes := DS_AgentRun( oClient, aTurn, ;
-            { "model" => cModel, ;
-              "tools" => DSTools_Schemas( oReg ), ;
-              "tool_executor" => bGate, ;
-              "max_iterations" => nMaxIter }, ;
-            {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
-         DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
-         // show the live token bar from this turn's usage
-         IF hRes[ "success" ]
-            DSREPL_ShowTokenBar( hRes[ "usage" ] )
-         ELSE
-            DSREPL_Out( Chr(10) )
-         ENDIF
-         // accumulate usage for this turn into the session total
-         IF hRes[ "success" ]
-            DSREPL_AccumUsage( hRes[ "usage" ] )
-         ENDIF
+         hTurn := DSREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn )
+         hRes := hTurn[ "result" ]
          // when the turn stopped on the iteration cap, offer to resume it
          // with 25 more iterations -- repeatably, until done or declined.
          DO WHILE hRes[ "success" ] .AND. ;
                   hRes[ "stop_reason" ] == "max_iterations" .AND. ;
                   DSREPL_AskExtend()
-            oRender := DSREPL_RenderNew()
-            hRes := DS_AgentRun( oClient, hRes[ "messages" ], ;
-               { "model" => cModel, ;
-                 "tools" => DSTools_Schemas( oReg ), ;
-                 "tool_executor" => bGate, ;
-                 "max_iterations" => 25 }, ;
-               {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
-            DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
-            // show the live token bar from the extension turn too
-            IF hRes[ "success" ]
-               DSREPL_ShowTokenBar( hRes[ "usage" ] )
-            ELSE
-               DSREPL_Out( Chr(10) )
-            ENDIF
-            // accumulate usage from the extension turn too
-            IF hRes[ "success" ]
-               DSREPL_AccumUsage( hRes[ "usage" ] )
-            ENDIF
+            hTurn := DSREPL_RunTurn( oClient, oReg, cModel, bGate, 25, hRes[ "messages" ] )
+            hRes  := hTurn[ "result" ]
          ENDDO
-         cSuggest := DSMD_Suggestion( oRender[ "md" ] )
+         cSuggest := DSMD_Suggestion( hTurn[ "render" ][ "md" ] )
          IF hRes[ "success" ]
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
@@ -171,6 +146,26 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       ENDCASE
    ENDDO
    RETURN NIL
+
+// Runs one agent turn: calls DS_AgentRun, renders output, shows token bar,
+// accumulates usage, and returns { result, render }.
+STATIC FUNCTION DSREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessages )
+   LOCAL hRes, oRender
+   oRender := DSREPL_RenderNew()
+   hRes := DS_AgentRun( oClient, aMessages, ;
+      { "model" => cModel, ;
+        "tools" => DSTools_Schemas( oReg ), ;
+        "tool_executor" => bGate, ;
+        "max_iterations" => nMaxIter }, ;
+      {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
+   DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
+   IF hRes[ "success" ]
+      DSREPL_ShowTokenBar( hRes[ "usage" ] )
+      DSREPL_AccumUsage( hRes[ "usage" ] )
+   ELSE
+      DSREPL_Out( Chr(10) )
+   ENDIF
+   RETURN { "result" => hRes, "render" => oRender }
 
 // Merges a usage hash (from one agent turn) into the session total.
 STATIC FUNCTION DSREPL_AccumUsage( hTurnUsage )
@@ -229,7 +224,8 @@ STATIC FUNCTION DSREPL_SaveSession( aMsgs, cModel, hUsage, cArg )
 
 // Loads a session from a JSON file.
 // cArg is the session name (empty = list available sessions).
-STATIC FUNCTION DSREPL_LoadSession( aMsgs, cModel, hUsage, cArg )
+// Returns a hash { messages, model, usage } on success, or NIL on error.
+STATIC FUNCTION DSREPL_LoadSession( cArg )
    LOCAL aSessions, hPack, cJson, cPath, cName
 
    IF Empty( cArg )
@@ -258,20 +254,11 @@ STATIC FUNCTION DSREPL_LoadSession( aMsgs, cModel, hUsage, cArg )
       RETURN NIL
    ENDIF
 
-   aMsgs := hPack[ "messages" ]
-   IF hb_HHasKey( hPack, "model" ) .AND. !Empty( hPack[ "model" ] )
-      cModel := hPack[ "model" ]
-   ENDIF
-   IF hb_HHasKey( hPack, "usage" ) .AND. ValType( hPack[ "usage" ] ) == "H"
-      hUsage := hPack[ "usage" ]
-   ELSE
-      hUsage := {=>}
-   ENDIF
-
    DSREPL_Out( DSUI_Color( "[loaded: " + cName + "]", "90" ) + Chr(10) )
-   DSREPL_Out( DSUI_Color( "  model: " + cModel, "90" ) + Chr(10) )
-   DSREPL_Out( DSUI_Color( "  messages: " + LTrim( Str( Len( aMsgs ) ) ), "90" ) + Chr(10) )
-   RETURN NIL
+   DSREPL_Out( DSUI_Color( "  model: " + hb_CStr( hb_HGetDef( hPack, "model", "" ) ), "90" ) + Chr(10) )
+   DSREPL_Out( DSUI_Color( "  messages: " + LTrim( Str( Len( hPack[ "messages" ] ) ) ), "90" ) + Chr(10) )
+
+   RETURN hPack
 
 // Sanitises a session name: keeps only alphanumeric, underscores, hyphens.
 STATIC FUNCTION DSREPL_SanitiseName( cName )

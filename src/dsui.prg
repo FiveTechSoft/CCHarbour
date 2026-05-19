@@ -79,9 +79,9 @@ FUNCTION DSUI_CostReport( hUsage )
 FUNCTION DSUI_SessionDir()
    LOCAL cBase := hb_GetEnv( "CCHARBOUR_CONFIG" )
    IF Empty( cBase )
-      cBase := hb_cwd() + "\.ccharbour"
+      cBase := hb_cwd() + hb_ps() + ".ccharbour"
    ENDIF
-   RETURN cBase + "\sessions"
+   RETURN cBase + hb_ps() + "sessions"
 
 // Ensures the sessions directory exists. Returns .T. on success.
 FUNCTION DSUI_EnsureSessionDir()
@@ -93,7 +93,7 @@ FUNCTION DSUI_EnsureSessionDir()
 
 // Returns the full path for a session name (adds .json extension).
 FUNCTION DSUI_SessionPath( cName )
-   RETURN DSUI_SessionDir() + "\" + cName + ".json"
+   RETURN DSUI_SessionDir() + hb_ps() + cName + ".json"
 
 // Lists saved session files in the sessions directory.
 // Returns an array of { name, path, mtime } hashes, or empty array.
@@ -102,14 +102,14 @@ FUNCTION DSUI_SessionList()
    IF !hb_DirExists( cDir )
       RETURN aOut
    ENDIF
-   aFiles := Directory( cDir + "\*.json" )
+   aFiles := Directory( cDir + hb_ps() + "*.json" )
    FOR EACH hFile IN aFiles
       cName := hFile[ 1 ]
       IF Right( cName, 5 ) == ".json"
          cName := Left( cName, Len( cName ) - 5 )
       ENDIF
       AAdd( aOut, { "name" => cName, ;
-                    "path" => cDir + "\" + hFile[ 1 ], ;
+                    "path" => cDir + hb_ps() + hFile[ 1 ], ;
                     "mtime" => hFile[ 3 ] } )
    NEXT
    RETURN aOut
@@ -442,7 +442,7 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
 
 // The CCHarbour version string.
 FUNCTION DSUI_Version()
-   RETURN "0.4.0"
+   RETURN "0.5.0"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the

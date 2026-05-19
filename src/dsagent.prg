@@ -33,7 +33,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
 
    DO WHILE nIter < nMax
       nIter++
-      DS_AgentEmit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
+      DS_Emit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
 
       hChatParams := {=>}
       IF hb_HHasKey( hOpts, "transport" )
@@ -88,7 +88,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       FOR EACH tc IN hChat[ "tool_calls" ]
          // non-blocking check for Esc key press
          IF DSCON_PeekEsc()
-            DS_AgentEmit( bOnEvent, { "type" => "pause_request", ;
+            DS_Emit( bOnEvent, { "type" => "pause_request", ;
                                       "tool_name" => tc[ "name" ], ;
                                       "tool_args" => tc[ "arguments" ] } )
             // wait for user decision: Enter=continue, c=skip rest, a=abort turn
@@ -105,7 +105,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                   EXIT
                ELSEIF Left( cRes, 1 ) == "c"
                   // 'c' -> cancel remaining tools, skip to next iteration
-                  DS_AgentEmit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+                  DS_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
                                             "content" => "[paused and skipped by user]" } )
                   AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                                  "content" => "[paused and skipped by user]" } )
@@ -125,11 +125,11 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                EXIT
             ENDIF
          ENDIF
-         DS_AgentEmit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
+         DS_Emit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
                                    "name" => tc[ "name" ], ;
                                    "arguments" => tc[ "arguments" ] } )
          cRes := Eval( hOpts[ "tool_executor" ], tc[ "name" ], tc[ "arguments" ] )
-         DS_AgentEmit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+         DS_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
                                    "content" => cRes } )
          AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                         "content" => cRes } )
@@ -196,8 +196,4 @@ STATIC FUNCTION DS_AgentAddUsage( hUsage, xUsage )
    NEXT
    RETURN NIL
 
-STATIC FUNCTION DS_AgentEmit( bOnEvent, hEv )
-   IF bOnEvent != NIL
-      Eval( bOnEvent, hEv )
-   ENDIF
-   RETURN NIL
+
