@@ -10,6 +10,7 @@ test_agent.prg
 test_tools.prg
 test_web.prg
 test_github.prg
+test_memory.prg
 test_ui.prg
 test_markdown.prg
 test_input.prg
@@ -27,6 +28,7 @@ test_diff.prg
 ../src/dstools_shell.prg
 ../src/dstools_web.prg
 ../src/dstools_github.prg
+../src/dstools_memory.prg
 ../src/dsdiff.prg
 ../src/dsui.prg
 ../src/dsmarkdown.prg
