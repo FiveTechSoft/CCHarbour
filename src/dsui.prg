@@ -207,7 +207,7 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
       cMark := DSUI_DiffMark( cLine )
       DO CASE
       CASE cMark == "+"
-         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "42" )
+         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "30;42" )
       CASE cMark == "-"
          cLine := DSUI_Color( DSUI_DiffPad( cLine ), "48;5;52" )
       ENDCASE
