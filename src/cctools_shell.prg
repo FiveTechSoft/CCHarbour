@@ -6,8 +6,11 @@
 // When cCoAuthor is non-empty, any "git commit" command automatically gets
 // a --trailer "Co-authored-by: ..." appended (configurable in settings.json
 // under the "co_author" key).
-// nTimeout: max seconds the command may run (0 = no limit).
+// nTimeout: max seconds the command may run (0 = no limit, auto-estimate).
 //           Configurable via "shell_timeout" in settings (default 30).
+// The model can also pass an optional "timeout" parameter per-call (A).
+// When no explicit timeout is given, CCTool_EstimateTimeout() guesses
+// a sensible value based on the command type (B).
 FUNCTION CCTool_Shell( cCoAuthor, nTimeout )
    IF ValType( nTimeout ) != "N" .OR. nTimeout < 0
       nTimeout := 0
@@ -17,13 +20,18 @@ FUNCTION CCTool_Shell( cCoAuthor, nTimeout )
             "parameters" => { "type" => "object", ;
                "properties" => { ;
                   "command" => { "type" => "string", ;
-                                 "description" => "Command line to run" } }, ;
+                                 "description" => "Command line to run" }, ;
+                  "timeout" => { "type" => "number", ;
+                                 "description" => "Max seconds the command may run (0 = no limit). " + ;
+                                                   "If not supplied, the setting shell_timeout or " + ;
+                                                   "an automatic estimate is used." } }, ;
                "required" => { "command" } }, ;
             "handler" => {| hArgs | CCTool_ShellRun( hArgs, cCoAuthor, nTimeout ) } }
 
 STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    LOCAL cCommand, cCmdLine, cOut := "", cErr := "", nExit, cResult
    LOCAL cOutFile, hProc, hIn, hOut, hErr, nStart, lTimedOut := .F.
+   LOCAL nActualTimeout
 
    cCommand := hb_CStr( hArgs[ "command" ] )
 
@@ -32,68 +40,72 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
       cCommand += ' --trailer "Co-authored-by: ' + cCoAuthor + '"'
    ENDIF
 
-   IF nTimeout > 0
-      // === Timed execution via temp file redirect + polling ===
-      // Create a unique temp file for the redirected output, then close
-      // our own handle so cmd.exe can write to it.
+   // --- Determine effective timeout ---
+   // 1) Model passed "timeout" in the call (approach A)
+   IF hb_HHasKey( hArgs, "timeout" )
+      nActualTimeout := hb_HGetDef( hArgs, "timeout", 0 )
+      IF ValType( nActualTimeout ) != "N" .OR. nActualTimeout < 0
+         nActualTimeout := 0
+      ENDIF
+   ELSEIF nTimeout > 0
+      // 2) Default from settings (shell_timeout in registry)
+      nActualTimeout := nTimeout
+   ELSE
+      // 3) Auto-estimate based on command type (approach B)
+      nActualTimeout := CCTool_EstimateTimeout( cCommand )
+   ENDIF
+
+   IF nActualTimeout > 0
+      // === Timed execution ===
+      // Redirect output to a temp file (so a large output cannot deadlock
+      // an unread pipe), then poll the process for completion or timeout.
       cOutFile := ""
       hOut := hb_FTempCreateEx( @cOutFile, hb_DirTemp(), "ccsh", ".out" )
       IF hOut != F_ERROR
          FClose( hOut )
       ENDIF
 
-      // Redirect both stdout and stderr to the temp file.
-      // Append a done-marker (with exit code) so we can detect completion
-      // without blocking and also capture the real exit code.
-      // "call echo" re-parses the line, so %ERRORLEVEL% expands to the code
-      // left by the command, not the (parse-time) value before it ran.
-      cCmdLine := 'cmd.exe /c (' + cCommand + ') > "' + cOutFile + ;
-                  '" 2>&1 & call echo __CC_DONE__%ERRORLEVEL%>> "' + cOutFile + '"'
+      cCmdLine := 'cmd.exe /c (' + cCommand + ') > "' + cOutFile + '" 2>&1'
 
       hProc := hb_processOpen( cCmdLine, @hIn, @hOut, @hErr )
       IF hProc == F_ERROR
          RETURN "Error: cannot run shell: " + cCmdLine
       ENDIF
-      // Close pipes immediately — all output goes to cOutFile
+      // all output goes to the temp file — close the unused pipes
       FClose( hIn )
       FClose( hOut )
       FClose( hErr )
 
-      // Poll for completion or timeout
+      // Poll the process: hb_processValue( hProc, .F. ) returns -1 while the
+      // process is still running, otherwise its real exit code.
+      nExit  := -1
       nStart := Seconds()
       DO WHILE .T.
-         IF hb_FileExists( cOutFile ) .AND. CCTool_HasDoneMarker( cOutFile )
-            EXIT   // command finished normally
+         nExit := hb_processValue( hProc, .F. )
+         IF nExit != -1
+            EXIT   // command finished
          ENDIF
-         IF Seconds() - nStart >= nTimeout
+         IF Seconds() - nStart >= nActualTimeout
             lTimedOut := .T.
             EXIT
          ENDIF
          hb_IdleSleep( 0.05 )
       ENDDO
 
-      // If timed out, close the process handle (does not kill it, but
-      // lets CCharbour continue; the orphaned cmd.exe will die on its own).
+      // On timeout, release the process handle (the orphaned cmd.exe ends
+      // on its own); on normal completion hb_processValue already reaped it.
       IF lTimedOut
          hb_processClose( hProc )
-      ENDIF
-
-      // Read the output file
-      IF hb_FileExists( cOutFile )
-         cResult := hb_MemoRead( cOutFile )
-         // Extract exit code from done-marker and remove marker line(s)
-         nExit := CCTool_StripDoneMarker( @cResult )
-         FErase( cOutFile )
-         // Remove trailing whitespace left by marker removal
-         cResult := RTrim( cResult )
-      ELSE
-         cResult := ""
          nExit := -1
       ENDIF
 
-      // Append timeout note
+      // Read whatever output was captured
+      cResult := iif( hb_FileExists( cOutFile ), hb_MemoRead( cOutFile ), "" )
+      FErase( cOutFile )
+      cResult := RTrim( cResult )
+
       IF lTimedOut
-         cResult += Chr( 10 ) + "[timed out after " + LTrim( Str( nTimeout ) ) + ;
+         cResult += Chr( 10 ) + "[timed out after " + LTrim( Str( nActualTimeout ) ) + ;
                     " seconds]" + Chr( 10 )
       ENDIF
    ELSE
@@ -119,43 +131,6 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    cResult += "[exit code: " + LTrim( Str( nExit ) ) + "]"
    RETURN cResult
 
-// Returns .T. when the file at cPath contains the done-marker line.
-STATIC FUNCTION CCTool_HasDoneMarker( cPath )
-   LOCAL cContent
-   cContent := hb_MemoRead( cPath )
-   RETURN "__CC_DONE__" $ cContent
-
-// Locates the last "__CC_DONE__<digits>" line in cText, removes it, and
-// returns the parsed exit code.  Returns -1 if no marker is found.
-// cText is updated in-place (by reference).
-STATIC FUNCTION CCTool_StripDoneMarker( cText )
-   LOCAL aLines, cLine, i, nExit := -1, cMarker
-   aLines := hb_ATokens( cText, Chr( 10 ) )
-   FOR i := Len( aLines ) TO 1 STEP -1
-      cLine := AllTrim( aLines[ i ] )
-      IF Left( cLine, 11 ) == "__CC_DONE__"
-         cMarker := aLines[ i ]
-         hb_ADel( aLines, i, .T. )   // remove the marker line
-         // parse optional digits after the marker
-         cMarker := SubStr( cLine, 12 )   // everything after "__CC_DONE__"
-         IF !Empty( cMarker ) .AND. IsDigit( Left( cMarker, 1 ) )
-            nExit := Val( cMarker )
-         ELSE
-            nExit := 0
-         ENDIF
-         EXIT
-      ENDIF
-   NEXT
-   IF nExit == -1
-      nExit := 0   // no marker found — assume success
-   ENDIF
-   // Rebuild text without the marker
-   cText := ""
-   FOR EACH cLine IN aLines
-      cText += cLine + Chr( 10 )
-   NEXT
-   RETURN nExit
-
 // Returns .T. when cCmd looks like a "git commit" invocation.
 // Checks that the command contains "git commit" and does not already have
 // a --trailer or Co-authored-by marker (to avoid double-injection).
@@ -167,3 +142,101 @@ STATIC FUNCTION CCTool_IsGitCommit( cCmd )
    ENDIF
    // detect "git commit" followed by space, end-of-string, or a flag
    RETURN "git commit" $ cLow
+
+// Estimates a sensible timeout (in seconds) for a shell command based on
+// its type.  Used when neither the model nor settings provided a timeout.
+STATIC FUNCTION CCTool_EstimateTimeout( cCommand )
+   LOCAL cLow := Lower( AllTrim( cCommand ) )
+   LOCAL nPos, cRest, cNum, cCh, i
+   LOCAL nDefault := 30
+
+   // --- Trivially fast commands ---
+   DO CASE
+   CASE Left( cLow, 4 ) == "echo"
+   CASE Left( cLow, 3 ) == "dir"
+   CASE Left( cLow, 4 ) == "type"
+   CASE Left( cLow, 6 ) == "chcp"
+   CASE Left( cLow, 3 ) == "ver"
+   CASE Left( cLow, 3 ) == "cls"
+   CASE Left( cLow, 4 ) == "help"
+   CASE Left( cLow, 3 ) == "set"
+   CASE Left( cLow, 2 ) == "cd"
+      RETURN 5
+   ENDCASE
+
+   // --- File operations ---
+   DO CASE
+   CASE Left( cLow, 4 ) == "copy"
+   CASE Left( cLow, 4 ) == "move"
+   CASE Left( cLow, 3 ) == "del"
+   CASE Left( cLow, 6 ) == "rename"
+   CASE Left( cLow, 5 ) == "mkdir"
+   CASE Left( cLow, 5 ) == "rmdir"
+      RETURN 10
+   ENDCASE
+
+   // --- grep / find ---
+   DO CASE
+   CASE Left( cLow, 7 ) == "findstr"
+   CASE Left( cLow, 4 ) == "find"
+      RETURN 15
+   ENDCASE
+
+   // --- Ping: try to parse "-n N" ---
+   IF Left( cLow, 4 ) == "ping"
+      nPos := At( " -n ", cLow )
+      IF nPos > 0
+         cRest := SubStr( cLow, nPos + 4 )
+         cNum  := ""
+         FOR i := 1 TO Len( cRest )
+            cCh := SubStr( cRest, i, 1 )
+            IF cCh >= "0" .AND. cCh <= "9"
+               cNum += cCh
+            ELSE
+               EXIT
+            ENDIF
+         NEXT
+         IF !Empty( cNum )
+            RETURN Val( cNum ) * 3 + 5
+         ENDIF
+      ENDIF
+      RETURN 30   // default ping (4 pings ~16s, give30)
+   ENDIF
+
+   // --- Tracert ---
+   IF Left( cLow, 7 ) == "tracert" .OR. Left( cLow, 4 ) == "trac"
+      RETURN 60
+   ENDIF
+
+   // --- Git operations ---
+   IF "git clone" $ cLow
+      RETURN 120
+   ENDIF
+   IF "git fetch" $ cLow .OR. "git pull" $ cLow
+      RETURN 60
+   ENDIF
+   IF "git push" $ cLow
+      RETURN 60
+   ENDIF
+   IF "git commit" $ cLow .OR. "git add" $ cLow
+      RETURN 15
+   ENDIF
+   IF "git status" $ cLow .OR. "git log" $ cLow .OR. "git diff" $ cLow .OR. ;
+      "git branch" $ cLow
+      RETURN 10
+   ENDIF
+
+   // --- Build / compile ---
+   IF "msbuild" $ cLow .OR. "make" $ cLow .OR. "nmake" $ cLow .OR. ;
+      "harbour" $ cLow .OR. "bcc32" $ cLow .OR. ;
+      "gcc" $ cLow .OR. "g++" $ cLow .OR. "cl.exe" $ cLow
+      RETURN 120
+   ENDIF
+
+   // --- xcopy / robocopy ---
+   IF Left( cLow, 5 ) == "xcopy" .OR. Left( cLow, 7 ) == "robocopy"
+      RETURN 60
+   ENDIF
+
+   // --- Default ---
+   RETURN nDefault

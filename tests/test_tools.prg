@@ -153,15 +153,27 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
-   // shell tool with timeout: short command finishes quickly
+   // shell tool with timeout from settings (A): short command finishes quickly
    bExec := CCTOOLS_Executor( CCTOOLS_Registry( { "shell_timeout" => 5 } ) )
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "echo timed_ok" } ) )
-   T_Assert( "timed_ok" $ cRes, "tools: shell with timeout captures output" )
-   T_Assert( "[exit code: 0]" $ cRes, "tools: shell with timeout exit 0" )
+   T_Assert( "timed_ok" $ cRes, "tools: shell with settings timeout captures output" )
+   T_Assert( "[exit code: 0]" $ cRes, "tools: shell with settings timeout exit 0" )
 
-   // shell tool timeout: a slow command gets killed
+   // shell tool timeout from settings: a slow command gets killed
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 10 127.0.0.1" } ) )
-   T_Assert( "timed out" $ cRes, "tools: shell timeout kills long command" )
+   T_Assert( "timed out" $ cRes, "tools: shell settings timeout kills long command" )
+
+   // shell tool with explicit per-call timeout (approach A): override with shorter
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry( { "shell_timeout" => 30 } ) )
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 10 127.0.0.1", ;
+                                                   "timeout" => 3 } ) )
+   T_Assert( "timed out" $ cRes, "tools: shell per-call timeout (A) kills command" )
+
+   // shell tool auto-estimation (approach B): ping -n 2 should estimate ~11s
+   // and finish within that window (using a registry with shell_timeout = 0)
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry( { "shell_timeout" => 0 } ) )
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 2 127.0.0.1" } ) )
+   T_Assert( "[exit code:" $ cRes, "tools: shell auto-estimate (B) finishes ping -n 2" )
 
    // end-to-end: the default registry exposes all eleven builtin tools
    aSchemas := CCTOOLS_Schemas( CCTOOLS_Registry() )
