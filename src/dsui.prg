@@ -318,27 +318,51 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    ENDCASE
    RETURN cText + Space( nPad )
 
-// Builds the Claude Code-style startup banner: a single-panel rounded box
-// with an accent welcome line, the /help hint, and the model and working
-// directory. Returns the whole banner as one string ending in LF.
+// The CCHarbour version string.
+FUNCTION DSUI_Version()
+   RETURN "0.2.0"
+
+// Builds the Claude Code-style startup banner: a single-panel rounded box with
+// a block-letter "CC" logo (accent colour) on the left and the name+version,
+// a tagline, the /help hint, the model and the working directory on the right.
+// Returns the whole banner as one string ending in LF.
 FUNCTION DSUI_Banner( cModel, cCwd, cUser )
    LOCAL nInner := 75, cH := DSUI_Glyph( "h" ), cV
-   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B sextile glyph
-   LOCAL aRows, cOut, i, cText, cSGR, cCell
+   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B
+   LOCAL aLogo, aInfo, aRows, cOut, i, cText, cSGR, cCell
 
    HB_SYMBOL_UNUSED( cUser )
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
    cV     := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
 
-   // each row: { plain text, SGR code or "" }
-   aRows := { ;
-      { cAccent + " Welcome to CCHarbour", DSUI_Pal( "accent" ) }, ;
-      { "",                                "" }, ;
-      { "  /help for help",                DSUI_Pal( "dim" ) }, ;
-      { "",                                "" }, ;
-      { "  model: " + cModel,              "" }, ;
-      { "  cwd: " + cCwd,                  "" } }
+   // the "CC" logo, six rows of block-drawing glyphs
+   aLogo := { ;
+      "  ██████╗ ██████╗ ", ;
+      " ██╔════╝██╔════╝ ", ;
+      " ██║     ██║      ", ;
+      " ██║     ██║      ", ;
+      " ╚██████╗╚██████╗ ", ;
+      "  ╚═════╝ ╚═════╝ " }
+
+   // the info column, paired row-for-row with the logo
+   aInfo := { ;
+      cAccent + " CCHarbour  v" + DSUI_Version(), ;
+      "terminal coding assistant " + Chr(226)+Chr(128)+Chr(183) + ;
+         " Claude Code-style", ;
+      "", ;
+      "/help for help", ;
+      "model: " + cModel, ;
+      "cwd: " + cCwd }
+
+   // each row: { plain text, SGR code or "" }. The first info row (name +
+   // version) is accent; the rest plain.
+   aRows := {}
+   FOR i := 1 TO 6
+      cText := DSUI_PadCell( aLogo[ i ], 18, "L" ) + " " + aInfo[ i ]
+      cSGR  := iif( i == 1, DSUI_Pal( "accent" ), "" )
+      AAdd( aRows, { cText, cSGR } )
+   NEXT
 
    cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
            DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)

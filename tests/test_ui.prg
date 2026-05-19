@@ -64,7 +64,7 @@ FUNCTION Test_UI()
 
    // banner: single-panel Claude Code-style box
    DSUI_SetColor( .F. )
-   T_Assert( "Welcome to CCHarbour" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+   T_Assert( "CCHarbour" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has welcome line" )
    T_Assert( "model: deepseek-chat" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has model line" )
@@ -121,4 +121,18 @@ FUNCTION Test_UI()
    T_Equal( hb_UTF8Len( DSUI_InputBoxLine( "hi" ) ), 79, "ui: input box line is 79 columns" )
    T_Assert( "> hi" $ DSUI_InputBoxLine( "hi" ), "ui: input box line has the prompt + text" )
    T_Assert( DSUI_Glyph( "v" ) $ DSUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
+
+   // version + banner
+   T_Equal( DSUI_Version(), "0.2.0", "ui: version string" )
+   DSUI_SetColor( .F. )
+   T_Assert( "v0.2.0" $ DSUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+             "ui: banner shows the version" )
+   T_Assert( "CCHarbour" $ DSUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+             "ui: banner shows the name" )
+   T_Assert( "model: deepseek-v4-flash" $ DSUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+             "ui: banner shows the model" )
+   T_Assert( "cwd: C:\proj" $ DSUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+             "ui: banner shows the cwd" )
+   T_Assert( DSUI_Glyph( "tl" ) $ DSUI_Banner( "m", "c", "u" ), ;
+             "ui: banner has the rounded box" )
    RETURN NIL
