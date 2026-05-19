@@ -151,3 +151,41 @@ HB_FUNC( DSCON_PEEKCTRLC )
 
    hb_retl( 0 );
 }
+
+/* DSCON_PeekEsc() -> .T. when an Escape key press is pending in the
+ * console input buffer. The event IS consumed and discarded, so a later
+ * ReadLine / DSCON_ReadKey will not see it. Non-blocking. */
+HB_FUNC( DSCON_PEEKESC )
+{
+   HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
+   DWORD nEvents = 0;
+   INPUT_RECORD rec;
+   DWORD nRead;
+
+   if( h == INVALID_HANDLE_VALUE || h == NULL )
+   {
+      hb_retl( 0 );
+      return;
+   }
+
+   if( ! GetNumberOfConsoleInputEvents( h, &nEvents ) || nEvents == 0 )
+   {
+      hb_retl( 0 );
+      return;
+   }
+
+   /* Peek at the first pending event */
+   if( PeekConsoleInputW( h, &rec, 1, &nRead ) && nRead > 0 )
+   {
+      if( rec.EventType == KEY_EVENT && rec.Event.KeyEvent.bKeyDown &&
+          rec.Event.KeyEvent.wVirtualKeyCode == VK_ESCAPE )
+      {
+         /* Consume the event so it does not interfere with later reads */
+         ReadConsoleInputW( h, &rec, 1, &nRead );
+         hb_retl( 1 );
+         return;
+      }
+   }
+
+   hb_retl( 0 );
+}

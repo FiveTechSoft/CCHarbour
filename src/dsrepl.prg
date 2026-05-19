@@ -158,6 +158,8 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
                DSREPL_Out( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
+            ELSEIF hRes[ "stop_reason" ] == "paused"
+               DSREPL_Out( DSUI_Color( "[paused by user]", "33" ) + Chr(10) )
             ENDIF
          ELSE
             IF hb_CStr( hRes[ "error_type" ] ) == "cancelled"
@@ -489,7 +491,7 @@ STATIC FUNCTION DSREPL_AskPerm( cName, cArgsJson )
 // Terminates on LF, CR, or CRLF. The console runs in its default cooked mode
 // (gtnul does not touch it), so it echoes the typed line and applies editing
 // itself -- this function must NOT echo, or the input would appear twice.
-STATIC FUNCTION DSREPL_ReadLine()
+FUNCTION DSREPL_ReadLine()
    LOCAL cLine := "", cCh := Space(1), nRead, hIn := hb_GetStdIn()
    DO WHILE .T.
       nRead := FRead( hIn, @cCh, 1 )

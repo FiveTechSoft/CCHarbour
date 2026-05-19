@@ -84,7 +84,47 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       ENDIF
 
       // execute every tool call this turn, append each result as a tool message
+      // Before each tool, check for Escape (pause requested by user)
       FOR EACH tc IN hChat[ "tool_calls" ]
+         // non-blocking check for Esc key press
+         IF DSCON_PeekEsc()
+            DS_AgentEmit( bOnEvent, { "type" => "pause_request", ;
+                                      "tool_name" => tc[ "name" ], ;
+                                      "tool_args" => tc[ "arguments" ] } )
+            // wait for user decision: Enter=continue, c=skip rest, a=abort turn
+            DO WHILE .T.
+               DSREPL_Out( DSUI_PausePrompt() )
+               cRes := DSREPL_ReadLine()
+               IF cRes == NIL
+                  EXIT
+               ENDIF
+               cRes := Lower( AllTrim( cRes ) )
+               IF cRes == ""
+                  // Enter -> continue with this tool
+                  DSREPL_Out( DSUI_Color( "  [continuing...]", "90" ) + Chr(10) )
+                  EXIT
+               ELSEIF Left( cRes, 1 ) == "c"
+                  // 'c' -> cancel remaining tools, skip to next iteration
+                  DS_AgentEmit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+                                            "content" => "[paused and skipped by user]" } )
+                  AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
+                                 "content" => "[paused and skipped by user]" } )
+                  // skip all remaining tool calls by jumping past the loop
+                  hResult[ "stop_reason" ] := "paused"
+                  EXIT
+               ELSEIF Left( cRes, 1 ) == "a"
+                  // 'a' -> abort the entire turn
+                  DSREPL_Out( DSUI_Color( "  [aborting turn...]", "31" ) + Chr(10) )
+                  hResult[ "error_type" ]  := "cancelled"
+                  hResult[ "message" ]     := "paused and aborted by user"
+                  hResult[ "stop_reason" ] := "error"
+                  RETURN hResult
+               ENDIF
+            ENDDO
+            IF hResult[ "stop_reason" ] == "paused"
+               EXIT
+            ENDIF
+         ENDIF
          DS_AgentEmit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
                                    "name" => tc[ "name" ], ;
                                    "arguments" => tc[ "arguments" ] } )
@@ -94,6 +134,10 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                         "content" => cRes } )
       NEXT
+      // if the user paused and cancelled remaining tools, stop this iteration
+      IF hResult[ "stop_reason" ] == "paused"
+         EXIT
+      ENDIF
    ENDDO
 
    IF hResult[ "stop_reason" ] == NIL

@@ -442,7 +442,7 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
 
 // The CCHarbour version string.
 FUNCTION DSUI_Version()
-   RETURN "0.2.0"
+   RETURN "0.3.0"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
@@ -544,6 +544,24 @@ FUNCTION DSUI_InputBoxLine( cText )
    RETURN cV + " " + DSUI_Color( "> ", "1;36" ) + ;
           DSUI_PadCell( hb_CStr( cText ), DSUI_InputInnerWidth(), "L" ) + ;
           " " + cV
+
+// Prompt shown when the user presses Esc to pause tool execution.
+// Options: Enter=continue, c=skip remaining tools, a=abort turn.
+FUNCTION DSUI_PausePrompt()
+   LOCAL cOut := Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( DSUI_Glyph( "h" ), 42 ) + ;
+                       DSUI_Glyph( "tr" ), DSUI_Pal( "warn" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + ;
+           "  " + DSUI_Color( "[PAUSED]", "1;33" ) + ;
+           "  Next tool paused by Esc" + ;
+           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + ;
+           "  Enter=run tool   c=skip all   a=abort turn" + ;
+           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( DSUI_Glyph( "h" ), 42 ) + ;
+                       DSUI_Glyph( "br" ), DSUI_Pal( "warn" ) ) + Chr(10)
+   cOut += DSUI_Color( "> ", "1;36" )
+   RETURN cOut
 
 // The text shown by the /help command.
 FUNCTION DSUI_Help()
