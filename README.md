@@ -127,13 +127,13 @@ directory is appended to the system prompt as project instructions.
 
 ## Status
 
-### Done
+### Done (v0.3.0)
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
 - Agent loop with tool calls and an iteration cap with extend prompt
-- Tools: read, write, edit, glob, grep, shell, web, github, memory
+- Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
-- `settings.json` loading with defaults
+- `settings.json` loading with defaults and `co_author` setting
 - `CC.md` project-instruction loading
 - Diff rendering on edit / write
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
@@ -145,8 +145,11 @@ directory is appended to the system prompt as project instructions.
 - `/cost` command showing token usage and estimated cost per turn and session
 - Animated spinner with estimated token count during model reasoning
 - Compact token-usage bar displayed after each turn
+- Web playground at <https://fivetechsoft.github.io/CCHarbour/playground/>
+- Documentation site at <https://fivetechsoft.github.io/CCHarbour/>
+- CI build with GitHub Actions; auto-publish releases on tag push
 - Commands: `/help`, `/init`, `/model`, `/clear`, `/cost`, `/save`, `/load`, `/exit`
-- `build.bat` build script
+- `build.bat` build script (MSVC) and CI build (mingw-w64)
 - `update_cc.bat` hot-swap script to replace `cc.exe` without stopping the REPL
 - Test suite (340+ tests, 0 failures)
 
@@ -157,16 +160,17 @@ directory is appended to the system prompt as project instructions.
 - More tools — task list, web fetch result formatting
 - More commands — `/tools`, user-defined commands
 
-## Roadmap
+## Releases
 
-**v0.3 — current.** `Ctrl+C` to cancel a stream, multi-line input
-for pasted code, `/save` & `/load` conversation persistence, `/cost`
-token/cost summary, animated reasoning spinner with token estimate.
+**v0.3.0 — current.** Web & GitHub tools, memory tool, web playground,
+animated reasoning spinner, conversation persistence (`/save`, `/load`),
+`/cost`, multi-line input, `Ctrl+C` cancel, `co_author` setting, and
+many UI/UX improvements.
 
-**v0.4 — tools & commands.** Task-list tool, `/tools`, and user-defined
+**v0.4 — planned.** Task-list tool, `/tools`, and user-defined
 slash commands.
 
-**v0.5 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
+**v0.5 — planned.** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
 ## Ideas
