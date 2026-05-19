@@ -28,14 +28,18 @@ STATIC FUNCTION DSTool_MemoryRun( hArgs, cMemPath )
       IF !Empty( cCur ) .AND. !( Right( cCur, 1 ) == Chr(10) )
          cCur += Chr(10)
       ENDIF
-      hb_MemoWrit( cMemPath, cCur + hb_CStr( hArgs[ "text" ] ) + Chr(10) )
+      IF !hb_MemoWrit( cMemPath, cCur + hb_CStr( hArgs[ "text" ] ) + Chr(10) )
+         RETURN "Error: memory: cannot write " + cMemPath
+      ENDIF
       RETURN "Remembered."
    CASE cOp == "read"
       cCur := iif( hb_FileExists( cMemPath ), ;
                    AllTrim( hb_CStr( hb_MemoRead( cMemPath ) ) ), "" )
       RETURN iif( Empty( cCur ), "(memory is empty)", cCur )
    CASE cOp == "clear"
-      hb_MemoWrit( cMemPath, "" )
+      IF !hb_MemoWrit( cMemPath, "" )
+         RETURN "Error: memory: cannot write " + cMemPath
+      ENDIF
       RETURN "Memory cleared."
    ENDCASE
    RETURN "Error: memory: unknown operation '" + cOp + "'"

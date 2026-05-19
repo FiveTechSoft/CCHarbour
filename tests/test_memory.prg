@@ -37,5 +37,10 @@ FUNCTION Test_Memory()
    cRes := Eval( hTool[ "handler" ], { "operation" => "bogus" } )
    T_Equal( cRes, "Error: memory: unknown operation 'bogus'", "memory: unknown op" )
 
+   // append to an unwritable path returns an error
+   hTool := DSTool_Memory( "Z:\no_such_dir\deep\mem.md" )
+   cRes := Eval( hTool[ "handler" ], { "operation" => "append", "text" => "x" } )
+   T_Assert( "Error:" $ cRes, "memory: append write failure -> error" )
+
    FErase( cTmp )
    RETURN NIL
