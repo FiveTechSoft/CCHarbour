@@ -18,8 +18,8 @@ test("registry: schemas cover all ten tools, no shell", () => {
   const { schemas } = reg();
   const names = schemas.map((s) => s.function.name).sort();
   assert.deepEqual(names, [
-    "github_read", "github_write", "web_fetch", "web_search",
-    "read", "write", "edit", "glob", "grep",
+    "edit", "github_read", "github_write", "glob", "grep",
+    "read", "web_fetch", "web_search", "write",
   ]);
 });
 

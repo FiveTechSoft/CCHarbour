@@ -9,7 +9,7 @@ function urlEncode(s) {
   return encodeURIComponent(String(s)).replace(/%20/g, "+");
 }
 
-export function webTools(_unused, fetchImpl = fetch) {
+export function webTools(fetchImpl = fetch) {
   return [
     {
       name: "web_search",
