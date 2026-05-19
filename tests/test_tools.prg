@@ -153,7 +153,7 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
-   // end-to-end: the default registry exposes all ten builtin tools
+   // end-to-end: the default registry exposes all eleven builtin tools
    aSchemas := DSTools_Schemas( DSTools_Registry() )
    T_Equal( Len( aSchemas ), 11, "tools: registry has eleven builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
