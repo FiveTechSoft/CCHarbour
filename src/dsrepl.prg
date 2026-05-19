@@ -52,33 +52,22 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                               "90" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
-      IF !Empty( cSuggest )
-         DSCON_PrefillInput( StrTran( StrTran( cSuggest, Chr(13), " " ), ;
-                                      Chr(10), " " ) )
-         cSuggest := ""
-      ENDIF
-      // the cursor-up-2 below assumes each frame line is one screen row
-      // (true for a console at least 79 columns wide)
-      IF DSUI_ColorOn()
-         // top border, blank prompt line, bottom border, hint; then move the
-         // cursor back up onto the prompt line so the frame is fully drawn
-         // before the user types.
-         DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + ;
-                     Chr(10) + ;
-                     DSUI_FrameBottom() + Chr(10) + ;
-                     DSUI_InputHint() + ;
-                     DSUI_VT( "2A" ) + DSUI_VT( "1G" ) + ;
-                     DSUI_Color( "> ", "1;36" ) )
+      IF DSCON_HasConsole()
+         cLine := DSIN_ReadLine( cSuggest )
+         IF ValType( cLine ) == "H"   // the no-console sentinel
+            DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + "> " )
+            cLine := DSREPL_ReadLine()
+         ENDIF
       ELSE
+         // piped / non-interactive input: the cooked reader, no box editor
          DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + "> " )
+         cLine := DSREPL_ReadLine()
       ENDIF
-      cLine := DSREPL_ReadLine()
+      cSuggest := ""
       IF cLine == NIL
          EXIT
       ENDIF
-      IF DSUI_ColorOn()
-         DSREPL_Out( Chr(10) )
-      ELSE
+      IF !DSCON_HasConsole()
          DSREPL_Out( DSUI_FrameBottom() + Chr(10) )
       ENDIF
       hAction := DSUI_ParseCommand( cLine )
