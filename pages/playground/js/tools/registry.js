@@ -5,10 +5,10 @@ import { fileTools } from "./file.js";
 import { webTools } from "./web.js";
 import { githubTools } from "./github.js";
 
-export function buildRegistry({ vfs, tavilyKey, githubToken, confirmWrite, fetchImpl }) {
+export function buildRegistry({ vfs, githubToken, confirmWrite, fetchImpl }) {
   const tools = [
     ...fileTools(vfs),
-    ...webTools(tavilyKey || "", fetchImpl),
+    ...webTools(fetchImpl),
     ...githubTools(githubToken || "", fetchImpl),
   ];
   const byName = new Map(tools.map((t) => [t.name, t]));

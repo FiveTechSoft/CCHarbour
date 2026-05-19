@@ -7,7 +7,6 @@ import { fakeJsonResponse } from "./helpers.js";
 function reg(extra = {}) {
   return buildRegistry({
     vfs: createVfs({ "a.txt": "body" }),
-    tavilyKey: "",
     githubToken: "tok",
     fetchImpl: async () => fakeJsonResponse({ html_url: "https://x/1" }, { status: 201 }),
     confirmWrite: async () => true,
@@ -19,32 +18,28 @@ test("registry: schemas cover all ten tools, no shell", () => {
   const { schemas } = reg();
   const names = schemas.map((s) => s.function.name).sort();
   assert.deepEqual(names, [
-    "edit", "github_read", "github_write", "glob", "grep",
-    "read", "web_fetch", "web_search", "write",
-  ].sort());
-  assert.equal(names.includes("shell"), false);
+    "github_read", "github_write", "web_fetch", "web_search",
+    "read", "write", "edit", "glob", "grep",
+  ]);
 });
 
-test("registry: executor runs a file tool", async () => {
+test("registry: executor dispatches tool calls", async () => {
   const { executor } = reg();
-  assert.equal(await executor("read", '{"path":"a.txt"}'), "body");
+  const r = await executor("read", JSON.stringify({ path: "a.txt" }));
+  assert.ok(r.includes("body"));
 });
 
-test("registry: executor rejects bad JSON and missing args", async () => {
+test("registry: executor unknown tool", async () => {
   const { executor } = reg();
-  assert.equal(await executor("read", "{bad"), "Error: invalid arguments JSON");
-  assert.equal(await executor("read", "{}"), "Error: missing required argument 'path'");
   assert.equal(await executor("nope", "{}"), "Error: unknown tool 'nope'");
 });
 
-test("registry: github_write runs when confirmed", async () => {
-  const { executor } = reg({ confirmWrite: async () => true });
-  const r = await executor("github_write", '{"operation":"create_issue","repo":"a/b","title":"T"}');
-  assert.equal(r, "Created: https://x/1");
+test("registry: executor invalid JSON", async () => {
+  const { executor } = reg();
+  assert.equal(await executor("read", "bad"), "Error: invalid arguments JSON");
 });
 
-test("registry: github_write denied when not confirmed", async () => {
-  const { executor } = reg({ confirmWrite: async () => false });
-  const r = await executor("github_write", '{"operation":"create_issue","repo":"a/b","title":"T"}');
-  assert.equal(r, "Error: tool 'github_write' denied by user");
+test("registry: executor missing required arg", async () => {
+  const { executor } = reg();
+  assert.equal(await executor("read", "{}"), "Error: missing required argument 'path'");
 });

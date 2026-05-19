@@ -36,9 +36,8 @@ export function createUI(handlers) {
   $("settings-save").addEventListener("click", () => {
     handlers.onSaveSettings({
       deepseekKey: $("key-deepseek").value.trim(),
-      tavilyKey: $("key-tavily").value.trim(),
       githubToken: $("key-github").value.trim(),
-      model: $("model").value.trim() || "deepseek-v4-flash",
+      model: $("model").value.trim() || "deepseek-chat",
     });
     $("settings").classList.add("hidden");
   });
@@ -48,9 +47,8 @@ export function createUI(handlers) {
     // Populate the settings inputs from a config object.
     fillSettings(cfg) {
       $("key-deepseek").value = cfg.deepseekKey || "";
-      $("key-tavily").value = cfg.tavilyKey || "";
       $("key-github").value = cfg.githubToken || "";
-      $("model").value = cfg.model || "deepseek-v4-flash";
+      $("model").value = cfg.model || "deepseek-chat";
     },
     openSettings() { $("settings").classList.remove("hidden"); },
 

@@ -1,5 +1,5 @@
 // Creates a fresh tool registry with all builtin tools registered.
-// hKeys (optional): { tavily => <api key>, github => <token> } — captured by
+// hKeys (optional): { github => <token> } — captured by
 // the web/github tool handlers. Omitting it leaves those keys empty; the
 // affected tools then return a clear error at call time.
 FUNCTION DSTools_Registry( hKeys )

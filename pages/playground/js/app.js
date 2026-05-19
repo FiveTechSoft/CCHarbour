@@ -29,7 +29,6 @@ if (!config.deepseekKey) ui.openSettings();
 function buildRegistryForRun() {
   return buildRegistry({
     vfs,
-    tavilyKey: config.tavilyKey,
     githubToken: config.githubToken,
     confirmWrite: (name, args) => ui.confirmWrite(name, args),
     fetchImpl: (...a) => fetch(...a),
