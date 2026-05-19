@@ -2,7 +2,7 @@
 STATIC s_lColor := .F.
 
 // Classifies a line of REPL input. Returns a hash with:
-//   "type" => "exit"|"clear"|"help"|"init"|"model"|"message"|"empty"
+//   "type" => "exit"|"clear"|"help"|"init"|"model"|"cost"|"message"|"empty"
 //   "text" => the trimmed line, or the command argument for "model"
 FUNCTION DSUI_ParseCommand( cLine )
    LOCAL cTrim := AllTrim( hb_CStr( cLine ) )
@@ -20,6 +20,8 @@ FUNCTION DSUI_ParseCommand( cLine )
       RETURN { "type" => "init", "text" => "" }
    CASE cLow == "/model" .OR. Left( cLow, 7 ) == "/model "
       RETURN { "type" => "model", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
+   CASE cLow == "/cost"
+      RETURN { "type" => "cost", "text" => "" }
    ENDCASE
    RETURN { "type" => "message", "text" => cTrim }
 
@@ -32,6 +34,41 @@ FUNCTION DSUI_InitPrompt()
           "should concisely cover: what the project is, how to build and run " + ;
           "it, the key directories, and the coding conventions to follow. " + ;
           "Keep it short. Write the file with your write tool, then confirm."
+
+// Formats a session usage hash into a human-readable cost report.
+// hUsage: { prompt_tokens => N, completion_tokens => N, ... }
+// Pricing is approximate (DeepSeek API rates).
+FUNCTION DSUI_CostReport( hUsage )
+   LOCAL nIn, nOut, cOut, nCostIn, nCostOut, nCostTotal
+   IF ValType( hUsage ) != "H" .OR. Len( hb_HKeys( hUsage ) ) == 0
+      RETURN DSUI_Color( "No usage data for this session yet.", "90" ) + Chr(10)
+   ENDIF
+   nIn  := hb_HGetDef( hUsage, "prompt_tokens", 0 )
+   nOut := hb_HGetDef( hUsage, "completion_tokens", 0 )
+   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( DSUI_Glyph( "h" ), 34 ) + ;
+                       DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           "  Session cost report" + ;
+           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           "  prompt tokens:      " + LTrim( Str( nIn ) ) + ;
+           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           "  completion tokens:  " + LTrim( Str( nOut ) ) + ;
+           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           DSUI_Color( "  total tokens:      " + LTrim( Str( nIn + nOut ) ), "1" ) + ;
+           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   // approximate cost: DeepSeek ~$0.15/M input, ~$0.60/M output
+   nCostIn   := nIn * 0.15 / 1000000
+   nCostOut  := nOut * 0.60 / 1000000
+   nCostTotal := nCostIn + nCostOut
+   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           "  est. cost:          $" + LTrim( Str( nCostTotal, 10, 6 ) ) + ;
+           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( DSUI_Glyph( "h" ), 34 ) + ;
+                       DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   RETURN cOut
 
 // Returns the first line of cText, truncated to nMax characters, with a
 // "[<N> chars]" annotation when anything was dropped. nMax defaults to 80.
@@ -441,6 +478,7 @@ FUNCTION DSUI_Help()
           "  /help          show this help" + Chr(10) + ;
           "  /init          analyse the project and write CC.md" + Chr(10) + ;
           "  /model [name]  show the model, or switch to <name>" + Chr(10) + ;
+          "  /cost          show token usage and estimated cost" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

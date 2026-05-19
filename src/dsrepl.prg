@@ -4,6 +4,9 @@
 // Tracks a pending LF to swallow after a CR, so CRLF counts as one line break.
 STATIC s_lSkipLF := .F.
 
+// Accumulated usage across the entire session (prompt_tokens, completion_tokens, ...).
+STATIC s_hSessionUsage := {=>}
+
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, lVT
@@ -84,6 +87,7 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          DSREPL_Out( DSUI_Help() + Chr(10) )
       CASE hAction[ "type" ] == "clear"
          aMsgs := { { "role" => "system", "content" => DSUI_SystemPrompt() } }
+         s_hSessionUsage := {=>}
          DSREPL_Out( DSUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -92,6 +96,8 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             cModel := hAction[ "text" ]
             DSREPL_Out( DSUI_Color( "[model -> " + cModel + "]", "90" ) + Chr(10) )
          ENDIF
+      CASE hAction[ "type" ] == "cost"
+         DSREPL_Out( DSUI_CostReport( s_hSessionUsage ) )
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
          cMsg := iif( hAction[ "type" ] == "init", ;
                       DSUI_InitPrompt(), hAction[ "text" ] )
@@ -106,6 +112,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
          DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
          DSREPL_Out( Chr(10) )
+         // accumulate usage for this turn into the session total
+         IF hRes[ "success" ]
+            DSREPL_AccumUsage( hRes[ "usage" ] )
+         ENDIF
          // when the turn stopped on the iteration cap, offer to resume it
          // with 25 more iterations -- repeatably, until done or declined.
          DO WHILE hRes[ "success" ] .AND. ;
@@ -120,6 +130,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
             DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
             DSREPL_Out( Chr(10) )
+            // accumulate usage from the extension turn too
+            IF hRes[ "success" ]
+               DSREPL_AccumUsage( hRes[ "usage" ] )
+            ENDIF
          ENDDO
          cSuggest := DSMD_Suggestion( oRender[ "md" ] )
          IF hRes[ "success" ]
@@ -133,6 +147,20 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
       ENDCASE
    ENDDO
+   RETURN NIL
+
+// Merges a usage hash (from one agent turn) into the session total.
+STATIC FUNCTION DSREPL_AccumUsage( hTurnUsage )
+   LOCAL cKey
+   IF ValType( hTurnUsage ) != "H"
+      RETURN NIL
+   ENDIF
+   FOR EACH cKey IN hb_HKeys( hTurnUsage )
+      IF ValType( hTurnUsage[ cKey ] ) == "N"
+         s_hSessionUsage[ cKey ] := ;
+            hb_HGetDef( s_hSessionUsage, cKey, 0 ) + hTurnUsage[ cKey ]
+      ENDIF
+   NEXT
    RETURN NIL
 
 // Creates a per-turn render state: the markdown renderer, an id->tool-name
@@ -282,4 +310,3 @@ STATIC FUNCTION DSREPL_ReadLine()
       cLine := SubStr( cLine, 4 )
    ENDIF
    RETURN cLine
-
