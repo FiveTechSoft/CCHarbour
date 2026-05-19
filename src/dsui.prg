@@ -24,11 +24,11 @@ FUNCTION DSUI_ParseCommand( cLine )
    RETURN { "type" => "message", "text" => cTrim }
 
 // The instruction sent to the agent by the /init command: it asks the model
-// to inspect the project and write a CLAUDE.md file.
+// to inspect the project and write a CC.md file.
 FUNCTION DSUI_InitPrompt()
-   RETURN "Analyse this project and create a CLAUDE.md file in the working " + ;
+   RETURN "Analyse this project and create a CC.md file in the working " + ;
           "directory. Use your tools to explore the repository: its layout, " + ;
-          "how it is built and run, and its coding conventions. CLAUDE.md " + ;
+          "how it is built and run, and its coding conventions. CC.md " + ;
           "should concisely cover: what the project is, how to build and run " + ;
           "it, the key directories, and the coding conventions to follow. " + ;
           "Keep it short. Write the file with your write tool, then confirm."
@@ -259,11 +259,11 @@ FUNCTION DSUI_VT( cSeq )
    ENDIF
    RETURN Chr(27) + "[" + cSeq
 
-// The system message seeded into every conversation. When a CLAUDE.md file is
+// The system message seeded into every conversation. When a CC.md file is
 // present in the working directory its contents are appended as project
 // instructions, so the agent honours per-project conventions.
 FUNCTION DSUI_SystemPrompt()
-   LOCAL cBase, cProj
+   LOCAL cBase, cProj, cMem
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
@@ -273,18 +273,34 @@ FUNCTION DSUI_SystemPrompt()
    cProj := DSUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
-         "The following project instructions come from the CLAUDE.md file in " + ;
+         "The following project instructions come from the CC.md file in " + ;
          "the working directory. Treat them as authoritative and follow them:" + ;
          Chr(10) + Chr(10) + cProj
    ENDIF
+   cMem := DSUI_MemoryContext()
+   IF !Empty( cMem )
+      cBase += Chr(10) + Chr(10) + ;
+         "The following is your own memory, persisted from previous sessions " + ;
+         "in this project. Use it, and keep it current with the memory tool:" + ;
+         Chr(10) + Chr(10) + cMem
+   ENDIF
    RETURN cBase
 
-// Reads project instructions from a CLAUDE.md file in the current directory.
+// Reads project instructions from a CC.md file in the current directory.
 // Returns "" when the file is absent or empty.
 FUNCTION DSUI_ProjectContext()
    LOCAL cText := ""
-   IF File( "CLAUDE.md" )
-      cText := hb_MemoRead( "CLAUDE.md" )
+   IF File( "CC.md" )
+      cText := hb_MemoRead( "CC.md" )
+   ENDIF
+   RETURN AllTrim( hb_CStr( cText ) )
+
+// Reads the agent's persisted memory from memory.md in the current directory.
+// Returns "" when the file is absent or empty.
+FUNCTION DSUI_MemoryContext()
+   LOCAL cText := ""
+   IF File( "memory.md" )
+      cText := hb_MemoRead( "memory.md" )
    ENDIF
    RETURN AllTrim( hb_CStr( cText ) )
 
