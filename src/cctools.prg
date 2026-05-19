@@ -67,4 +67,106 @@ STATIC FUNCTION CCTOOLS_Dispatch( oReg, cName, cArgsJson )
       cResult := "Error: tool '" + cName + "' failed: " + ;
                  iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" )
    END SEQUENCE
-   RETURN cResult
+   RETURN CC_SanitizeUTF8( cResult )
+
+// Replaces invalid UTF-8 byte sequences (and non-printable control chars
+// except tab/CR/LF) with "?" so that hb_jsonEncode produces valid JSON
+// that the API server can parse.
+FUNCTION CC_SanitizeUTF8( cText )
+   LOCAL cOut := "", i := 1, nLen, nByte, nCont, nNeed
+   IF ValType( cText ) != "C"
+      RETURN "?"
+   ENDIF
+   nLen := hb_BLen( cText )
+   DO WHILE i <= nLen
+      nByte := hb_BCode( hb_BSubStr( cText, i, 1 ) )
+      DO CASE
+      CASE nByte < 32
+         // keep only common ASCII whitespace
+         IF nByte == 9 .OR. nByte == 10 .OR. nByte == 13
+            cOut += hb_BSubStr( cText, i, 1 )
+         ELSE
+            cOut += "?"
+         ENDIF
+         i++
+      CASE nByte < 128
+         // printable ASCII — keep as-is
+         cOut += hb_BSubStr( cText, i, 1 )
+         i++
+      CASE nByte < 192
+         // orphaned continuation byte (0x80-0xBF) — invalid
+         cOut += "?"
+         i++
+      CASE nByte < 224
+         // 2-byte sequence lead (0xC0-0xDF) — need 1 continuation byte
+         nNeed := 1
+         IF i + nNeed <= nLen
+            nCont := hb_BCode( hb_BSubStr( cText, i + 1, 1 ) )
+            IF nCont >= 128 .AND. nCont < 192
+               cOut += hb_BSubStr( cText, i, 2 )
+               i += 2
+            ELSE
+               cOut += "?"
+               i++
+            ENDIF
+         ELSE
+            cOut += "?"
+            i++
+         ENDIF
+      CASE nByte < 240
+         // 3-byte sequence lead (0xE0-0xEF) — need 2 continuation bytes
+         nNeed := 2
+         IF i + nNeed <= nLen
+            nCont := hb_BCode( hb_BSubStr( cText, i + 1, 1 ) )
+            IF nCont >= 128 .AND. nCont < 192
+               nCont := hb_BCode( hb_BSubStr( cText, i + 2, 1 ) )
+               IF nCont >= 128 .AND. nCont < 192
+                  cOut += hb_BSubStr( cText, i, 3 )
+                  i += 3
+               ELSE
+                  cOut += "?"
+                  i++
+               ENDIF
+            ELSE
+               cOut += "?"
+               i++
+            ENDIF
+         ELSE
+            cOut += "?"
+            i++
+         ENDIF
+      CASE nByte < 248
+         // 4-byte sequence lead (0xF0-0xF7) — need 3 continuation bytes
+         nNeed := 3
+         IF i + nNeed <= nLen
+            nCont := hb_BCode( hb_BSubStr( cText, i + 1, 1 ) )
+            IF nCont >= 128 .AND. nCont < 192
+               nCont := hb_BCode( hb_BSubStr( cText, i + 2, 1 ) )
+               IF nCont >= 128 .AND. nCont < 192
+                  nCont := hb_BCode( hb_BSubStr( cText, i + 3, 1 ) )
+                  IF nCont >= 128 .AND. nCont < 192
+                     cOut += hb_BSubStr( cText, i, 4 )
+                     i += 4
+                  ELSE
+                     cOut += "?"
+                     i++
+                  ENDIF
+               ELSE
+                  cOut += "?"
+                  i++
+               ENDIF
+            ELSE
+               cOut += "?"
+               i++
+            ENDIF
+         ELSE
+            cOut += "?"
+            i++
+         ENDIF
+      OTHERWISE
+         // >= 0xF8 — invalid start byte
+         cOut += "?"
+         i++
+      ENDCASE
+   ENDDO
+   RETURN cOut

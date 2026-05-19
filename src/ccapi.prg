@@ -176,21 +176,58 @@ STATIC FUNCTION CC_AccTool( aTools, hEv )
    RETURN NIL
 
 STATIC FUNCTION CC_ApiErrorMessage( cRaw, nStatus )
-   LOCAL xJson, cMsg, cSnippet
-   xJson := hb_jsonDecode( cRaw )
+   LOCAL xJson, cMsg, cSnippet, cClean
+   cClean := CC_SanitizeUTF8( cRaw )
+   xJson := hb_jsonDecode( cClean )
    IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "error" ) .AND. ;
-      ValType( xJson[ "error" ] ) == "H" .AND. ;
-      hb_HHasKey( xJson[ "error" ], "message" )
-      cMsg := hb_CStr( xJson[ "error" ][ "message" ] )
+      ValType( xJson[ "error" ] ) == "H"
+      IF hb_HHasKey( xJson[ "error" ], "message" )
+         cMsg := hb_CStr( xJson[ "error" ][ "message" ] )
+      ELSE
+         cMsg := "(no message)"
+      ENDIF
       IF hb_HHasKey( xJson[ "error" ], "type" ) .AND. !Empty( xJson[ "error" ][ "type" ] )
          cMsg += " (" + hb_CStr( xJson[ "error" ][ "type" ] ) + ")"
       ENDIF
-      RETURN cMsg
+      RETURN "HTTP " + LTrim( Str( nStatus ) ) + " - " + cMsg
    ENDIF
-   cSnippet := Left( cRaw, 500 )
+   // fallback: scan for "message" key via plain string search
+   xJson := CC_JsonFindMsg( cClean )
+   IF xJson != NIL
+      RETURN "HTTP " + LTrim( Str( nStatus ) ) + " - " + hb_CStr( xJson )
+   ENDIF
+   cSnippet := Left( cClean, 300 )
    cSnippet := StrTran( cSnippet, Chr(10), "\\n" )
    cSnippet := StrTran( cSnippet, Chr(13), "\\r" )
    RETURN "HTTP " + LTrim( Str( nStatus ) ) + " - body: " + cSnippet
+
+// Scans cText for a JSON key "message" and returns its value string, or NIL.
+STATIC FUNCTION CC_JsonFindMsg( cText )
+   LOCAL nPos, nEnd, cVal
+   nPos := hb_At( '"message"', cText, 1 )
+   IF nPos == 0
+      nPos := hb_At( "'message'", cText, 1 )
+   ENDIF
+   IF nPos == 0
+      RETURN NIL
+   ENDIF
+   nPos := hb_At( ':', cText, nPos + 8 )
+   IF nPos == 0
+      RETURN NIL
+   ENDIF
+   nPos := hb_At( '"', cText, nPos )
+   IF nPos == 0
+      RETURN NIL
+   ENDIF
+   nEnd := hb_At( '"', cText, nPos + 1 )
+   IF nEnd == 0
+      RETURN NIL
+   ENDIF
+   cVal := SubStr( cText, nPos + 1, nEnd - nPos - 1 )
+   cVal := StrTran( cVal, '\\"', '"' )
+   cVal := StrTran( cVal, '\\n', Chr(10) )
+   cVal := StrTran( cVal, '\\t', Chr(9) )
+   RETURN cVal
 
 FUNCTION CC_Emit( bOnEvent, hEv )
    IF bOnEvent != NIL
