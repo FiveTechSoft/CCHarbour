@@ -106,13 +106,15 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
    nShow := Min( Len( aLines ), nMax )
    FOR i := 1 TO nShow
       cLine := aLines[ i ]
-      // colour diff lines: added on a green background, removed on dark red
+      // colour diff lines: added on a green background, removed on dark red.
+      // The line is space-padded first so the background fills the width
+      // instead of stopping at the end of the text.
       cMark := DSUI_DiffMark( cLine )
       DO CASE
       CASE cMark == "+"
-         cLine := DSUI_Color( cLine, "42" )
+         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "42" )
       CASE cMark == "-"
-         cLine := DSUI_Color( cLine, "48;5;52" )
+         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "48;5;52" )
       ENDCASE
       cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + cLine
       IF i < nShow
@@ -124,6 +126,13 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
               LTrim( Str( Len( aLines ) - nMax ) ) + " more lines)"
    ENDIF
    RETURN cOut
+
+// Pads a diff line with trailing spaces so its background colour fills the
+// row (a coloured diff bar spans the line rather than stopping at the text).
+// A line already at or over the width is returned unchanged.
+FUNCTION DSUI_DiffPad( cLine )
+   LOCAL nLen := hb_UTF8Len( hb_CStr( cLine ) )
+   RETURN iif( nLen < 74, cLine + Space( 74 - nLen ), cLine )
 
 // The Claude Code-style tool-call line: an accent dot, then Tool(args). The
 // dot is accent-coloured; the label is left in the default foreground.
