@@ -137,8 +137,8 @@ FUNCTION Test_UI()
              "ui: banner has the rounded box" )
 
    // diff lines are space-padded so the background colour fills the row
-   T_Equal( hb_UTF8Len( DSUI_DiffPad( "ab" ) ), 90, "ui: diff pad fills short line to 90" )
-   T_Equal( DSUI_DiffPad( Replicate( "x", 95 ) ), Replicate( "x", 95 ), ;
+   T_Equal( hb_UTF8Len( DSUI_DiffPad( "ab" ) ), 110, "ui: diff pad fills short line to 110" )
+   T_Equal( DSUI_DiffPad( Replicate( "x", 115 ) ), Replicate( "x", 115 ), ;
             "ui: diff pad leaves a long line unchanged" )
 
    // CLAUDE.md renamed to CC.md
