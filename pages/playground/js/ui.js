@@ -37,7 +37,7 @@ export function createUI(handlers) {
     handlers.onSaveSettings({
       deepseekKey: $("key-deepseek").value.trim(),
       githubToken: $("key-github").value.trim(),
-      model: $("model").value.trim() || "deepseek-chat",
+      model: $("model").value.trim() || "deepseek-v4-flash",
     });
     $("settings").classList.add("hidden");
   });
@@ -48,7 +48,7 @@ export function createUI(handlers) {
     fillSettings(cfg) {
       $("key-deepseek").value = cfg.deepseekKey || "";
       $("key-github").value = cfg.githubToken || "";
-      $("model").value = cfg.model || "deepseek-chat";
+      $("model").value = cfg.model || "deepseek-v4-flash";
     },
     openSettings() { $("settings").classList.remove("hidden"); },
 
