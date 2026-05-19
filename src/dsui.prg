@@ -22,6 +22,10 @@ FUNCTION DSUI_ParseCommand( cLine )
       RETURN { "type" => "model", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
    CASE cLow == "/cost"
       RETURN { "type" => "cost", "text" => "" }
+   CASE cLow == "/save" .OR. Left( cLow, 6 ) == "/save "
+      RETURN { "type" => "save", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/load" .OR. Left( cLow, 6 ) == "/load "
+      RETURN { "type" => "load", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    ENDCASE
    RETURN { "type" => "message", "text" => cTrim }
 
@@ -68,6 +72,60 @@ FUNCTION DSUI_CostReport( hUsage )
            DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
    cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( DSUI_Glyph( "h" ), 34 ) + ;
                        DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   RETURN cOut
+
+// Returns the sessions directory path (.ccharbour/sessions under the
+// working directory, or CCHARBOUR_CONFIG).
+FUNCTION DSUI_SessionDir()
+   LOCAL cBase := hb_GetEnv( "CCHARBOUR_CONFIG" )
+   IF Empty( cBase )
+      cBase := hb_cwd() + "\.ccharbour"
+   ENDIF
+   RETURN cBase + "\sessions"
+
+// Ensures the sessions directory exists. Returns .T. on success.
+FUNCTION DSUI_EnsureSessionDir()
+   LOCAL cDir := DSUI_SessionDir()
+   IF !hb_DirExists( cDir )
+      RETURN hb_DirCreate( cDir )
+   ENDIF
+   RETURN .T.
+
+// Returns the full path for a session name (adds .json extension).
+FUNCTION DSUI_SessionPath( cName )
+   RETURN DSUI_SessionDir() + "\" + cName + ".json"
+
+// Lists saved session files in the sessions directory.
+// Returns an array of { name, path, mtime } hashes, or empty array.
+FUNCTION DSUI_SessionList()
+   LOCAL cDir := DSUI_SessionDir(), aFiles, aOut := {}, hFile, cName
+   IF !hb_DirExists( cDir )
+      RETURN aOut
+   ENDIF
+   aFiles := Directory( cDir + "\*.json" )
+   FOR EACH hFile IN aFiles
+      cName := hFile[ 1 ]
+      IF Right( cName, 5 ) == ".json"
+         cName := Left( cName, Len( cName ) - 5 )
+      ENDIF
+      AAdd( aOut, { "name" => cName, ;
+                    "path" => cDir + "\" + hFile[ 1 ], ;
+                    "mtime" => hFile[ 3 ] } )
+   NEXT
+   RETURN aOut
+
+// Formats a list of saved sessions into a human-readable string.
+FUNCTION DSUI_SessionListOutput( aSessions )
+   LOCAL cOut := "", hS, cTime
+   IF Len( aSessions ) == 0
+      RETURN DSUI_Color( "No saved sessions found.", "90" ) + Chr(10)
+   ENDIF
+   cOut := DSUI_Color( "Saved sessions:", "1" ) + Chr(10)
+   FOR EACH hS IN aSessions
+      cTime := DToS( hS[ "mtime" ] ) + " " + hS[ "mtime" ]  // crude, but works
+      cOut += "  " + hS[ "name" ] + DSUI_Color( "  (" + cTime + ")", "90" ) + Chr(10)
+   NEXT
+   cOut += DSUI_Color( "Use /load <name> to restore a session.", "90" ) + Chr(10)
    RETURN cOut
 
 // Returns the first line of cText, truncated to nMax characters, with a
@@ -484,6 +542,8 @@ FUNCTION DSUI_Help()
           "  /init          analyse the project and write CC.md" + Chr(10) + ;
           "  /model [name]  show the model, or switch to <name>" + Chr(10) + ;
           "  /cost          show token usage and estimated cost" + Chr(10) + ;
+          "  /save [name]   save the conversation" + Chr(10) + ;
+          "  /load [name]   load a saved conversation" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

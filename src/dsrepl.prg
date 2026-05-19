@@ -98,6 +98,10 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
       CASE hAction[ "type" ] == "cost"
          DSREPL_Out( DSUI_CostReport( s_hSessionUsage ) )
+      CASE hAction[ "type" ] == "save"
+         DSREPL_SaveSession( aMsgs, cModel, s_hSessionUsage, hAction[ "text" ] )
+      CASE hAction[ "type" ] == "load"
+         DSREPL_LoadSession( @aMsgs, @cModel, @s_hSessionUsage, hAction[ "text" ] )
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
          cMsg := iif( hAction[ "type" ] == "init", ;
                       DSUI_InitPrompt(), hAction[ "text" ] )
@@ -166,6 +170,107 @@ STATIC FUNCTION DSREPL_AccumUsage( hTurnUsage )
       ENDIF
    NEXT
    RETURN NIL
+
+// Saves the current session to a JSON file.
+// cArg is the user-supplied name (empty = auto-name with timestamp).
+STATIC FUNCTION DSREPL_SaveSession( aMsgs, cModel, hUsage, cArg )
+   LOCAL cName, cPath, hPack, cJson, hSaved
+   LOCAL aSessions
+
+   IF !DSUI_EnsureSessionDir()
+      DSREPL_Out( DSUI_Color( "!! error: cannot create sessions directory", "31" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+
+   // determine the session name
+   IF Empty( cArg )
+      // auto-name: session_YYYY-MM-DD_HHMMSS
+      cName := "session_" + StrTran( StrTran( DToS( Date() ), "/", "-" ), ".", "-" ) + ;
+               "_" + StrTran( SubStr( Time(), 1, 8 ), ":", "" )
+   ELSE
+      cName := AllTrim( cArg )
+      // sanitise the name: keep only safe chars
+      cName := DSREPL_SanitiseName( cName )
+      IF Empty( cName )
+         DSREPL_Out( DSUI_Color( "!! error: invalid session name", "31" ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+   ENDIF
+
+   cPath := DSUI_SessionPath( cName )
+   hPack := { "model" => cModel, ;
+              "saved_at" => DToS( Date() ) + "T" + Time(), ;
+              "usage" => hUsage, ;
+              "messages" => aMsgs }
+   cJson := hb_jsonEncode( hPack, .T. )  // .T. = pretty-print
+
+   IF !hb_MemoWrit( cPath, cJson )
+      DSREPL_Out( DSUI_Color( "!! error: failed to write " + cPath, "31" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+
+   DSREPL_Out( DSUI_Color( "[saved: " + cName + "]", "90" ) + Chr(10) )
+   RETURN NIL
+
+// Loads a session from a JSON file.
+// cArg is the session name (empty = list available sessions).
+STATIC FUNCTION DSREPL_LoadSession( aMsgs, cModel, hUsage, cArg )
+   LOCAL aSessions, hPack, cJson, cPath, cName
+
+   IF Empty( cArg )
+      // list available sessions
+      aSessions := DSUI_SessionList()
+      DSREPL_Out( DSUI_SessionListOutput( aSessions ) )
+      RETURN NIL
+   ENDIF
+
+   cName := DSREPL_SanitiseName( AllTrim( cArg ) )
+   IF Empty( cName )
+      // maybe it's "autosave" with special chars removed - try as-is
+      cName := AllTrim( cArg )
+   ENDIF
+
+   cPath := DSUI_SessionPath( cName )
+   IF !hb_FileExists( cPath )
+      DSREPL_Out( DSUI_Color( "!! error: session '" + cName + "' not found", "31" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+
+   cJson := hb_MemoRead( cPath )
+   hPack := hb_jsonDecode( cJson )
+   IF ValType( hPack ) != "H" .OR. !hb_HHasKey( hPack, "messages" )
+      DSREPL_Out( DSUI_Color( "!! error: invalid session file", "31" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+
+   aMsgs := hPack[ "messages" ]
+   IF hb_HHasKey( hPack, "model" ) .AND. !Empty( hPack[ "model" ] )
+      cModel := hPack[ "model" ]
+   ENDIF
+   IF hb_HHasKey( hPack, "usage" ) .AND. ValType( hPack[ "usage" ] ) == "H"
+      hUsage := hPack[ "usage" ]
+   ELSE
+      hUsage := {=>}
+   ENDIF
+
+   DSREPL_Out( DSUI_Color( "[loaded: " + cName + "]", "90" ) + Chr(10) )
+   DSREPL_Out( DSUI_Color( "  model: " + cModel, "90" ) + Chr(10) )
+   DSREPL_Out( DSUI_Color( "  messages: " + LTrim( Str( Len( aMsgs ) ) ), "90" ) + Chr(10) )
+   RETURN NIL
+
+// Sanitises a session name: keeps only alphanumeric, underscores, hyphens.
+STATIC FUNCTION DSREPL_SanitiseName( cName )
+   LOCAL cOut := "", i, cCh
+   FOR i := 1 TO Len( cName )
+      cCh := SubStr( cName, i, 1 )
+      IF cCh >= "A" .AND. cCh <= "Z" .OR. ;
+         cCh >= "a" .AND. cCh <= "z" .OR. ;
+         cCh >= "0" .AND. cCh <= "9" .OR. ;
+         cCh == "_" .OR. cCh == "-"
+         cOut += cCh
+      ENDIF
+   NEXT
+   RETURN cOut
 
 // Creates a per-turn render state: the markdown renderer, an id->tool-name
 // map (to label tool results), and the assistant-bullet run flag.
