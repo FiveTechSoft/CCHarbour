@@ -1,5 +1,3 @@
-#include "fileio.ch"
-
 // ccprompt: the persistent bottom input box and the mid-turn message queue.
 // This file holds the pure logic; the console I/O (Poll, Redraw, Activate,
 // Teardown) is added on top of it.
