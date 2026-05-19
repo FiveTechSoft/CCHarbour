@@ -172,7 +172,9 @@ directory is appended to the system prompt as project instructions.
 
 ## Releases
 
-**v0.6.0 — current.** Massive refactor: all files and functions renamed from ds* to cc* prefix (e.g. `dsui.prg` → `ccui.prg`, `DSUI_Version()` → `CCUI_Version()`), plus all features from v0.5.1.
+**v0.7.0 — current.** Shell command timeouts (`shell_timeout` setting, per-call `timeout`, auto-estimate) with a live countdown, timed-shell reliability fixes, UTF-8 tool-result sanitising, and richer API error messages, plus all features from v0.6.0.
+
+**v0.6.0 — previous.** Massive refactor: all files and functions renamed from ds* to cc* prefix (e.g. `dsui.prg` → `ccui.prg`, `DSUI_Version()` → `CCUI_Version()`), plus all features from v0.5.1.
 
 **v0.5.1 — previous.** Playground fixes and updated documentation,
 plus all features from v0.5.0.

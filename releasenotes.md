@@ -1,4 +1,24 @@
-CCHarbour v0.6.0 — Massive refactor: all files and functions renamed from ds* to cc* prefix.
+CCHarbour v0.7.0 — Shell command timeouts with a live countdown, plus reliability fixes.
+
+## New since v0.6.0
+
+- **Shell timeout** — the `shell` tool now bounds how long a command may run.
+  Set it with the `shell_timeout` setting (default 30s), an optional per-call
+  `timeout` argument, or — when `shell_timeout` is 0 — an automatic
+  per-command estimate.
+- **Live countdown** — while a shell command runs, the REPL shows the
+  configured timeout and the seconds still left, updated in place.
+- **Reliability fixes** — repaired the timed-shell path: a missing
+  `fileio.ch` include (`F_ERROR` undefined), an undefined `hb_TempFile()`
+  link error, and a broken exit-code marker. Completion detection and the
+  real exit code now come from `hb_processValue`.
+- **UTF-8 sanitising** — tool results are scrubbed of invalid Unicode
+  (`CC_SanitizeUTF8`) so they cannot break the API request JSON.
+- **Better API errors** — API failure messages now include a dump of the
+  HTTP response body.
+- **Docs** — documented the shell timeout; corrected web search to DuckDuckGo.
+
+## v0.6.0 — Massive refactor: all files and functions renamed from ds* to cc* prefix.
 
 ## New since v0.5.1
 
