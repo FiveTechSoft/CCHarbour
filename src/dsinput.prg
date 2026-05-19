@@ -81,9 +81,12 @@ FUNCTION DSIN_HistoryClear()
 // ── Editor state operations ──────────────────────────────────────────────
 
 // A fresh editor state, cursor at the end of the initial text.
+// When cInitial is non-empty the text is flagged as a "suggestion" so the
+// input box renders it in the suggestion colour and Tab accepts it.
 FUNCTION DSIN_New( cInitial )
-   cInitial := hb_CStr( cInitial )
-   RETURN { "buf" => cInitial, "cursor" => hb_UTF8Len( cInitial ) }
+   LOCAL cText := hb_CStr( cInitial )
+   RETURN { "buf" => cText, "cursor" => hb_UTF8Len( cText ), ;
+            "suggestion" => iif( !Empty( cText ), cText, "" ) }
 
 // Inserts cChar at the cursor and advances the cursor.
 FUNCTION DSIN_Insert( oSt, cChar )
@@ -187,6 +190,16 @@ FUNCTION DSIN_Utf8Chr( n )
    ENDCASE
    RETURN ""
 
+// Returns .T. when the editor state has an active (unaccepted) suggestion.
+FUNCTION DSIN_HasSuggestion( oSt )
+   RETURN ValType( oSt ) == "H" .AND. hb_HHasKey( oSt, "suggestion" ) .AND. ;
+          !Empty( oSt[ "suggestion" ] )
+
+// Clears the suggestion flag so the buffer renders in normal colour.
+FUNCTION DSIN_ClearSuggestion( oSt )
+   oSt[ "suggestion" ] := ""
+   RETURN NIL
+
 // NOTE: requires DSUI_ColorOn() (VT enabled) — the editor positions the cursor
 // with DSUI_VT sequences; without VT the sentinel path is taken instead.
 // Reads one line (possibly multi-line) through the raw-mode input box.
@@ -220,7 +233,9 @@ FUNCTION DSIN_ReadLine( cInitial )
    // the cursor up onto the prompt line (hint -> bottom -> prompt = up 2).
    hW := DSIN_Window( oSt, DSUI_InputInnerWidth() )
    DSREPL_Out( Chr(10) + DSUI_FrameTop() + Chr(10) + ;
-               DSUI_InputBoxLine( hW[ "text" ] ) + Chr(10) + ;
+               iif( DSIN_HasSuggestion( oSt ), ;
+                   DSUI_InputBoxSuggestion( hW[ "text" ] ), ;
+                   DSUI_InputBoxLine( hW[ "text" ] ) ) + Chr(10) + ;
                DSUI_FrameBottom() + Chr(10) + ;
                DSUI_InputHint( hW[ "lines" ] ) + DSUI_VT( "2A" ) )
 
@@ -245,6 +260,7 @@ FUNCTION DSIN_ReadLine( cInitial )
          IF lPaste
             DSIN_Insert( oSt, Chr(10) )
          ELSE
+            DSIN_ClearSuggestion( oSt )
             DSIN_HistoryAdd( oSt[ "buf" ] )
             cResult := oSt[ "buf" ]
             DSIN_HistoryReset()
@@ -252,9 +268,21 @@ FUNCTION DSIN_ReadLine( cInitial )
          ENDIF
       CASE nKey == -11
          // Shift+Enter: always insert newline, never submit
+         DSIN_ClearSuggestion( oSt )
          DSIN_Insert( oSt, Chr(10) )
+      CASE nKey == -12
+         // Tab: accept the suggestion — keep the buffer, switch to normal colour
+         DSIN_ClearSuggestion( oSt )
+         oSt[ "cursor" ] := hb_UTF8Len( oSt[ "buf" ] )
       CASE nKey == -2
-         DSIN_Backspace( oSt )
+         // Backspace on a suggestion cancels it; otherwise normal backspace
+         IF DSIN_HasSuggestion( oSt )
+            DSIN_ClearSuggestion( oSt )
+            oSt[ "buf" ] := ""
+            oSt[ "cursor" ] := 0
+         ELSE
+            DSIN_Backspace( oSt )
+         ENDIF
       CASE nKey == -3
          DSIN_Left( oSt )
       CASE nKey == -4
@@ -264,9 +292,17 @@ FUNCTION DSIN_ReadLine( cInitial )
       CASE nKey == -6
          DSIN_End( oSt )
       CASE nKey == -7
-         DSIN_Delete( oSt )
+         // Delete on a suggestion cancels it; otherwise normal delete
+         IF DSIN_HasSuggestion( oSt )
+            DSIN_ClearSuggestion( oSt )
+            oSt[ "buf" ] := ""
+            oSt[ "cursor" ] := 0
+         ELSE
+            DSIN_Delete( oSt )
+         ENDIF
       CASE nKey == -9
          // Up: navigate to previous history entry
+         DSIN_ClearSuggestion( oSt )
          cHistoryLine := DSIN_HistoryPrev( oSt[ "buf" ] )
          IF cHistoryLine != NIL
             oSt[ "buf" ] := cHistoryLine
@@ -274,19 +310,29 @@ FUNCTION DSIN_ReadLine( cInitial )
          ENDIF
       CASE nKey == -10
          // Down: navigate to next history entry or back to draft
+         DSIN_ClearSuggestion( oSt )
          cHistoryLine := DSIN_HistoryNext( oSt[ "buf" ] )
          IF cHistoryLine != NIL
             oSt[ "buf" ] := cHistoryLine
             oSt[ "cursor" ] := hb_UTF8Len( cHistoryLine )
          ENDIF
       CASE nKey > 0
+         // Any printable char: if a suggestion is active, replace it
+         IF DSIN_HasSuggestion( oSt )
+            DSIN_ClearSuggestion( oSt )
+            oSt[ "buf" ] := ""
+            oSt[ "cursor" ] := 0
+         ENDIF
          DSIN_Insert( oSt, DSIN_Utf8Chr( nKey ) )
       // nKey == -99 (an unmapped key) matches no case above and is ignored
       ENDCASE
       // redraw the prompt line in place; update hint if line count changed
       hW := DSIN_Window( oSt, DSUI_InputInnerWidth() )
       nLines := hW[ "lines" ]
-      DSREPL_Out( DSUI_VT( "1G" ) + DSUI_InputBoxLine( hW[ "text" ] ) + ;
+      DSREPL_Out( DSUI_VT( "1G" ) + ;
+                  iif( DSIN_HasSuggestion( oSt ), ;
+                      DSUI_InputBoxSuggestion( hW[ "text" ] ), ;
+                      DSUI_InputBoxLine( hW[ "text" ] ) ) + ;
                   DSUI_VT( "2B" ) + DSUI_VT( "1G" ) + ;
                   DSUI_InputHint( nLines ) + DSUI_VT( "2A" ) )
    ENDDO

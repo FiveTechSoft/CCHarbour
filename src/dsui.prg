@@ -234,7 +234,7 @@ FUNCTION DSUI_DiffPad( cLine )
 FUNCTION DSUI_ToolCallLine( cName, cArgsJson )
    RETURN Chr(10) + ;
           DSUI_Color( Chr(226)+Chr(143)+Chr(186), DSUI_Pal( "accent" ) ) + ;
-          " " + DSUI_ToolLabel( cName, cArgsJson ) + Chr(10)
+          "  " + DSUI_ToolLabel( cName, cArgsJson ) + Chr(10)
 
 // True when any line of cText is diff-formatted (per DSUI_DiffMark).
 STATIC FUNCTION DSUI_HasDiff( cText )
@@ -343,7 +343,7 @@ FUNCTION DSUI_Pal( cName )
    CASE cName == "warn"       ; RETURN "33"
    CASE cName == "diff_add"   ; RETURN "42"
    CASE cName == "diff_del"   ; RETURN "48;5;52"
-   CASE cName == "suggestion" ; RETURN "38;2;144;238;144"
+   CASE cName == "suggestion" ; RETURN "2;38;2;180;255;180"
    ENDCASE
    RETURN "0"
 

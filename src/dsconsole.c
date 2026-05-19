@@ -52,6 +52,7 @@ HB_FUNC( DSCON_RAWMODE )
  *     0  end of input
  *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
  *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
+ *   -12 Tab
  *   -99 an unmapped key (caller ignores it). */
 HB_FUNC( DSCON_READKEY )
 {
@@ -95,6 +96,7 @@ HB_FUNC( DSCON_READKEY )
          else if( vk == VK_DELETE )      { result = -7; done = HB_TRUE; }
          else if( vk == VK_UP )          { result = -9; done = HB_TRUE; }
          else if( vk == VK_DOWN )        { result = -10; done = HB_TRUE; }
+         else if( vk == VK_TAB )          { result = -12; done = HB_TRUE; }
          else if( ch >= 32 )             { result = ( int ) ch; done = HB_TRUE; }
          /* else: a non-printable key with no mapping -> read the next event */
       }
