@@ -83,6 +83,8 @@ FUNCTION DSIN_Utf8Chr( n )
    ENDCASE
    RETURN ""
 
+// NOTE: requires DSUI_ColorOn() (VT enabled) — the editor positions the cursor
+// with DSUI_VT sequences; without VT the sentinel path is taken instead.
 // Reads one line through the raw-mode input box. cInitial pre-fills the buffer
 // (the suggested next prompt). Returns the typed string, or NIL on Ctrl-C /
 // end of input. Returns the sentinel hash { "no_console" => .T. } when there

@@ -323,9 +323,9 @@ FUNCTION DSUI_Version()
    RETURN "0.2.0"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
-// a block-letter "CC" logo (accent colour) on the left and the name+version,
-// a tagline, the /help hint, the model and the working directory on the right.
-// Returns the whole banner as one string ending in LF.
+// a block-letter "CC" logo on the left (default foreground) and the
+// name+version (accent colour), a tagline, the /help hint, the model and the
+// working directory on the right. Returns the whole banner as one string ending in LF.
 FUNCTION DSUI_Banner( cModel, cCwd, cUser )
    LOCAL nInner := 75, cH := DSUI_Glyph( "h" ), cV
    LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B

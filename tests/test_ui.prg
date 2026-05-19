@@ -65,7 +65,7 @@ FUNCTION Test_UI()
    // banner: single-panel Claude Code-style box
    DSUI_SetColor( .F. )
    T_Assert( "CCHarbour" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
-             "ui: banner has welcome line" )
+             "ui: banner has the CCHarbour name" )
    T_Assert( "model: deepseek-chat" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has model line" )
    T_Assert( "cwd: C:\proj" $ DSUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;

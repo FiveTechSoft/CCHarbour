@@ -33,6 +33,7 @@ FUNCTION Main( cModel )
    BEGIN SEQUENCE WITH {| o | Break( o ) }
       DSREPL_Run( oClient, oReg, cModel, bGate, hSet[ "max_iterations" ] )
    RECOVER USING oErr
+      DSCON_RawMode( .F. )   // restore the console if a crash happened mid-editor
       DSREPL_Out( Chr(10) + "Fatal: " + ;
               iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" ) + ;
               Chr(10) )
