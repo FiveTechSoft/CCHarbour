@@ -66,8 +66,19 @@ FUNCTION DSHTTP_CurlPost( hReq, bOnChunk )
    FClose( hIn )
 
    // stream stdout chunk-by-chunk as curl delivers it
+   // check for Ctrl+C between chunks to allow cancellation
    DO WHILE ( nRead := FRead( hOut, @cBuf, hb_BLen( cBuf ) ) ) > 0
       Eval( bOnChunk, hb_BLeft( cBuf, nRead ) )
+      IF DSCON_PeekCtrlC()
+         hb_processClose( hProc )
+         FClose( hOut )
+         FClose( hErr )
+         IF !Empty( cHdrFile )
+            FErase( cHdrFile )
+         ENDIF
+         RETURN { "ok" => .F., "status" => 0, "curl_code" => -2, ;
+                  "error" => "cancelled" }
+      ENDIF
    ENDDO
 
    // drain stderr for diagnostics

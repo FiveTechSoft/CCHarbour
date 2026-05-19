@@ -69,10 +69,15 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    hResult[ "curl_code" ] := hHttp[ "curl_code" ]
 
    IF !hHttp[ "ok" ]
-      hResult[ "error_type" ] := "network"
-      hResult[ "message" ]    := hHttp[ "error" ]
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => "network", ;
-                           "message" => hHttp[ "error" ] } )
+      IF hHttp[ "curl_code" ] == -2
+         hResult[ "error_type" ] := "cancelled"
+         hResult[ "message" ]    := "cancelled"
+      ELSE
+         hResult[ "error_type" ] := "network"
+         hResult[ "message" ]    := hHttp[ "error" ]
+      ENDIF
+      DS_Emit( bOnEvent, { "type" => "error", "error_type" => hResult[ "error_type" ], ;
+                           "message" => hResult[ "message" ] } )
       RETURN hResult
    ENDIF
 

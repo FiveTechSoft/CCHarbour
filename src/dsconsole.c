@@ -98,3 +98,50 @@ HB_FUNC( DSCON_READKEY )
 
    hb_retni( result );
 }
+
+/* DSCON_PeekCtrlC() -> .T. when a Ctrl+C key event is pending in the
+ * console input buffer. The event is consumed and discarded, so a
+ * subsequent DSCON_ReadKey will not see it. Non-blocking. */
+HB_FUNC( DSCON_PEEKCTRLC )
+{
+   HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
+   DWORD nEvents = 0;
+   INPUT_RECORD rec;
+   DWORD nRead;
+   WORD  vk;
+   DWORD cks;
+   HB_BOOL ctrl;
+
+   if( h == INVALID_HANDLE_VALUE || h == NULL )
+   {
+      hb_retl( 0 );
+      return;
+   }
+
+   if( ! GetNumberOfConsoleInputEvents( h, &nEvents ) || nEvents == 0 )
+   {
+      hb_retl( 0 );
+      return;
+   }
+
+   /* Peek at the first pending event */
+   if( PeekConsoleInputW( h, &rec, 1, &nRead ) && nRead > 0 )
+   {
+      if( rec.EventType == KEY_EVENT && rec.Event.KeyEvent.bKeyDown )
+      {
+         vk   = rec.Event.KeyEvent.wVirtualKeyCode;
+         cks  = rec.Event.KeyEvent.dwControlKeyState;
+         ctrl = ( cks & ( LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED ) ) != 0;
+
+         if( ctrl && vk == 'C' )
+         {
+            /* Consume the event so it does not reach ReadLine */
+            ReadConsoleInputW( h, &rec, 1, &nRead );
+            hb_retl( 1 );
+            return;
+         }
+      }
+   }
+
+   hb_retl( 0 );
+}

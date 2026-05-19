@@ -142,8 +142,12 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                DSREPL_Out( DSUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
             ENDIF
          ELSE
-            DSREPL_Out( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
-                    hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
+            IF hb_CStr( hRes[ "error_type" ] ) == "cancelled"
+               DSREPL_Out( DSUI_Color( "[cancelled]", "33" ) + Chr(10) )
+            ELSE
+               DSREPL_Out( DSUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
+                       hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
+            ENDIF
          ENDIF
       ENDCASE
    ENDDO
