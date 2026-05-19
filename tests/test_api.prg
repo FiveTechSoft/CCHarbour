@@ -1,7 +1,7 @@
 FUNCTION Test_Api()
    LOCAL oClient, hResult, aEvents, bTransport
 
-   oClient := DS_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
+   oClient := CC_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
    T_Equal( ValType( oClient ), "H", "api: client is hash" )
 
    // transport that streams a text reply, a usage line and [DONE]
@@ -15,7 +15,7 @@ FUNCTION Test_Api()
       { "ok" => .T., "status" => 200, "curl_code" => 0, "error" => "" } }
 
    aEvents := {}
-   hResult := DS_ChatCompletion( oClient, ;
+   hResult := CC_ChatCompletion( oClient, ;
       { { "role" => "user", "content" => "hi" } }, ;
       { "transport" => bTransport }, {| h | AAdd( aEvents, h ) } )
 
@@ -32,7 +32,7 @@ FUNCTION Test_Api()
       Eval( bOnChunk, 'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"a\"}"}}]}}]}' + Chr(10) ), ;
       Eval( bOnChunk, "data: [DONE]" + Chr(10) ), ;
       { "ok" => .T., "status" => 200, "curl_code" => 0, "error" => "" } }
-   hResult := DS_ChatCompletion( oClient, ;
+   hResult := CC_ChatCompletion( oClient, ;
       { { "role" => "user", "content" => "x" } }, ;
       { "transport" => bTransport }, {| h | HB_SYMBOL_UNUSED( h ) } )
    T_Equal( Len( hResult[ "tool_calls" ] ), 1, "api: one tool call" )
@@ -41,8 +41,8 @@ FUNCTION Test_Api()
    T_Equal( hResult[ "tool_calls" ][ 1 ][ "arguments" ], '{"p":"a"}', "api: tool args joined" )
 
    // missing API key -> config error, no transport call
-   oClient := DS_Client( {=>} )
-   hResult := DS_ChatCompletion( oClient, ;
+   oClient := CC_Client( {=>} )
+   hResult := CC_ChatCompletion( oClient, ;
       { { "role" => "user", "content" => "x" } }, {=>}, NIL )
    T_Equal( hResult[ "success" ], .F., "api: missing key fails" )
    T_Equal( hResult[ "error_type" ], "config", "api: missing key error_type" )
@@ -51,8 +51,8 @@ FUNCTION Test_Api()
    bTransport := {| hR, bOnChunk | ;
       HB_SYMBOL_UNUSED( hR ), HB_SYMBOL_UNUSED( bOnChunk ), ;
       { "ok" => .F., "status" => 0, "curl_code" => 7, "error" => "no connect" } }
-   oClient := DS_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
-   hResult := DS_ChatCompletion( oClient, ;
+   oClient := CC_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
+   hResult := CC_ChatCompletion( oClient, ;
       { { "role" => "user", "content" => "x" } }, ;
       { "transport" => bTransport }, NIL )
    T_Equal( hResult[ "success" ], .F., "api: network failure" )
@@ -63,7 +63,7 @@ FUNCTION Test_Api()
       HB_SYMBOL_UNUSED( hR ), ;
       Eval( bOnChunk, '{"error":{"message":"slow down","code":"rate_limit"}}' ), ;
       { "ok" => .T., "status" => 429, "curl_code" => 0, "error" => "" } }
-   hResult := DS_ChatCompletion( oClient, ;
+   hResult := CC_ChatCompletion( oClient, ;
       { { "role" => "user", "content" => "x" } }, ;
       { "transport" => bTransport }, NIL )
    T_Equal( hResult[ "error_type" ], "api", "api: 429 error_type" )

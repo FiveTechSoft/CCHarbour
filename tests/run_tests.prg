@@ -41,9 +41,13 @@ FUNCTION T_Equal( xActual, xExpected, cName )
    RETURN T_Assert( lOk, cName + iif( lOk, "", ;
       " (got <" + hb_CStr( xActual ) + "> want <" + hb_CStr( xExpected ) + ">)" ) )
 
-// Stub so the test build links dsinput.prg (which calls DSREPL_Out) without
-// pulling in dsrepl.prg (which defines Main). DSIN_ReadLine is never called
+// Stub so the test build links dsinput.prg (which calls CCREPL_Out) without
+// pulling in dsrepl.prg (which defines Main). CCIN_ReadLine is never called
 // from tests, so this stub is never executed.
-FUNCTION DSREPL_Out( cText )
+FUNCTION CCREPL_Out( cText )
    HB_SYMBOL_UNUSED( cText )
    RETURN NIL
+ 
+// Stub for CCREPL_ReadLine used by dsagent.prg (pause/Esc feature). 
+FUNCTION CCREPL_ReadLine() 
+   RETURN ""

@@ -4,7 +4,7 @@
 // When cCoAuthor is non-empty, any "git commit" command automatically gets
 // a --trailer "Co-authored-by: ..." appended (configurable in settings.json
 // under the "co_author" key).
-FUNCTION DSTool_Shell( cCoAuthor )
+FUNCTION CCTool_Shell( cCoAuthor )
    RETURN { "name" => "shell", ;
             "description" => "Run a shell command via cmd.exe and return its combined output and exit code.", ;
             "parameters" => { "type" => "object", ;
@@ -12,13 +12,13 @@ FUNCTION DSTool_Shell( cCoAuthor )
                   "command" => { "type" => "string", ;
                                  "description" => "Command line to run" } }, ;
                "required" => { "command" } }, ;
-            "handler" => {| hArgs | DSTool_ShellRun( hArgs, cCoAuthor ) } }
+            "handler" => {| hArgs | CCTool_ShellRun( hArgs, cCoAuthor ) } }
 
-STATIC FUNCTION DSTool_ShellRun( hArgs, cCoAuthor )
+STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor )
    LOCAL cCommand, cCmdLine, cOut := "", cErr := "", nExit, cResult
    cCommand := hb_CStr( hArgs[ "command" ] )
    // auto-inject co-author trailer on git commit commands
-   IF !Empty( cCoAuthor ) .AND. DSTool_IsGitCommit( cCommand )
+   IF !Empty( cCoAuthor ) .AND. CCTool_IsGitCommit( cCommand )
       cCommand += ' --trailer "Co-authored-by: ' + cCoAuthor + '"'
    ENDIF
    cCmdLine := "cmd.exe /c " + cCommand
@@ -42,7 +42,7 @@ STATIC FUNCTION DSTool_ShellRun( hArgs, cCoAuthor )
 // Returns .T. when cCmd looks like a "git commit" invocation.
 // Checks that the command contains "git commit" and does not already have
 // a --trailer or Co-authored-by marker (to avoid double-injection).
-STATIC FUNCTION DSTool_IsGitCommit( cCmd )
+STATIC FUNCTION CCTool_IsGitCommit( cCmd )
    LOCAL cLow := Lower( AllTrim( cCmd ) )
    // bail if the user already included a trailer manually
    IF "co-authored-by" $ cLow .OR. "--trailer" $ cLow

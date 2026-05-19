@@ -3,21 +3,21 @@
 #include "hbapi.h"
 #include <windows.h>
 
-/* DSCON_HasConsole() -> .T. when stdin is a real interactive console. */
-HB_FUNC( DSCON_HASCONSOLE )
+/* CCCON_HasConsole() -> .T. when stdin is a real interactive console. */
+HB_FUNC( CCCON_HASCONSOLE )
 {
    DWORD mode;
    HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
    hb_retl( h != INVALID_HANDLE_VALUE && h != NULL && GetConsoleMode( h, &mode ) );
 }
 
-static DWORD    s_dscon_savedMode = 0;
-static HB_BOOL  s_dscon_modeSaved = HB_FALSE;
+static DWORD    s_CCCON_savedMode = 0;
+static HB_BOOL  s_CCCON_modeSaved = HB_FALSE;
 
-/* DSCON_RawMode( lOn ) -- lOn .T. disables line-input/echo/processed-input on
+/* CCCON_RawMode( lOn ) -- lOn .T. disables line-input/echo/processed-input on
  * the console (so keystrokes and Ctrl+C arrive as raw events); .F. restores
  * the previously saved mode. Returns .T. on success, .F. on any failure. */
-HB_FUNC( DSCON_RAWMODE )
+HB_FUNC( CCCON_RAWMODE )
 {
    HB_BOOL fOn = hb_parl( 1 );
    HANDLE  h   = GetStdHandle( STD_INPUT_HANDLE );
@@ -30,16 +30,16 @@ HB_FUNC( DSCON_RAWMODE )
          DWORD mode;
          if( GetConsoleMode( h, &mode ) )
          {
-            s_dscon_savedMode = mode;
-            s_dscon_modeSaved = HB_TRUE;
+            s_CCCON_savedMode = mode;
+            s_CCCON_modeSaved = HB_TRUE;
             mode &= ~( ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT );
             if( SetConsoleMode( h, mode ) )
                fOk = HB_TRUE;
          }
       }
-      else if( s_dscon_modeSaved )
+      else if( s_CCCON_modeSaved )
       {
-         if( SetConsoleMode( h, s_dscon_modeSaved ) )
+         if( SetConsoleMode( h, s_CCCON_modeSaved ) )
             fOk = HB_TRUE;
       }
    }
@@ -47,14 +47,14 @@ HB_FUNC( DSCON_RAWMODE )
    hb_retl( fOk );
 }
 
-/* DSCON_ReadKey() -- blocks for one key-down event and returns an int:
+/* CCCON_ReadKey() -- blocks for one key-down event and returns an int:
  *   > 0  the Unicode codepoint of a printable character
  *     0  end of input
  *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
  *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
  *   -12 Tab
  *   -99 an unmapped key (caller ignores it). */
-HB_FUNC( DSCON_READKEY )
+HB_FUNC( CCCON_READKEY )
 {
    HANDLE       h = GetStdHandle( STD_INPUT_HANDLE );
    INPUT_RECORD rec;
@@ -105,10 +105,10 @@ HB_FUNC( DSCON_READKEY )
    hb_retni( result );
 }
 
-/* DSCON_PeekCtrlC() -> .T. when a Ctrl+C key event is pending in the
+/* CCCON_PeekCtrlC() -> .T. when a Ctrl+C key event is pending in the
  * console input buffer. The event is consumed and discarded, so a
- * subsequent DSCON_ReadKey will not see it. Non-blocking. */
-HB_FUNC( DSCON_PEEKCTRLC )
+ * subsequent CCCON_ReadKey will not see it. Non-blocking. */
+HB_FUNC( CCCON_PEEKCTRLC )
 {
    HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
    DWORD nEvents = 0;
@@ -152,10 +152,10 @@ HB_FUNC( DSCON_PEEKCTRLC )
    hb_retl( 0 );
 }
 
-/* DSCON_PeekEsc() -> .T. when an Escape key press is pending in the
+/* CCCON_PeekEsc() -> .T. when an Escape key press is pending in the
  * console input buffer. The event IS consumed and discarded, so a later
- * ReadLine / DSCON_ReadKey will not see it. Non-blocking. */
-HB_FUNC( DSCON_PEEKESC )
+ * ReadLine / CCCON_ReadKey will not see it. Non-blocking. */
+HB_FUNC( CCCON_PEEKESC )
 {
    HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
    DWORD nEvents = 0;

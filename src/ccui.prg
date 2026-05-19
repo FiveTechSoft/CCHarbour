@@ -1,10 +1,10 @@
-// Whether DSUI_Color emits ANSI colour codes (off unless the REPL turns it on).
+// Whether CCUI_Color emits ANSI colour codes (off unless the REPL turns it on).
 STATIC s_lColor := .F.
 
 // Classifies a line of REPL input. Returns a hash with:
 //   "type" => "exit"|"clear"|"help"|"init"|"model"|"cost"|"message"|"empty"
 //   "text" => the trimmed line, or the command argument for "model"
-FUNCTION DSUI_ParseCommand( cLine )
+FUNCTION CCUI_ParseCommand( cLine )
    LOCAL cTrim := AllTrim( hb_CStr( cLine ) )
    LOCAL cLow  := Lower( cTrim )
    DO CASE
@@ -31,7 +31,7 @@ FUNCTION DSUI_ParseCommand( cLine )
 
 // The instruction sent to the agent by the /init command: it asks the model
 // to inspect the project and write a CC.md file.
-FUNCTION DSUI_InitPrompt()
+FUNCTION CCUI_InitPrompt()
    RETURN "Analyse this project and create a CC.md file in the working " + ;
           "directory. Use your tools to explore the repository: its layout, " + ;
           "how it is built and run, and its coding conventions. CC.md " + ;
@@ -42,41 +42,41 @@ FUNCTION DSUI_InitPrompt()
 // Formats a session usage hash into a human-readable cost report.
 // hUsage: { prompt_tokens => N, completion_tokens => N, ... }
 // Pricing is approximate (DeepSeek API rates).
-FUNCTION DSUI_CostReport( hUsage )
+FUNCTION CCUI_CostReport( hUsage )
    LOCAL nIn, nOut, cOut, nCostIn, nCostOut, nCostTotal
    IF ValType( hUsage ) != "H" .OR. Len( hb_HKeys( hUsage ) ) == 0
-      RETURN DSUI_Color( "No usage data for this session yet.", "90" ) + Chr(10)
+      RETURN CCUI_Color( "No usage data for this session yet.", "90" ) + Chr(10)
    ENDIF
    nIn  := hb_HGetDef( hUsage, "prompt_tokens", 0 )
    nOut := hb_HGetDef( hUsage, "completion_tokens", 0 )
-   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( DSUI_Glyph( "h" ), 34 ) + ;
-                       DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+   cOut := CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( CCUI_Glyph( "h" ), 34 ) + ;
+                       CCUI_Glyph( "tr" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
            "  Session cost report" + ;
-           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           CCUI_Color( "  " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
            "  prompt tokens:      " + LTrim( Str( nIn ) ) + ;
-           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
            "  completion tokens:  " + LTrim( Str( nOut ) ) + ;
-           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
-           DSUI_Color( "  total tokens:      " + LTrim( Str( nIn + nOut ) ), "1" ) + ;
-           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
+           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
+           CCUI_Color( "  total tokens:      " + LTrim( Str( nIn + nOut ) ), "1" ) + ;
+           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
    // approximate cost: DeepSeek ~$0.15/M input, ~$0.60/M output
    nCostIn   := nIn * 0.15 / 1000000
    nCostOut  := nOut * 0.60 / 1000000
    nCostTotal := nCostIn + nCostOut
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + ;
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
            "  est. cost:          $" + LTrim( Str( nCostTotal, 10, 6 ) ) + ;
-           DSUI_Color( "   " + DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( DSUI_Glyph( "h" ), 34 ) + ;
-                       DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
+           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( CCUI_Glyph( "h" ), 34 ) + ;
+                       CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
 // Returns the sessions directory path (.ccharbour/sessions under the
 // working directory, or CCHARBOUR_CONFIG).
-FUNCTION DSUI_SessionDir()
+FUNCTION CCUI_SessionDir()
    LOCAL cBase := hb_GetEnv( "CCHARBOUR_CONFIG" )
    IF Empty( cBase )
       cBase := hb_cwd() + hb_ps() + ".ccharbour"
@@ -84,21 +84,21 @@ FUNCTION DSUI_SessionDir()
    RETURN cBase + hb_ps() + "sessions"
 
 // Ensures the sessions directory exists. Returns .T. on success.
-FUNCTION DSUI_EnsureSessionDir()
-   LOCAL cDir := DSUI_SessionDir()
+FUNCTION CCUI_EnsureSessionDir()
+   LOCAL cDir := CCUI_SessionDir()
    IF !hb_DirExists( cDir )
       RETURN hb_DirCreate( cDir )
    ENDIF
    RETURN .T.
 
 // Returns the full path for a session name (adds .json extension).
-FUNCTION DSUI_SessionPath( cName )
-   RETURN DSUI_SessionDir() + hb_ps() + cName + ".json"
+FUNCTION CCUI_SessionPath( cName )
+   RETURN CCUI_SessionDir() + hb_ps() + cName + ".json"
 
 // Lists saved session files in the sessions directory.
 // Returns an array of { name, path, mtime } hashes, or empty array.
-FUNCTION DSUI_SessionList()
-   LOCAL cDir := DSUI_SessionDir(), aFiles, aOut := {}, hFile, cName
+FUNCTION CCUI_SessionList()
+   LOCAL cDir := CCUI_SessionDir(), aFiles, aOut := {}, hFile, cName
    IF !hb_DirExists( cDir )
       RETURN aOut
    ENDIF
@@ -115,22 +115,22 @@ FUNCTION DSUI_SessionList()
    RETURN aOut
 
 // Formats a list of saved sessions into a human-readable string.
-FUNCTION DSUI_SessionListOutput( aSessions )
+FUNCTION CCUI_SessionListOutput( aSessions )
    LOCAL cOut := "", hS, cTime
    IF Len( aSessions ) == 0
-      RETURN DSUI_Color( "No saved sessions found.", "90" ) + Chr(10)
+      RETURN CCUI_Color( "No saved sessions found.", "90" ) + Chr(10)
    ENDIF
-   cOut := DSUI_Color( "Saved sessions:", "1" ) + Chr(10)
+   cOut := CCUI_Color( "Saved sessions:", "1" ) + Chr(10)
    FOR EACH hS IN aSessions
       cTime := DToS( hS[ "mtime" ] ) + " " + hS[ "mtime" ]  // crude, but works
-      cOut += "  " + hS[ "name" ] + DSUI_Color( "  (" + cTime + ")", "90" ) + Chr(10)
+      cOut += "  " + hS[ "name" ] + CCUI_Color( "  (" + cTime + ")", "90" ) + Chr(10)
    NEXT
-   cOut += DSUI_Color( "Use /load <name> to restore a session.", "90" ) + Chr(10)
+   cOut += CCUI_Color( "Use /load <name> to restore a session.", "90" ) + Chr(10)
    RETURN cOut
 
 // Returns the first line of cText, truncated to nMax characters, with a
 // "[<N> chars]" annotation when anything was dropped. nMax defaults to 80.
-FUNCTION DSUI_Summarize( cText, nMax )
+FUNCTION CCUI_Summarize( cText, nMax )
    LOCAL cFirst, nNL, nLen
    cText := hb_CStr( cText )
    nLen  := Len( cText )
@@ -151,7 +151,7 @@ FUNCTION DSUI_Summarize( cText, nMax )
 // Maps one agent/SSE event hash to display text ("" when the event is ignored).
 // tool_call and tool_result are rendered by the REPL render layer, which has
 // the tool-name state they need.
-FUNCTION DSUI_RenderEvent( hEv )
+FUNCTION CCUI_RenderEvent( hEv )
    LOCAL cType
    IF ValType( hEv ) != "H" .OR. !hb_HHasKey( hEv, "type" )
       RETURN ""
@@ -161,14 +161,14 @@ FUNCTION DSUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "error"
-      RETURN Chr(10) + DSUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
+      RETURN Chr(10) + CCUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
              "31" ) + Chr(10)
    ENDCASE
    RETURN ""
 
 // Builds a Claude Code-style tool label: "Read(src/x.prg)", "Shell(echo hi)".
 // The tool name is capitalised; the most relevant argument goes in parentheses.
-STATIC FUNCTION DSUI_ToolLabel( cName, cArgsJson )
+STATIC FUNCTION CCUI_ToolLabel( cName, cArgsJson )
    LOCAL cProper, xArgs, cArg := ""
    cName := hb_CStr( cName )
    cProper := iif( Empty( cName ), "Tool", ;
@@ -192,7 +192,7 @@ STATIC FUNCTION DSUI_ToolLabel( cName, cArgsJson )
 
 // Builds a Claude Code-style result block: the first line prefixed with the
 // corner glyph, continuation lines aligned under it, capped at 8 lines.
-STATIC FUNCTION DSUI_ResultBlock( cText )
+STATIC FUNCTION CCUI_ResultBlock( cText )
    LOCAL aLines, cOut := "", i, nShow, cLine, cMark, nMax := 50
    aLines := hb_ATokens( StrTran( cText, Chr(13), "" ), Chr(10) )
    DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
@@ -204,12 +204,12 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
       // colour diff lines: added on a green background, removed on dark red.
       // The line is space-padded first so the background fills the width
       // instead of stopping at the end of the text.
-      cMark := DSUI_DiffMark( cLine )
+      cMark := CCUI_DiffMark( cLine )
       DO CASE
       CASE cMark == "+"
-         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "37;42" )
+         cLine := CCUI_Color( CCUI_DiffPad( cLine ), "37;42" )
       CASE cMark == "-"
-         cLine := DSUI_Color( DSUI_DiffPad( cLine ), "48;5;52" )
+         cLine := CCUI_Color( CCUI_DiffPad( cLine ), "48;5;52" )
       ENDCASE
       cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + cLine
       IF i < nShow
@@ -225,22 +225,22 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
 // Pads a diff line with trailing spaces so its background colour fills the
 // row (a coloured diff bar spans the line rather than stopping at the text).
 // A line already at or over the width is returned unchanged.
-FUNCTION DSUI_DiffPad( cLine )
+FUNCTION CCUI_DiffPad( cLine )
    LOCAL nLen := hb_UTF8Len( hb_CStr( cLine ) )
    RETURN iif( nLen < 110, cLine + Space( 110 - nLen ), cLine )
 
 // The Claude Code-style tool-call line: an accent dot, then Tool(args). The
 // dot is accent-coloured; the label is left in the default foreground.
-FUNCTION DSUI_ToolCallLine( cName, cArgsJson )
+FUNCTION CCUI_ToolCallLine( cName, cArgsJson )
    RETURN Chr(10) + ;
-          DSUI_Color( Chr(226)+Chr(143)+Chr(186), DSUI_Pal( "accent" ) ) + ;
-          "  " + DSUI_ToolLabel( cName, cArgsJson ) + Chr(10)
+          CCUI_Color( Chr(226)+Chr(143)+Chr(186), CCUI_Pal( "accent" ) ) + ;
+          "  " + CCUI_ToolLabel( cName, cArgsJson ) + Chr(10)
 
-// True when any line of cText is diff-formatted (per DSUI_DiffMark).
-STATIC FUNCTION DSUI_HasDiff( cText )
+// True when any line of cText is diff-formatted (per CCUI_DiffMark).
+STATIC FUNCTION CCUI_HasDiff( cText )
    LOCAL cLine
    FOR EACH cLine IN hb_ATokens( cText, Chr(10) )
-      IF !Empty( DSUI_DiffMark( cLine ) )
+      IF !Empty( CCUI_DiffMark( cLine ) )
          RETURN .T.
       ENDIF
    NEXT
@@ -249,18 +249,18 @@ STATIC FUNCTION DSUI_HasDiff( cText )
 // Renders the block printed under a tool call. Diff-formatted content keeps
 // the coloured diff block; otherwise a compact tool-aware one-line summary.
 // Result ends in LF.
-FUNCTION DSUI_ResultSummary( cToolName, cContent )
+FUNCTION CCUI_ResultSummary( cToolName, cContent )
    LOCAL cClean, aLines, nLines, cFirst, cSum
    cToolName := Lower( hb_CStr( cToolName ) )
    cContent  := hb_CStr( cContent )
    cClean    := StrTran( cContent, Chr(13), "" )
 
-   IF DSUI_HasDiff( cClean )
-      RETURN DSUI_Color( DSUI_ResultBlock( cContent ), DSUI_Pal( "dim" ) ) + Chr(10)
+   IF CCUI_HasDiff( cClean )
+      RETURN CCUI_Color( CCUI_ResultBlock( cContent ), CCUI_Pal( "dim" ) ) + Chr(10)
    ENDIF
 
    IF Left( cClean, 6 ) == "Error:"
-      cSum := DSUI_Summarize( cClean, 200 )
+      cSum := CCUI_Summarize( cClean, 200 )
    ELSE
       aLines := hb_ATokens( cClean, Chr(10) )
       DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
@@ -287,12 +287,12 @@ FUNCTION DSUI_ResultSummary( cToolName, cContent )
       ENDCASE
    ENDIF
 
-   RETURN DSUI_Color( "  " + Chr(226)+Chr(142)+Chr(191) + "  " + cSum, ;
-                      DSUI_Pal( "dim" ) ) + Chr(10)
+   RETURN CCUI_Color( "  " + Chr(226)+Chr(142)+Chr(191) + "  " + cSum, ;
+                      CCUI_Pal( "dim" ) ) + Chr(10)
 
 // Detects a diff line ("<6-wide number> <+|-|space> <text>"); returns the
 // marker "+" or "-", or "" when the line is not a diff line.
-STATIC FUNCTION DSUI_DiffMark( cLine )
+STATIC FUNCTION CCUI_DiffMark( cLine )
    LOCAL cM, cNum, i
    IF Len( cLine ) < 9
       RETURN ""
@@ -314,26 +314,26 @@ STATIC FUNCTION DSUI_DiffMark( cLine )
 
 // Enables or disables ANSI colour output. Off by default; the REPL turns it on
 // from the settings "color" key. Only enable it on a VT-capable terminal.
-FUNCTION DSUI_SetColor( lOn )
+FUNCTION CCUI_SetColor( lOn )
    s_lColor := ( lOn == .T. )
    RETURN NIL
 
 // Wraps text in an ANSI SGR colour code when colour is enabled, otherwise
 // returns the text unchanged. cSGR is the code, e.g. "36" (cyan), "90" (grey),
 // "31" (red), "1;36" (bold cyan), "33" (yellow).
-FUNCTION DSUI_Color( cText, cSGR )
+FUNCTION CCUI_Color( cText, cSGR )
    IF !s_lColor
       RETURN cText
    ENDIF
    RETURN Chr(27) + "[" + cSGR + "m" + cText + Chr(27) + "[0m"
 
 // Returns .T. when ANSI output (colour and cursor control) is enabled.
-FUNCTION DSUI_ColorOn()
+FUNCTION CCUI_ColorOn()
    RETURN s_lColor
 
 // The Claude Code-style colour palette: maps a name to an ANSI SGR code so
 // the codes live in one place. Unknown names return "0" (reset).
-FUNCTION DSUI_Pal( cName )
+FUNCTION CCUI_Pal( cName )
    DO CASE
    CASE cName == "accent"     ; RETURN "38;2;217;119;87"   // Claude Code coral
    CASE cName == "dim"        ; RETURN "90"         // grey borders / secondary
@@ -349,7 +349,7 @@ FUNCTION DSUI_Pal( cName )
 
 // Emits an ANSI control sequence (e.g. "1A" = cursor up one line,
 // "1G" = move to column 1) when ANSI output is enabled, else "".
-FUNCTION DSUI_VT( cSeq )
+FUNCTION CCUI_VT( cSeq )
    IF !s_lColor
       RETURN ""
    ENDIF
@@ -359,7 +359,7 @@ FUNCTION DSUI_VT( cSeq )
 // present in the working directory its contents are appended as project
 // instructions, so the agent honours per-project conventions. When a
 // memory.md file is present it is appended as the agent's persisted memory.
-FUNCTION DSUI_SystemPrompt()
+FUNCTION CCUI_SystemPrompt()
    LOCAL cBase, cProj, cMem
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
             "You have tools to read, write and edit files, search with glob and " + ;
@@ -367,14 +367,14 @@ FUNCTION DSUI_SystemPrompt()
             "tasks. Be concise. " + ;
             "End every reply with a final line in the exact form " + ;
             "'Suggested next: <a short prompt the user might send next>'."
-   cProj := DSUI_ProjectContext()
+   cProj := CCUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
          "The following project instructions come from the CC.md file in " + ;
          "the working directory. Treat them as authoritative and follow them:" + ;
          Chr(10) + Chr(10) + cProj
    ENDIF
-   cMem := DSUI_MemoryContext()
+   cMem := CCUI_MemoryContext()
    IF !Empty( cMem )
       cBase += Chr(10) + Chr(10) + ;
          "The following is your own memory, persisted from previous sessions " + ;
@@ -385,7 +385,7 @@ FUNCTION DSUI_SystemPrompt()
 
 // Reads project instructions from a CC.md file in the current directory.
 // Returns "" when the file is absent or empty.
-FUNCTION DSUI_ProjectContext()
+FUNCTION CCUI_ProjectContext()
    LOCAL cText := ""
    IF File( "CC.md" )
       cText := hb_MemoRead( "CC.md" )
@@ -394,7 +394,7 @@ FUNCTION DSUI_ProjectContext()
 
 // Reads the agent's persisted memory from memory.md in the current directory.
 // Returns "" when the file is absent or empty.
-FUNCTION DSUI_MemoryContext()
+FUNCTION CCUI_MemoryContext()
    LOCAL cText := ""
    IF File( "memory.md" )
       cText := hb_MemoRead( "memory.md" )
@@ -403,7 +403,7 @@ FUNCTION DSUI_MemoryContext()
 
 // Returns a UTF-8 box-drawing glyph by name, built from raw bytes so the
 // source file's encoding does not matter.
-FUNCTION DSUI_Glyph( cName )
+FUNCTION CCUI_Glyph( cName )
    DO CASE
    CASE cName == "tl"
       RETURN Chr(226)+Chr(149)+Chr(173)   // ╭
@@ -422,7 +422,7 @@ FUNCTION DSUI_Glyph( cName )
 
 // Pads cText to nWidth display columns, counting UTF-8 characters (not bytes).
 // cAlign is "L" (default), "C" (centre) or "R" (right). Over-long text is cut.
-STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
+STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
    LOCAL nLen, nPad, nLeft
    cText := hb_CStr( cText )
    nLen  := hb_UTF8Len( cText )
@@ -441,22 +441,22 @@ STATIC FUNCTION DSUI_PadCell( cText, nWidth, cAlign )
    RETURN cText + Space( nPad )
 
 // The CCHarbour version string.
-FUNCTION DSUI_Version()
-   RETURN "0.5.1"
+FUNCTION CCUI_Version()
+   RETURN "0.6.0"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
 // name+version (accent colour), a tagline, the /help hint, the model and the
 // working directory on the right. Returns the whole banner as one string ending in LF.
-FUNCTION DSUI_Banner( cModel, cCwd, cUser )
-   LOCAL nInner := 75, cH := DSUI_Glyph( "h" ), cV
+FUNCTION CCUI_Banner( cModel, cCwd, cUser )
+   LOCAL nInner := 95, cH := CCUI_Glyph( "h" ), cV
    LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B
    LOCAL aLogo, aInfo, aRows, cOut, i, cText, cSGR, cCell
 
    HB_SYMBOL_UNUSED( cUser )
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
-   cV     := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
+   cV     := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
 
    // the "CC" logo, six rows of block-drawing glyphs
    aLogo := { ;
@@ -469,7 +469,7 @@ FUNCTION DSUI_Banner( cModel, cCwd, cUser )
 
    // the info column, paired row-for-row with the logo
    aInfo := { ;
-      cAccent + " CCHarbour  v" + DSUI_Version(), ;
+      cAccent + " CCHarbour  v" + CCUI_Version(), ;
       "terminal coding assistant " + Chr(226)+Chr(128)+Chr(183) + ;
          " Claude Code-style", ;
       "", ;
@@ -481,90 +481,90 @@ FUNCTION DSUI_Banner( cModel, cCwd, cUser )
    // version) is accent; the rest plain.
    aRows := {}
    FOR i := 1 TO 6
-      cText := DSUI_PadCell( aLogo[ i ], 18, "L" ) + " " + aInfo[ i ]
-      cSGR  := iif( i == 1, DSUI_Pal( "accent" ), "" )
+      cText := CCUI_PadCell( aLogo[ i ], 18, "L" ) + " " + aInfo[ i ]
+      cSGR  := iif( i == 1, CCUI_Pal( "accent" ), "" )
       AAdd( aRows, { cText, cSGR } )
    NEXT
 
-   cOut := DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
-           DSUI_Glyph( "tr" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut := CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
+           CCUI_Glyph( "tr" ), CCUI_Pal( "dim" ) ) + Chr(10)
    FOR i := 1 TO Len( aRows )
       cText := aRows[ i ][ 1 ]
       cSGR  := aRows[ i ][ 2 ]
-      cCell := DSUI_PadCell( cText, nInner, "L" )
+      cCell := CCUI_PadCell( cText, nInner, "L" )
       IF !Empty( cSGR )
-         cCell := DSUI_Color( cCell, cSGR )
+         cCell := CCUI_Color( cCell, cSGR )
       ENDIF
       cOut += cV + " " + cCell + " " + cV + Chr(10)
    NEXT
-   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
-           DSUI_Glyph( "br" ), DSUI_Pal( "dim" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
+           CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
-// The rounded top border of the input frame, 79 columns wide.
-FUNCTION DSUI_FrameTop()
-   RETURN DSUI_Color( DSUI_Glyph( "tl" ) + ;
-          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "tr" ), ;
-          DSUI_Pal( "dim" ) )
+// The rounded top border of the input frame, 99 columns wide.
+FUNCTION CCUI_FrameTop()
+   RETURN CCUI_Color( CCUI_Glyph( "tl" ) + ;
+          Replicate( CCUI_Glyph( "h" ), 97 ) + CCUI_Glyph( "tr" ), ;
+          CCUI_Pal( "dim" ) )
 
-// The rounded bottom border of the input frame, 79 columns wide.
-FUNCTION DSUI_FrameBottom()
-   RETURN DSUI_Color( DSUI_Glyph( "bl" ) + ;
-          Replicate( DSUI_Glyph( "h" ), 77 ) + DSUI_Glyph( "br" ), ;
-          DSUI_Pal( "dim" ) )
+// The rounded bottom border of the input frame, 99 columns wide.
+FUNCTION CCUI_FrameBottom()
+   RETURN CCUI_Color( CCUI_Glyph( "bl" ) + ;
+          Replicate( CCUI_Glyph( "h" ), 97 ) + CCUI_Glyph( "br" ), ;
+          CCUI_Pal( "dim" ) )
 
 // The dim hint line shown beneath the input frame.
 // nLines (optional) shows the line count for multi-line input.
-FUNCTION DSUI_InputHint( nLines )
+FUNCTION CCUI_InputHint( nLines )
    LOCAL cSuffix := ""
    IF ValType( nLines ) == "N" .AND. nLines > 1
       cSuffix := "  " + Chr(226)+Chr(128)+Chr(162) + "  " + LTrim( Str( nLines ) ) + " lines"
    ENDIF
-   RETURN DSUI_Color( "  /help for commands" + cSuffix + ;
-          "  " + Chr(226)+Chr(128)+Chr(162) + "  /exit to quit", DSUI_Pal( "dim" ) )
+   RETURN CCUI_Color( "  /help for commands" + cSuffix + ;
+          "  " + Chr(226)+Chr(128)+Chr(162) + "  /exit to quit", CCUI_Pal( "dim" ) )
 
-// The text-column width available inside the input box (79 total: 2 borders,
-// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 73).
-FUNCTION DSUI_InputInnerWidth()
-   RETURN 73
+// The text-column width available inside the input box (99 total: 2 borders,
+// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 93).
+FUNCTION CCUI_InputInnerWidth()
+   RETURN 93
 
 // One framed input-box prompt line with the text rendered in the suggestion
 // (light-green) colour.
-FUNCTION DSUI_InputBoxSuggestion( cText )
-   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
-   RETURN cV + " " + DSUI_Color( "> ", "1;36" ) + ;
-          DSUI_Color( DSUI_PadCell( hb_CStr( cText ), DSUI_InputInnerWidth(), "L" ), ;
-                     DSUI_Pal( "suggestion" ) ) + ;
+FUNCTION CCUI_InputBoxSuggestion( cText )
+   LOCAL cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
+   RETURN cV + " " + CCUI_Color( "> ", "1;36" ) + ;
+          CCUI_Color( CCUI_PadCell( hb_CStr( cText ), CCUI_InputInnerWidth(), "L" ), ;
+                     CCUI_Pal( "suggestion" ) ) + ;
           " " + cV
 
 // One framed input-box prompt line: side borders, the "> " prompt, and cText
-// padded (or truncated) to the inner width. 79 display columns wide.
-FUNCTION DSUI_InputBoxLine( cText )
-   LOCAL cV := DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "dim" ) )
-   RETURN cV + " " + DSUI_Color( "> ", "1;36" ) + ;
-          DSUI_PadCell( hb_CStr( cText ), DSUI_InputInnerWidth(), "L" ) + ;
+// padded (or truncated) to the inner width. 99 display columns wide.
+FUNCTION CCUI_InputBoxLine( cText )
+   LOCAL cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
+   RETURN cV + " " + CCUI_Color( "> ", "1;36" ) + ;
+          CCUI_PadCell( hb_CStr( cText ), CCUI_InputInnerWidth(), "L" ) + ;
           " " + cV
 
 // Prompt shown when the user presses Esc to pause tool execution.
 // Options: Enter=continue, c=skip remaining tools, a=abort turn.
-FUNCTION DSUI_PausePrompt()
+FUNCTION CCUI_PausePrompt()
    LOCAL cOut := Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "tl" ) + Replicate( DSUI_Glyph( "h" ), 42 ) + ;
-                       DSUI_Glyph( "tr" ), DSUI_Pal( "warn" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + ;
-           "  " + DSUI_Color( "[PAUSED]", "1;33" ) + ;
+   cOut += CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( CCUI_Glyph( "h" ), 42 ) + ;
+                       CCUI_Glyph( "tr" ), CCUI_Pal( "warn" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "warn" ) ) + ;
+           "  " + CCUI_Color( "[PAUSED]", "1;33" ) + ;
            "  Next tool paused by Esc" + ;
-           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + ;
+           CCUI_Color( "  " + CCUI_Glyph( "v" ), CCUI_Pal( "warn" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "warn" ) ) + ;
            "  Enter=run tool   c=skip all   a=abort turn" + ;
-           DSUI_Color( "  " + DSUI_Glyph( "v" ), DSUI_Pal( "warn" ) ) + Chr(10)
-   cOut += DSUI_Color( DSUI_Glyph( "bl" ) + Replicate( DSUI_Glyph( "h" ), 42 ) + ;
-                       DSUI_Glyph( "br" ), DSUI_Pal( "warn" ) ) + Chr(10)
-   cOut += DSUI_Color( "> ", "1;36" )
+           CCUI_Color( "  " + CCUI_Glyph( "v" ), CCUI_Pal( "warn" ) ) + Chr(10)
+   cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( CCUI_Glyph( "h" ), 42 ) + ;
+                       CCUI_Glyph( "br" ), CCUI_Pal( "warn" ) ) + Chr(10)
+   cOut += CCUI_Color( "> ", "1;36" )
    RETURN cOut
 
 // The text shown by the /help command.
-FUNCTION DSUI_Help()
+FUNCTION CCUI_Help()
    RETURN "Commands:" + Chr(10) + ;
           "  /help          show this help" + Chr(10) + ;
           "  /init          analyse the project and write CC.md" + Chr(10) + ;

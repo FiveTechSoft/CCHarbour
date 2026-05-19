@@ -19,13 +19,13 @@ FUNCTION Test_Tools()
                    "required" => { "text" } }, ;
                 "handler" => {| hArgs | "echo:" + hArgs[ "text" ] } }
 
-   oReg := DSTools_Registry()
+   oReg := CCTOOLS_Registry()
    T_Equal( ValType( oReg ), "H", "tools: registry is a hash" )
-   DSTools_Register( oReg, hCustom )
+   CCTOOLS_Register( oReg, hCustom )
    T_Equal( hb_HHasKey( oReg, "echo" ), .T., "tools: register adds tool" )
 
    // schemas expose the registered tool in OpenAI form
-   aSchemas := DSTools_Schemas( oReg )
+   aSchemas := CCTOOLS_Schemas( oReg )
    hEcho := FindSchema( aSchemas, "echo" )
    T_Assert( hEcho != NIL, "tools: schema present for echo" )
    T_Equal( hEcho[ "type" ], "function", "tools: schema type" )
@@ -35,7 +35,7 @@ FUNCTION Test_Tools()
             "tools: schema parameters" )
 
    // the executor dispatches by name and parses JSON arguments
-   bExec := DSTools_Executor( oReg )
+   bExec := CCTOOLS_Executor( oReg )
    T_Equal( Eval( bExec, "echo", '{"text":"hi"}' ), "echo:hi", ;
             "tools: executor dispatches and parses args" )
    T_Equal( Eval( bExec, "nope", "{}" ), "Error: unknown tool 'nope'", ;
@@ -46,8 +46,8 @@ FUNCTION Test_Tools()
             "tools: executor missing required arg" )
 
    // read tool
-   bExec := DSTools_Executor( DSTools_Registry() )
-   cTmp := hb_DirTemp() + "dstools_read.txt"
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry() )
+   cTmp := hb_DirTemp() + "CCTOOLS_read.txt"
    hb_MemoWrit( cTmp, "alpha" + Chr(10) + "beta" + Chr(10) + "gamma" + Chr(10) )
 
    cRes := Eval( bExec, "read", hb_jsonEncode( { "path" => cTmp } ) )
@@ -69,8 +69,8 @@ FUNCTION Test_Tools()
    FErase( cTmp )
 
    // write tool
-   bExec := DSTools_Executor( DSTools_Registry() )
-   cTmp := hb_DirTemp() + "dstools_write.txt"
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry() )
+   cTmp := hb_DirTemp() + "CCTOOLS_write.txt"
    FErase( cTmp )
    cRes := Eval( bExec, "write", ;
       hb_jsonEncode( { "path" => cTmp, "content" => "hello world" } ) )
@@ -103,8 +103,8 @@ FUNCTION Test_Tools()
    FErase( cTmp )
 
    // glob + grep tools: build a small temp directory tree
-   bExec := DSTools_Executor( DSTools_Registry() )
-   cTmpDir := hb_DirTemp() + "dstools_search"
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry() )
+   cTmpDir := hb_DirTemp() + "CCTOOLS_search"
    hb_DirBuild( cTmpDir )
    hb_MemoWrit( cTmpDir + hb_ps() + "a.txt", "needle here" + Chr(10) + "plain line" + Chr(10) )
    hb_MemoWrit( cTmpDir + hb_ps() + "b.txt", "another needle" + Chr(10) )
@@ -145,7 +145,7 @@ FUNCTION Test_Tools()
    hb_DirDelete( cTmpDir )
 
    // shell tool
-   bExec := DSTools_Executor( DSTools_Registry() )
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry() )
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "echo hello" } ) )
    T_Assert( "hello" $ cRes, "tools: shell captures output" )
    T_Assert( "[exit code: 0]" $ cRes, "tools: shell reports exit 0" )
@@ -154,7 +154,7 @@ FUNCTION Test_Tools()
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
    // end-to-end: the default registry exposes all eleven builtin tools
-   aSchemas := DSTools_Schemas( DSTools_Registry() )
+   aSchemas := CCTOOLS_Schemas( CCTOOLS_Registry() )
    T_Equal( Len( aSchemas ), 11, "tools: registry has eleven builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
    T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
@@ -164,17 +164,17 @@ FUNCTION Test_Tools()
    T_Assert( FindSchema( aSchemas, "shell" ) != NIL, "tools: builtin shell" )
 
    // the four new tools are registered
-   oReg := DSTools_Registry()
+   oReg := CCTOOLS_Registry()
    T_Equal( hb_HHasKey( oReg, "web_search" ), .T., "tools: web_search registered" )
    T_Equal( hb_HHasKey( oReg, "web_fetch" ), .T., "tools: web_fetch registered" )
    T_Equal( hb_HHasKey( oReg, "github_read" ), .T., "tools: github_read registered" )
    T_Equal( hb_HHasKey( oReg, "github_write" ), .T., "tools: github_write registered" )
 
    // web_search no longer needs an API key (uses DuckDuckGo now)
-   oReg := DSTools_Registry( { "github" => "" } )
+   oReg := CCTOOLS_Registry( { "github" => "" } )
    T_Assert( hb_HHasKey( oReg, "web_search" ), "tools: web_search still registered w/o tavily key" )
 
    // the memory tool is registered
-   oReg := DSTools_Registry()
+   oReg := CCTOOLS_Registry()
    T_Equal( hb_HHasKey( oReg, "memory" ), .T., "tools: memory registered" )
    RETURN NIL

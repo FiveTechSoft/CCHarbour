@@ -1,7 +1,7 @@
 // Resolves API key + base URL. Precedence for the key:
 //   hOpts["api_key"]  ->  env DEEPSEEK_API_KEY  ->  config file (hOpts["config_path"])
 // Returns: { ok, api_key, base_url, error_type, message }
-FUNCTION DSCFG_Resolve( hOpts )
+FUNCTION CCCFG_Resolve( hOpts )
    LOCAL hRes, cKey := "", cEnv, cFileKey
 
    IF ValType( hOpts ) != "H"
@@ -21,7 +21,7 @@ FUNCTION DSCFG_Resolve( hOpts )
       IF !Empty( cEnv )
          cKey := cEnv
       ELSEIF hb_HHasKey( hOpts, "config_path" ) .AND. !Empty( hOpts[ "config_path" ] )
-         cFileKey := DSCFG_FromFile( hOpts[ "config_path" ] )
+         cFileKey := CCCFG_FromFile( hOpts[ "config_path" ] )
          IF !Empty( cFileKey )
             cKey := cFileKey
          ENDIF
@@ -38,7 +38,7 @@ FUNCTION DSCFG_Resolve( hOpts )
    hRes[ "ok" ]      := .T.
    RETURN hRes
 
-STATIC FUNCTION DSCFG_FromFile( cPath )
+STATIC FUNCTION CCCFG_FromFile( cPath )
    LOCAL cText, xJson
    IF !hb_FileExists( cPath )
       RETURN ""
@@ -53,7 +53,7 @@ STATIC FUNCTION DSCFG_FromFile( cPath )
 
 // Resolves a secret value. Precedence: environment variable cEnvName, then
 // hSettings[ cSettingKey ]. Returns "" when neither is set.
-FUNCTION DSCFG_ResolveKey( cEnvName, cSettingKey, hSettings )
+FUNCTION CCCFG_ResolveKey( cEnvName, cSettingKey, hSettings )
    LOCAL cEnv := hb_GetEnv( cEnvName )
    IF !Empty( cEnv )
       RETURN cEnv

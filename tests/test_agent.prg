@@ -1,12 +1,12 @@
-// Stateful mock transport: each DS_ChatCompletion call inside the loop pops the
+// Stateful mock transport: each CC_ChatCompletion call inside the loop pops the
 // next turn. Calls past the end repeat the last turn (lets cap tests loop).
 // A turn is { "sse" => <raw SSE bytes>, "http" => { ok,status,curl_code,error } }.
 STATIC FUNCTION AgentTransport( aTurns )
    LOCAL nCall := 0
    RETURN {| hReq, bOnChunk | ;
-      DS_AgentTestTurn( aTurns, ( nCall := nCall + 1 ), hReq, bOnChunk ) }
+      CC_AgentTestTurn( aTurns, ( nCall := nCall + 1 ), hReq, bOnChunk ) }
 
-STATIC FUNCTION DS_AgentTestTurn( aTurns, nCall, hReq, bOnChunk )
+STATIC FUNCTION CC_AgentTestTurn( aTurns, nCall, hReq, bOnChunk )
    LOCAL hTurn
    HB_SYMBOL_UNUSED( hReq )
    IF nCall > Len( aTurns )
@@ -45,11 +45,11 @@ STATIC FUNCTION HttpOK()
 FUNCTION Test_Agent()
    LOCAL oClient, hRes, bTransport, aInput, hAsstMsg, i
 
-   oClient := DS_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
+   oClient := CC_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
 
    // single turn, plain text reply, no tools
    bTransport := AgentTransport( { { "sse" => SSE_Text( "hello" ), "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "hi" } }, ;
       { "transport" => bTransport }, NIL )
    T_Equal( hRes[ "success" ], .T., "agent: single-turn success" )
@@ -60,7 +60,7 @@ FUNCTION Test_Agent()
    T_Equal( hRes[ "messages" ][ 2 ][ "role" ], "assistant", "agent: assistant appended" )
 
    // invalid history -> config error, no API call
-   hRes := DS_AgentRun( oClient, {}, { "transport" => bTransport }, NIL )
+   hRes := CC_AgentRun( oClient, {}, { "transport" => bTransport }, NIL )
    T_Equal( hRes[ "success" ], .F., "agent: empty history fails" )
    T_Equal( hRes[ "error_type" ], "config", "agent: empty history error_type" )
    T_Equal( hRes[ "stop_reason" ], "error", "agent: empty history stop_reason" )
@@ -69,7 +69,7 @@ FUNCTION Test_Agent()
    bTransport := AgentTransport( { ;
       { "sse" => SSE_Tool( "c1", "ping" ), "http" => HttpOK() }, ;
       { "sse" => SSE_Text( "done" ),       "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport, ;
         "tool_executor" => {| cName, cArgs | ;
@@ -88,7 +88,7 @@ FUNCTION Test_Agent()
    // model requests a tool but no executor supplied -> config error
    bTransport := AgentTransport( { { "sse" => SSE_Tool( "c9", "ping" ), ;
                                      "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport }, NIL )
    T_Equal( hRes[ "success" ], .F., "agent: no executor fails" )
@@ -98,7 +98,7 @@ FUNCTION Test_Agent()
    // input array is not mutated by the run
    aInput := { { "role" => "user", "content" => "keep" } }
    bTransport := AgentTransport( { { "sse" => SSE_Text( "ok" ), "http" => HttpOK() } } )
-   DS_AgentRun( oClient, aInput, { "transport" => bTransport }, NIL )
+   CC_AgentRun( oClient, aInput, { "transport" => bTransport }, NIL )
    T_Equal( Len( aInput ), 1, "agent: input array not mutated" )
 
    // usage accumulates across turns
@@ -109,7 +109,7 @@ FUNCTION Test_Agent()
                  'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":7}}' + ;
                  Chr(10) + "data: [DONE]" + Chr(10), ;
         "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport, ;
         "tool_executor" => {| cName, cArgs | ;
@@ -119,7 +119,7 @@ FUNCTION Test_Agent()
    // iteration cap: the model keeps requesting tools; cap stops the loop
    bTransport := AgentTransport( { { "sse" => SSE_Tool( "c1", "ping" ), ;
                                      "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport, "max_iterations" => 3, ;
         "tool_executor" => {| cName, cArgs | ;
@@ -132,7 +132,7 @@ FUNCTION Test_Agent()
    bTransport := AgentTransport( { { "sse" => "", ;
       "http" => { "ok" => .F., "status" => 0, "curl_code" => 7, ;
                   "error" => "no connect" } } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport }, NIL )
    T_Equal( hRes[ "success" ], .F., "agent: api failure success flag" )
@@ -144,7 +144,7 @@ FUNCTION Test_Agent()
    bTransport := AgentTransport( { ;
       { "sse" => SSE_ThinkTool( "think", "c1", "noop" ), "http" => HttpOK() }, ;
       { "sse" => SSE_Text( "done" ),                     "http" => HttpOK() } } )
-   hRes := DS_AgentRun( oClient, ;
+   hRes := CC_AgentRun( oClient, ;
       { { "role" => "user", "content" => "go" } }, ;
       { "transport" => bTransport, ;
         "tool_executor" => {| cName, cArgs | ;

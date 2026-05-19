@@ -5,7 +5,7 @@
 //          max_tokens, transport }
 // Returns hResult: { success, messages, content, stop_reason, iterations,
 //                    usage, error_type, message }
-FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
+FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
    LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams, tc, cRes
 
    IF ValType( hOpts ) != "H"
@@ -33,7 +33,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
 
    DO WHILE nIter < nMax
       nIter++
-      DS_Emit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
+      CC_Emit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
 
       hChatParams := {=>}
       IF hb_HHasKey( hOpts, "transport" )
@@ -52,7 +52,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          hChatParams[ "max_tokens" ] := hOpts[ "max_tokens" ]
       ENDIF
 
-      hChat := DS_ChatCompletion( oClient, aMsgs, hChatParams, bOnEvent )
+      hChat := CC_ChatCompletion( oClient, aMsgs, hChatParams, bOnEvent )
 
       IF !hChat[ "success" ]
          hResult[ "messages" ]    := aMsgs
@@ -64,8 +64,8 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          RETURN hResult
       ENDIF
 
-      DS_AgentAddUsage( hUsage, hChat[ "usage" ] )
-      AAdd( aMsgs, DS_AgentAsstMsg( hChat ) )
+      CC_AgentAddUsage( hUsage, hChat[ "usage" ] )
+      AAdd( aMsgs, CC_AgentAsstMsg( hChat ) )
 
       IF Empty( hChat[ "tool_calls" ] )
          hResult[ "stop_reason" ] := "stop"
@@ -87,25 +87,25 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       // Before each tool, check for Escape (pause requested by user)
       FOR EACH tc IN hChat[ "tool_calls" ]
          // non-blocking check for Esc key press
-         IF DSCON_PeekEsc()
-            DS_Emit( bOnEvent, { "type" => "pause_request", ;
+         IF CCCON_PeekEsc()
+            CC_Emit( bOnEvent, { "type" => "pause_request", ;
                                       "tool_name" => tc[ "name" ], ;
                                       "tool_args" => tc[ "arguments" ] } )
             // wait for user decision: Enter=continue, c=skip rest, a=abort turn
             DO WHILE .T.
-               DSREPL_Out( DSUI_PausePrompt() )
-               cRes := DSREPL_ReadLine()
+               CCREPL_Out( CCUI_PausePrompt() )
+               cRes := CCREPL_ReadLine()
                IF cRes == NIL
                   EXIT
                ENDIF
                cRes := Lower( AllTrim( cRes ) )
                IF cRes == ""
                   // Enter -> continue with this tool
-                  DSREPL_Out( DSUI_Color( "  [continuing...]", "90" ) + Chr(10) )
+                  CCREPL_Out( CCUI_Color( "  [continuing...]", "90" ) + Chr(10) )
                   EXIT
                ELSEIF Left( cRes, 1 ) == "c"
                   // 'c' -> cancel remaining tools, skip to next iteration
-                  DS_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+                  CC_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
                                             "content" => "[paused and skipped by user]" } )
                   AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                                  "content" => "[paused and skipped by user]" } )
@@ -114,7 +114,7 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                   EXIT
                ELSEIF Left( cRes, 1 ) == "a"
                   // 'a' -> abort the entire turn
-                  DSREPL_Out( DSUI_Color( "  [aborting turn...]", "31" ) + Chr(10) )
+                  CCREPL_Out( CCUI_Color( "  [aborting turn...]", "31" ) + Chr(10) )
                   hResult[ "error_type" ]  := "cancelled"
                   hResult[ "message" ]     := "paused and aborted by user"
                   hResult[ "stop_reason" ] := "error"
@@ -125,11 +125,11 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                EXIT
             ENDIF
          ENDIF
-         DS_Emit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
+         CC_Emit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
                                    "name" => tc[ "name" ], ;
                                    "arguments" => tc[ "arguments" ] } )
          cRes := Eval( hOpts[ "tool_executor" ], tc[ "name" ], tc[ "arguments" ] )
-         DS_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
+         CC_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
                                    "content" => cRes } )
          AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                         "content" => cRes } )
@@ -148,11 +148,11 @@ FUNCTION DS_AgentRun( oClient, aMessages, hOpts, bOnEvent )
    hResult[ "messages" ]   := aMsgs
    hResult[ "iterations" ] := nIter
    hResult[ "usage" ]      := hUsage
-   hResult[ "content" ]    := DS_AgentLastText( aMsgs )
+   hResult[ "content" ]    := CC_AgentLastText( aMsgs )
    RETURN hResult
 
-// Builds an OpenAI-format assistant message from a DS_ChatCompletion result.
-STATIC FUNCTION DS_AgentAsstMsg( hChat )
+// Builds an OpenAI-format assistant message from a CC_ChatCompletion result.
+STATIC FUNCTION CC_AgentAsstMsg( hChat )
    LOCAL hMsg, aTC := {}, tc
    hMsg := { "role" => "assistant", "content" => hChat[ "content" ] }
    IF !Empty( hChat[ "tool_calls" ] )
@@ -173,7 +173,7 @@ STATIC FUNCTION DS_AgentAsstMsg( hChat )
    RETURN hMsg
 
 // Returns the content of the last assistant message, or "" if there is none.
-STATIC FUNCTION DS_AgentLastText( aMsgs )
+STATIC FUNCTION CC_AgentLastText( aMsgs )
    LOCAL i
    FOR i := Len( aMsgs ) TO 1 STEP -1
       IF aMsgs[ i ][ "role" ] == "assistant"
@@ -183,7 +183,7 @@ STATIC FUNCTION DS_AgentLastText( aMsgs )
    RETURN ""
 
 // Adds the numeric keys of xUsage into hUsage (running totals across turns).
-STATIC FUNCTION DS_AgentAddUsage( hUsage, xUsage )
+STATIC FUNCTION CC_AgentAddUsage( hUsage, xUsage )
    LOCAL cKey
    IF ValType( xUsage ) != "H"
       RETURN NIL

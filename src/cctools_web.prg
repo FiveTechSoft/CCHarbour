@@ -1,7 +1,7 @@
 // Web tools for CCHarbour: web_fetch (retrieve a URL) and web_search (DuckDuckGo).
 
 // web_fetch: retrieves the raw content of a URL.
-FUNCTION DSTool_WebFetch()
+FUNCTION CCTool_WebFetch()
    RETURN { "name" => "web_fetch", ;
             "description" => "Fetch the raw content of a URL (text or HTML, not converted to plain text).", ;
             "parameters" => { "type" => "object", ;
@@ -9,12 +9,12 @@ FUNCTION DSTool_WebFetch()
                   "url" => { "type" => "string", ;
                              "description" => "The URL to fetch" } }, ;
                "required" => { "url" } }, ;
-            "handler" => {| hArgs | DSTool_WebFetchRun( hArgs ) } }
+            "handler" => {| hArgs | CCTool_WebFetchRun( hArgs ) } }
 
-// Assumes the executor (DSTools_Dispatch) has already validated required args.
-STATIC FUNCTION DSTool_WebFetchRun( hArgs )
+// Assumes the executor (CCTOOLS_Dispatch) has already validated required args.
+STATIC FUNCTION CCTool_WebFetchRun( hArgs )
    LOCAL hRes, cBody
-   hRes := DSHTTP_Fetch( { "url" => hb_CStr( hArgs[ "url" ] ), "method" => "GET" } )
+   hRes := CCHTTP_Fetch( { "url" => hb_CStr( hArgs[ "url" ] ), "method" => "GET" } )
    IF !hRes[ "ok" ]
       RETURN "Error: web_fetch failed: " + hRes[ "error" ]
    ENDIF
@@ -29,7 +29,7 @@ STATIC FUNCTION DSTool_WebFetchRun( hArgs )
 
 // web_search: searches the web via the DuckDuckGo Instant Answer API.
 // No API key required. Free, rate-limited, returns instant answers + web results.
-FUNCTION DSTool_WebSearch()
+FUNCTION CCTool_WebSearch()
    RETURN { "name" => "web_search", ;
             "description" => "Search the web via the DuckDuckGo API. " + ;
                "No API key required. Returns ranked title/url/snippet results.", ;
@@ -40,10 +40,10 @@ FUNCTION DSTool_WebSearch()
                   "max_results" => { "type" => "integer", ;
                                "description" => "Maximum number of results (default 8)" } }, ;
                "required" => { "query" } }, ;
-            "handler" => {| hArgs | DSTool_DdgSearchRun( hArgs ) } }
+            "handler" => {| hArgs | CCTool_DdgSearchRun( hArgs ) } }
 
 // URL-encodes a string for query parameters (byte-wise).
-STATIC FUNCTION DSHTTP_UrlEncode( cText )
+STATIC FUNCTION CCHTTP_UrlEncode( cText )
    LOCAL cOut := "", i, c
    FOR i := 1 TO hb_BLen( cText )
       c := hb_BSubStr( cText, i, 1 )
@@ -60,7 +60,7 @@ STATIC FUNCTION DSHTTP_UrlEncode( cText )
 
 // Performs a DuckDuckGo Instant Answer search. No API key needed.
 // Uses the public https://api.duckduckgo.com/ endpoint.
-STATIC FUNCTION DSTool_DdgSearchRun( hArgs )
+STATIC FUNCTION CCTool_DdgSearchRun( hArgs )
    LOCAL cQuery, nMax, cUrl, hRes, xBody, h1, cOut := "", nShown := 0
    cQuery := hb_CStr( hArgs[ "query" ] )
    nMax   := iif( hb_HHasKey( hArgs, "max_results" ) .AND. ;
@@ -73,10 +73,10 @@ STATIC FUNCTION DSTool_DdgSearchRun( hArgs )
       nMax := 20
    ENDIF
 
-   cUrl := "https://api.duckduckgo.com/?q=" + DSHTTP_UrlEncode( cQuery ) + ;
+   cUrl := "https://api.duckduckgo.com/?q=" + CCHTTP_UrlEncode( cQuery ) + ;
            "&format=json&no_html=1&skip_disambig=1"
 
-   hRes := DSHTTP_Fetch( { "url" => cUrl, "method" => "GET", "timeout" => 15 } )
+   hRes := CCHTTP_Fetch( { "url" => cUrl, "method" => "GET", "timeout" => 15 } )
    IF !hRes[ "ok" ]
       RETURN "Error: web_search failed: " + hRes[ "error" ]
    ENDIF

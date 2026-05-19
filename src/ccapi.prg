@@ -1,7 +1,7 @@
 // Creates a client. hOpts: { api_key, base_url, model, timeout, config_path }.
 // The returned hash holds only immutable data -> safe to share read-only
 // across pool threads.
-FUNCTION DS_Client( hOpts )
+FUNCTION CC_Client( hOpts )
    IF ValType( hOpts ) != "H"
       hOpts := {=>}
    ENDIF
@@ -14,7 +14,7 @@ FUNCTION DS_Client( hOpts )
 // bOnEvent (optional): codeblock invoked per parsed SSE event.
 // Returns hResult: { success, content, tool_calls, finish_reason, usage,
 //                    error_type, status, curl_code, retryable, message }
-FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
+FUNCTION CC_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    LOCAL hCfg, hResult, hState, oParser, hReq, hHttp, cBody, cModel, bEmit
 
    IF ValType( hParams ) != "H"
@@ -27,11 +27,11 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
                 "message" => NIL, "reasoning_content" => "" }
 
    // 1. resolve key/url (fail fast, no HTTP)
-   hCfg := DSCFG_Resolve( oClient[ "opts" ] )
+   hCfg := CCCFG_Resolve( oClient[ "opts" ] )
    IF !hCfg[ "ok" ]
       hResult[ "error_type" ] := hCfg[ "error_type" ]
       hResult[ "message" ]    := hCfg[ "message" ]
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => hCfg[ "error_type" ], ;
+      CC_Emit( bOnEvent, { "type" => "error", "error_type" => hCfg[ "error_type" ], ;
                            "message" => hCfg[ "message" ] } )
       RETURN hResult
    ENDIF
@@ -40,13 +40,13 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    IF Empty( cModel )
       hResult[ "error_type" ] := "config"
       hResult[ "message" ]    := "No model id: set it on the client or in hParams"
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => "config", ;
+      CC_Emit( bOnEvent, { "type" => "error", "error_type" => "config", ;
                            "message" => hResult[ "message" ] } )
       RETURN hResult
    ENDIF
 
    // 2. build request body
-   cBody := hb_jsonEncode( DS_BuildBody( cModel, aMessages, hParams ) )
+   cBody := hb_jsonEncode( CC_BuildBody( cModel, aMessages, hParams ) )
    hReq  := { "url" => hCfg[ "base_url" ] + "/chat/completions", ;
               "headers" => { "Content-Type: application/json", ;
                              "Accept: text/event-stream", ;
@@ -57,11 +57,11 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    // 3. stream: feed every chunk to a fresh parser; assemble into hState
    hState  := { "content" => "", "tools" => {}, "finish" => NIL, ;
                 "usage" => NIL, "got_done" => .F., "raw" => "", "reasoning" => "" }
-   oParser := DSSSE_New()
-   bEmit   := {| hEv | DS_OnEvent( hEv, hState, bOnEvent ) }
+   oParser := CCSSE_New()
+   bEmit   := {| hEv | CC_OnEvent( hEv, hState, bOnEvent ) }
 
-   hHttp := DSHTTP_Post( hReq, ;
-      {| cChunk | DS_FeedChunk( cChunk, hState, oParser, bEmit ) }, ;
+   hHttp := CCHTTP_Post( hReq, ;
+      {| cChunk | CC_FeedChunk( cChunk, hState, oParser, bEmit ) }, ;
       iif( hb_HHasKey( hParams, "transport" ), hParams[ "transport" ], NIL ) )
 
    // 4. classify the outcome
@@ -76,7 +76,7 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
          hResult[ "error_type" ] := "network"
          hResult[ "message" ]    := hHttp[ "error" ]
       ENDIF
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => hResult[ "error_type" ], ;
+      CC_Emit( bOnEvent, { "type" => "error", "error_type" => hResult[ "error_type" ], ;
                            "message" => hResult[ "message" ] } )
       RETURN hResult
    ENDIF
@@ -84,8 +84,8 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    IF hHttp[ "status" ] < 200 .OR. hHttp[ "status" ] >= 300
       hResult[ "error_type" ] := "api"
       hResult[ "retryable" ]  := ( hHttp[ "status" ] == 429 .OR. hHttp[ "status" ] >= 500 )
-      hResult[ "message" ]    := DS_ApiErrorMessage( hState[ "raw" ], hHttp[ "status" ] )
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => "api", ;
+      hResult[ "message" ]    := CC_ApiErrorMessage( hState[ "raw" ], hHttp[ "status" ] )
+      CC_Emit( bOnEvent, { "type" => "error", "error_type" => "api", ;
                            "message" => hResult[ "message" ] } )
       RETURN hResult
    ENDIF
@@ -93,7 +93,7 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    IF !hState[ "got_done" ]
       hResult[ "error_type" ] := "stream_incomplete"
       hResult[ "message" ]    := "Stream closed before [DONE]"
-      DS_Emit( bOnEvent, { "type" => "error", "error_type" => "stream_incomplete", ;
+      CC_Emit( bOnEvent, { "type" => "error", "error_type" => "stream_incomplete", ;
                            "message" => hResult[ "message" ] } )
       RETURN hResult
    ENDIF
@@ -106,7 +106,7 @@ FUNCTION DS_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    hResult[ "reasoning_content" ] := hState[ "reasoning" ]
    RETURN hResult
 
-STATIC FUNCTION DS_BuildBody( cModel, aMessages, hParams )
+STATIC FUNCTION CC_BuildBody( cModel, aMessages, hParams )
    LOCAL hBody := { "model" => cModel, "messages" => aMessages, ;
                     "stream" => .T., ;
                     "stream_options" => { "include_usage" => .T. } }
@@ -125,20 +125,20 @@ STATIC FUNCTION DS_BuildBody( cModel, aMessages, hParams )
    RETURN hBody
 
 // Records raw bytes (for error bodies) and feeds the SSE parser.
-STATIC FUNCTION DS_FeedChunk( cChunk, hState, oParser, bEmit )
+STATIC FUNCTION CC_FeedChunk( cChunk, hState, oParser, bEmit )
    hState[ "raw" ] += cChunk
-   DSSSE_Feed( oParser, cChunk, bEmit )
+   CCSSE_Feed( oParser, cChunk, bEmit )
    RETURN NIL
 
 // Folds one parsed SSE event into hState and forwards it to the caller.
-STATIC FUNCTION DS_OnEvent( hEv, hState, bOnEvent )
+STATIC FUNCTION CC_OnEvent( hEv, hState, bOnEvent )
    DO CASE
    CASE hEv[ "type" ] == "text_delta"
       hState[ "content" ] += hEv[ "text" ]
    CASE hEv[ "type" ] == "reasoning_delta"
       hState[ "reasoning" ] += hEv[ "text" ]
    CASE hEv[ "type" ] == "tool_call_delta"
-      DS_AccTool( hState[ "tools" ], hEv )
+      CC_AccTool( hState[ "tools" ], hEv )
    CASE hEv[ "type" ] == "finish"
       hState[ "finish" ] := hEv[ "finish_reason" ]
    CASE hEv[ "type" ] == "usage"
@@ -146,11 +146,11 @@ STATIC FUNCTION DS_OnEvent( hEv, hState, bOnEvent )
    CASE hEv[ "type" ] == "done"
       hState[ "got_done" ] := .T.
    ENDCASE
-   DS_Emit( bOnEvent, hEv )
+   CC_Emit( bOnEvent, hEv )
    RETURN NIL
 
 // Merges a tool_call_delta into the accumulator array, keyed by "index".
-STATIC FUNCTION DS_AccTool( aTools, hEv )
+STATIC FUNCTION CC_AccTool( aTools, hEv )
    LOCAL hTool, nFound := 0, i
    FOR i := 1 TO Len( aTools )
       IF aTools[ i ][ "index" ] == hEv[ "index" ]
@@ -175,7 +175,7 @@ STATIC FUNCTION DS_AccTool( aTools, hEv )
    ENDIF
    RETURN NIL
 
-STATIC FUNCTION DS_ApiErrorMessage( cRaw, nStatus )
+STATIC FUNCTION CC_ApiErrorMessage( cRaw, nStatus )
    LOCAL xJson
    xJson := hb_jsonDecode( cRaw )
    IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "error" ) .AND. ;
@@ -185,7 +185,7 @@ STATIC FUNCTION DS_ApiErrorMessage( cRaw, nStatus )
    ENDIF
    RETURN "HTTP " + LTrim( Str( nStatus ) )
 
-FUNCTION DS_Emit( bOnEvent, hEv )
+FUNCTION CC_Emit( bOnEvent, hEv )
    IF bOnEvent != NIL
       Eval( bOnEvent, hEv )
    ENDIF

@@ -2,7 +2,7 @@ FUNCTION Test_Memory()
    LOCAL hTool, cTmp, cRes
    cTmp := hb_DirTemp() + "ds_test_memory.md"
    FErase( cTmp )
-   hTool := DSTool_Memory( cTmp )
+   hTool := CCTool_Memory( cTmp )
 
    T_Equal( hTool[ "name" ], "memory", "memory: tool name" )
    T_Equal( hTool[ "parameters" ][ "required" ][ 1 ], "operation", ;
@@ -45,7 +45,7 @@ FUNCTION Test_Memory()
              "memory: append normalises a missing trailing newline" )
 
    // append to an unwritable path returns an error
-   hTool := DSTool_Memory( "Z:\no_such_dir\deep\mem.md" )
+   hTool := CCTool_Memory( "Z:\no_such_dir\deep\mem.md" )
    cRes := Eval( hTool[ "handler" ], { "operation" => "append", "text" => "x" } )
    T_Assert( "Error:" $ cRes, "memory: append write failure -> error" )
 

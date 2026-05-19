@@ -1,5 +1,5 @@
 // Returns the built-in default settings hash.
-FUNCTION DSSettings_Defaults()
+FUNCTION CCSETTINGS_Defaults()
    RETURN { "model"          => "deepseek-v4-flash", ;
             "base_url"       => "https://api.deepseek.com", ;
             "max_iterations" => 25, ;
@@ -15,8 +15,8 @@ FUNCTION DSSettings_Defaults()
 // Loads settings.json merged over the defaults.
 // cPath omitted -> env CCHARBOUR_CONFIG, else .ccharbour/settings.json under cwd.
 // Missing or malformed file -> the pure defaults. Never throws.
-FUNCTION DSSettings_Load( cPath )
-   LOCAL hSet := DSSettings_Defaults(), cText, xJson, cKey, cTool
+FUNCTION CCSETTINGS_Load( cPath )
+   LOCAL hSet := CCSETTINGS_Defaults(), cText, xJson, cKey, cTool
    IF Empty( cPath )
       cPath := hb_GetEnv( "CCHARBOUR_CONFIG" )
    ENDIF

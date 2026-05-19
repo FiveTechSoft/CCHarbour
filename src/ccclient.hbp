@@ -1,0 +1,7 @@
+-hblib
+-odsclient
+-mt
+src/ccconfig.prg
+src/ccsse.prg
+src/cchttp.prg
+src/ccapi.prg
