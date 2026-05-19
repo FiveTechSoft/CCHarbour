@@ -61,7 +61,7 @@ via the environment.
 | Command         | Action                                          |
 |-----------------|-------------------------------------------------|
 | `/help`         | show the command list                           |
-| `/init`         | analyse the project and write `CLAUDE.md`       |
+| `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
 | `/clear`        | reset the conversation                          |
 | `/exit`         | quit (alias `/quit`)                            |
@@ -81,8 +81,8 @@ the path in `CCHARBOUR_CONFIG`), merged over the defaults:
 | `color`          | `true`                      | ANSI colour output               |
 | `permissions`    | see below                   | per-tool gate                    |
 
-Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`/`glob`/`grep` are
-`allow`; `write`/`edit`/`shell` are `ask`. A `CLAUDE.md` file in the working
+Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`/`glob`/`grep`/`memory` are
+`allow`; `write`/`edit`/`shell` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
 
 ## Project layout
@@ -112,7 +112,7 @@ directory is appended to the system prompt as project instructions.
 - Tools: read, write, edit, glob, grep, shell
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading with defaults
-- `CLAUDE.md` project-instruction loading
+- `CC.md` project-instruction loading
 - Diff rendering on edit / write
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
   framed prompt and tool-call rendering
@@ -129,7 +129,7 @@ directory is appended to the system prompt as project instructions.
 - More commands — `/cost`, `/tools`, user-defined commands
 - More tools — task list, web fetch
 - Multi-provider support — DeepSeek only today
-- `CLAUDE.md` discovery from parent and home directories
+- `CC.md` discovery from parent and home directories
 
 ## Roadmap
 
@@ -145,7 +145,7 @@ per-project history.
 **v0.4 — tools & commands.** Task-list tool, web fetch, `/tools`, and
 user-defined slash commands.
 
-**v0.5 — providers.** Pluggable backends beyond DeepSeek; `CLAUDE.md` discovery
+**v0.5 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
 ## Ideas

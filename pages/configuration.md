@@ -26,8 +26,9 @@ Each tool maps to one of three modes:
 - `deny` — never run
 - `ask` — prompt before each run (the prompt offers a session-wide upgrade)
 
-Defaults: `read`, `glob`, `grep` and `github_read` are `allow`; `write`,
-`edit`, `shell`, `web_search`, `web_fetch` and `github_write` are `ask`.
+Defaults: `read`, `glob`, `grep`, `github_read` and `memory` are `allow`;
+`write`, `edit`, `shell`, `web_search`, `web_fetch` and `github_write` are
+`ask`.
 
 ```json
 {
@@ -50,12 +51,20 @@ Two tools need credentials to operate:
 For both keys the environment variable takes precedence over the value in
 `settings.json`.
 
-## CLAUDE.md
+## CC.md
 
-A `CLAUDE.md` file in the working directory is appended to the system prompt as
+A `CC.md` file in the working directory is appended to the system prompt as
 project instructions, so the agent honours per-project conventions. The REPL
-prints `[loaded CLAUDE.md project instructions]` at startup when it is found.
+prints `[loaded CC.md project instructions]` at startup when it is found.
 Run [`/init`](commands.md) to generate one.
+
+## memory.md
+
+`memory.md` is the agent's per-project persistent memory. Unlike `CC.md`
+(which you write and the agent only reads), `memory.md` is maintained by the
+agent itself via the `memory` tool — it can append notes, read them back, or
+clear the file. The contents are loaded into the system prompt each session,
+giving the agent continuity across conversations.
 
 ## API key
 

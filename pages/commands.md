@@ -6,7 +6,7 @@ assistant.
 | Command         | Action                                          |
 |-----------------|-------------------------------------------------|
 | `/help`         | show the command list                           |
-| `/init`         | analyse the project and write `CLAUDE.md`       |
+| `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
 | `/clear`        | reset the conversation                          |
 | `/exit`         | quit (alias `/quit`)                            |
@@ -14,7 +14,7 @@ assistant.
 ## /init
 
 `/init` asks the agent to inspect the repository — its layout, build process
-and conventions — and write a `CLAUDE.md` file. That file is then loaded as
+and conventions — and write a `CC.md` file. That file is then loaded as
 project context on every later run.
 
 ## /model
@@ -129,3 +129,14 @@ GitHub token (see [configuration](configuration.md)).
 | `body`      | string  | no       | body text                                            |
 | `head`      | string  | no       | source branch (for `create_pr`)                      |
 | `base`      | string  | no       | target branch (for `create_pr`)                      |
+
+### memory
+
+Read, append to, or clear the agent's persistent per-project memory file
+(`memory.md` in the working directory). The agent uses this to remember
+decisions and context across sessions. Defaults to `allow`.
+
+| Parameter   | Type   | Required | Description                              |
+|-------------|--------|----------|------------------------------------------|
+| `operation` | string | yes      | one of: `append`, `read`, `clear`        |
+| `text`      | string | no       | text to append (required for `append`)   |
