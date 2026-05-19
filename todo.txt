@@ -5,3 +5,4 @@ tokens contador, in and out
 Press up to edit queued messages
 Spinner: animated word + elapsed time + token count (e.g. "Synthesizing... 20m 48s, 41.5k tokens, almost done thinking")
 Render the assistant's own replies with the bullet prefix and numbered option lists, like Claude Code (e.g. a "What would you like to do? 1. ... 2. ..." choice block)
+Post-turn summary line "Worked for Ns"; echo the user's submitted message with a "> " prefix
