@@ -153,6 +153,16 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "exit 3" } ) )
    T_Assert( "[exit code: 3]" $ cRes, "tools: shell reports non-zero exit" )
 
+   // shell tool with timeout: short command finishes quickly
+   bExec := CCTOOLS_Executor( CCTOOLS_Registry( { "shell_timeout" => 5 } ) )
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "echo timed_ok" } ) )
+   T_Assert( "timed_ok" $ cRes, "tools: shell with timeout captures output" )
+   T_Assert( "[exit code: 0]" $ cRes, "tools: shell with timeout exit 0" )
+
+   // shell tool timeout: a slow command gets killed
+   cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 10 127.0.0.1" } ) )
+   T_Assert( "timed out" $ cRes, "tools: shell timeout kills long command" )
+
    // end-to-end: the default registry exposes all eleven builtin tools
    aSchemas := CCTOOLS_Schemas( CCTOOLS_Registry() )
    T_Equal( Len( aSchemas ), 11, "tools: registry has eleven builtins" )

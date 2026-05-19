@@ -32,8 +32,9 @@ FUNCTION Main( cModel )
    ENDIF
    oClient := CC_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ] } )
    oReg    := CCTOOLS_Registry( { ;
-      "github"    => CCCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ), ;
-      "co_author" => hb_HGetDef( hSet, "co_author", "" ) } )
+      "github"       => CCCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ), ;
+      "co_author"    => hb_HGetDef( hSet, "co_author", "" ), ;
+      "shell_timeout" => hb_HGetDef( hSet, "shell_timeout", 30 ) } )
    bGate   := CCPERM_Gate( CCTOOLS_Executor( oReg ), hSet[ "permissions" ], ;
                            {| cN, cA | CCREPL_AskPerm( cN, cA ) } )
    BEGIN SEQUENCE WITH {| o | Break( o ) }

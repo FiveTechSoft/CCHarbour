@@ -5,6 +5,7 @@ FUNCTION CCSETTINGS_Defaults()
             "max_iterations" => 25, ;
             "color"          => .T., ;
             "co_author"      => "", ;
+            "shell_timeout"  => 30, ;               // seconds, 0 = no timeout
             "permissions"    => { "read"  => "allow", "glob"  => "allow", ;
                                   "grep"  => "allow", "write" => "ask", ;
                                   "edit"  => "ask",   "shell" => "ask", ;
