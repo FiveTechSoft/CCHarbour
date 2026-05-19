@@ -200,6 +200,8 @@ HB_FUNC( CCCON_SIZE )
    CONSOLE_SCREEN_BUFFER_INFO csbi;
    int rows = 24, cols = 80;
    PHB_ITEM pHash;
+   PHB_ITEM pKey;
+   PHB_ITEM pVal;
 
    if( h != INVALID_HANDLE_VALUE && h != NULL &&
        GetConsoleScreenBufferInfo( h, &csbi ) )
@@ -211,8 +213,12 @@ HB_FUNC( CCCON_SIZE )
    }
 
    pHash = hb_hashNew( NULL );
-   hb_hashAddNew( pHash, hb_itemPutC( NULL, "rows" ), hb_itemPutNI( NULL, rows ) );
-   hb_hashAddNew( pHash, hb_itemPutC( NULL, "cols" ), hb_itemPutNI( NULL, cols ) );
+   pKey  = hb_itemNew( NULL );
+   pVal  = hb_itemNew( NULL );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "rows" ), hb_itemPutNI( pVal, rows ) );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "cols" ), hb_itemPutNI( pVal, cols ) );
+   hb_itemRelease( pKey );
+   hb_itemRelease( pVal );
    hb_itemReturnRelease( pHash );
 }
 
