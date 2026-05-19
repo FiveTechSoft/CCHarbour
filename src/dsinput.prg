@@ -287,7 +287,7 @@ FUNCTION DSIN_ReadLine( cInitial )
       hW := DSIN_Window( oSt, DSUI_InputInnerWidth() )
       nLines := hW[ "lines" ]
       DSREPL_Out( DSUI_VT( "1G" ) + DSUI_InputBoxLine( hW[ "text" ] ) + ;
-                  DSUI_VT( "1B" ) + DSUI_VT( "1G" ) + ;
+                  DSUI_VT( "2B" ) + DSUI_VT( "1G" ) + ;
                   DSUI_InputHint( nLines ) + DSUI_VT( "2A" ) )
    ENDDO
 

@@ -46,6 +46,9 @@ build.bat
 the shipped `msvc64` Harbour libraries were built against `/MD`, so a default
 static-CRT link leaves CRT import symbols unresolved. It produces `cc.exe`.
 
+**Hot-swap:** `update_cc.bat` replaces `cc.exe` with a freshly-built copy
+(`cc_new.exe`) without needing to stop a running REPL session.
+
 ## Run
 
 ```bat
@@ -64,6 +67,9 @@ via the environment.
 | `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
 | `/clear`        | reset the conversation                          |
+| `/cost`         | show token usage and estimated cost             |
+| `/save [file]`  | save the conversation to disk                   |
+| `/load [file]`  | load a saved conversation                       |
 | `/exit`         | quit (alias `/quit`)                            |
 
 Anything else is sent to the assistant.
@@ -77,7 +83,8 @@ Anything else is sent to the assistant.
 | Home / End    | jump to start / end of line   |
 | Delete        | delete character at cursor    |
 | Backspace     | delete character before cursor|
-| Ctrl+C        | cancel / return to prompt     |
+| Ctrl+C        | cancel a running stream       |
+| Shift+Enter   | insert a newline (multi-line) |
 | Enter         | submit the line               |
 
 ### Configuration
@@ -123,7 +130,7 @@ directory is appended to the system prompt as project instructions.
 ### Done
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
-- Agent loop with tool calls and an iteration cap
+- Agent loop with tool calls and an iteration cap with extend prompt
 - Tools: read, write, edit, glob, grep, shell, web, github, memory
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading with defaults
@@ -131,36 +138,35 @@ directory is appended to the system prompt as project instructions.
 - Diff rendering on edit / write
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
   framed prompt and tool-call rendering
-- Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete
-- Commands: `/help`, `/init`, `/model`, `/clear`, `/exit`
+- Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete,
+  multi-line input with Shift+Enter and paste detection
+- `Ctrl+C` to cancel a running stream
+- Conversation persistence — `/save` and `/load` commands
+- `/cost` command showing token usage and estimated cost per turn and session
+- Animated spinner with estimated token count during model reasoning
+- Compact token-usage bar displayed after each turn
+- Commands: `/help`, `/init`, `/model`, `/clear`, `/cost`, `/save`, `/load`, `/exit`
 - `build.bat` build script
-- Test suite (340 tests, 0 failures)
+- `update_cc.bat` hot-swap script to replace `cc.exe` without stopping the REPL
+- Test suite (340+ tests, 0 failures)
 
 ### Missing
 
-- `Ctrl+C` to cancel a running stream
-- Multi-line / pasted-block input
-- Conversation persistence — history is lost on exit; no resume
-- More commands — `/cost`, `/tools`, user-defined commands
-- More tools — task list, web fetch result formatting
 - Multi-provider support — DeepSeek only today
 - `CC.md` discovery from parent and home directories
+- More tools — task list, web fetch result formatting
+- More commands — `/tools`, user-defined commands
 
 ## Roadmap
 
-**v0.2 — current.** Raw-mode line editor with arrow keys, input history,
-Home/End/Delete support.
+**v0.3 — current.** `Ctrl+C` to cancel a stream, multi-line input
+for pasted code, `/save` & `/load` conversation persistence, `/cost`
+token/cost summary, animated reasoning spinner with token estimate.
 
-**v0.3 — REPL experience.** `Ctrl+C` to cancel a stream, multi-line input
-for pasted code.
-
-**v0.4 — persistence.** Save and resume conversations; `/cost` session summary;
-per-project history.
-
-**v0.5 — tools & commands.** Task-list tool, `/tools`, and user-defined
+**v0.4 — tools & commands.** Task-list tool, `/tools`, and user-defined
 slash commands.
 
-**v0.6 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
+**v0.5 — providers.** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
 ## Ideas

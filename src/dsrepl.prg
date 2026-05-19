@@ -7,6 +7,9 @@ STATIC s_lSkipLF := .F.
 // Accumulated usage across the entire session (prompt_tokens, completion_tokens, ...).
 STATIC s_hSessionUsage := {=>}
 
+// Braille-pattern spinner frames for the animated "thinking" indicator.
+STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, lVT
@@ -115,7 +118,12 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
               "max_iterations" => nMaxIter }, ;
             {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
          DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
-         DSREPL_Out( Chr(10) )
+         // show the live token bar from this turn's usage
+         IF hRes[ "success" ]
+            DSREPL_ShowTokenBar( hRes[ "usage" ] )
+         ELSE
+            DSREPL_Out( Chr(10) )
+         ENDIF
          // accumulate usage for this turn into the session total
          IF hRes[ "success" ]
             DSREPL_AccumUsage( hRes[ "usage" ] )
@@ -133,7 +141,12 @@ FUNCTION DSREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                  "max_iterations" => 25 }, ;
                {| hEv | DSREPL_RenderEv( hEv, oRender ) } )
             DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
-            DSREPL_Out( Chr(10) )
+            // show the live token bar from the extension turn too
+            IF hRes[ "success" ]
+               DSREPL_ShowTokenBar( hRes[ "usage" ] )
+            ELSE
+               DSREPL_Out( Chr(10) )
+            ENDIF
             // accumulate usage from the extension turn too
             IF hRes[ "success" ]
                DSREPL_AccumUsage( hRes[ "usage" ] )
@@ -273,19 +286,39 @@ STATIC FUNCTION DSREPL_SanitiseName( cName )
    RETURN cOut
 
 // Creates a per-turn render state: the markdown renderer, an id->tool-name
-// map (to label tool results), and the assistant-bullet run flag.
+// map (to label tool results), the assistant-bullet run flag, spinner state,
+// reasoning-character counter, and last-seen usage hash.
 STATIC FUNCTION DSREPL_RenderNew()
-   RETURN { "md" => DSMD_New(), "tools" => {=>}, "inText" => .F. }
+   RETURN { "md" => DSMD_New(), "tools" => {=>}, "inText" => .F., ;
+            "spinner" => .F., "spinnerFrame" => 1, ;
+            "reasoningChars" => 0, "lastUsage" => {=>} }
 
 // Renders one agent event into the terminal, using the render state oRender.
 STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
-   LOCAL cType, cId
+   LOCAL cType, cId, cSpinner, nPrompt, nComp, cMsg, cThinking, cTokenPart
    IF ValType( hEv ) != "H" .OR. !hb_HHasKey( hEv, "type" )
       RETURN NIL
    ENDIF
    cType := hEv[ "type" ]
    DO CASE
+
+   CASE cType == "iteration_start"
+      // start the spinner on the first frame
+      oRender[ "spinner" ] := .T.
+      oRender[ "spinnerFrame" ] := 1
+      oRender[ "reasoningChars" ] := 0
+      DSREPL_SpinnerShow( oRender, "" )
+
+   CASE cType == "reasoning_delta"
+      // advance the spinner, count chars, show "Thinking..." with estimated token count
+      oRender[ "reasoningChars" ] += Len( hb_CStr( hEv[ "text" ] ) )
+      DSREPL_SpinnerShow( oRender, "Thinking..." )
+
    CASE cType == "text_delta"
+      IF oRender[ "spinner" ]
+         DSREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       IF !oRender[ "inText" ]
          // blank line before the assistant bullet, so an answer that follows
          // a tool result is separated from it -- matches Claude Code spacing
@@ -294,13 +327,23 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
          oRender[ "inText" ] := .T.
       ENDIF
       DSREPL_Out( DSMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) ) )
+
+   CASE cType == "usage"
+      // store the usage hash for display after the turn
+      oRender[ "lastUsage" ] := hEv[ "usage" ]
+
    CASE cType == "tool_call"
+      IF oRender[ "spinner" ]
+         DSREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
       oRender[ "inText" ] := .F.
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
       DSREPL_Out( DSUI_ToolCallLine( hEv[ "name" ], hEv[ "arguments" ] ) )
+
    CASE cType == "tool_result"
       DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
       oRender[ "inText" ] := .F.
@@ -308,11 +351,67 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
       DSREPL_Out( DSUI_ResultSummary( ;
          hb_HGetDef( oRender[ "tools" ], cId, "" ), ;
          hb_CStr( hEv[ "content" ] ) ) )
+
    OTHERWISE
+      IF oRender[ "spinner" ]
+         DSREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       DSREPL_Out( DSMD_Flush( oRender[ "md" ] ) )
       oRender[ "inText" ] := .F.
       DSREPL_Out( DSUI_RenderEvent( hEv ) )
+
    ENDCASE
+   RETURN NIL
+
+// ── Spinner helpers (animated reasoning indicator) ──────────────────────
+
+// Draws the spinner line at the current cursor position. cExtra is an
+// optional label like "Thinking...". The frame advances on each call.
+STATIC FUNCTION DSREPL_SpinnerShow( oRender, cExtra )
+   LOCAL cFrame, cMsg, nEst
+   cFrame := s_aSpinnerFrames[ oRender[ "spinnerFrame" ] ]
+   oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < ;
+                                     Len( s_aSpinnerFrames ), ;
+                                     oRender[ "spinnerFrame" ] + 1, 1 )
+   cMsg := cFrame + " " + iif( Empty( cExtra ), "", cExtra + " " )
+   // show estimated token count from reasoning chars (rough: ~4 chars/token)
+   IF oRender[ "reasoningChars" ] > 0
+      nEst := Int( oRender[ "reasoningChars" ] / 4 )
+      cMsg += DSUI_Color( "[" + LTrim( Str( nEst ) ) + " tok]", "90" )
+   ENDIF
+   // overwrite the current line with the spinner
+   DSREPL_Out( DSUI_VT( "1G" ) + DSUI_VT( "K" ) + ;
+               DSUI_Color( cMsg, DSUI_Pal( "dim" ) ) )
+   RETURN NIL
+
+// Clears the spinner line (erases it so normal output can follow).
+STATIC FUNCTION DSREPL_SpinnerClear()
+   DSREPL_Out( DSUI_VT( "1G" ) + DSUI_VT( "K" ) )
+   RETURN NIL
+
+// After a turn completes, optionally prints a compact token-usage bar when
+// usage data was collected from the stream.
+STATIC FUNCTION DSREPL_ShowTokenBar( hUsage )
+   LOCAL nPrompt, nComp, nTotal, cBar
+   IF ValType( hUsage ) != "H" .OR. Len( hb_HKeys( hUsage ) ) == 0
+      RETURN NIL
+   ENDIF
+   nPrompt := hb_HGetDef( hUsage, "prompt_tokens", 0 )
+   nComp   := hb_HGetDef( hUsage, "completion_tokens", 0 )
+   nTotal  := nPrompt + nComp
+   IF nTotal == 0
+      RETURN NIL
+   ENDIF
+   cBar := DSUI_Color( "  ", "90" ) + ;
+           DSUI_Color( Chr(226)+Chr(150)+Chr(146) + " ", "90" ) + ;   // ┒
+           DSUI_Color( "in: ", "90" ) + ;
+           DSUI_Color( LTrim( Str( nPrompt ) ), "1;36" ) + ;
+           DSUI_Color( "  out: ", "90" ) + ;
+           DSUI_Color( LTrim( Str( nComp ) ), "1;36" ) + ;
+           DSUI_Color( "  total: ", "90" ) + ;
+           DSUI_Color( LTrim( Str( nTotal ) ), "1" )
+   DSREPL_Out( DSUI_VT( "1G" ) + DSUI_VT( "K" ) + cBar + Chr(10) )
    RETURN NIL
 
 // Asks whether to continue a capped turn with 25 more iterations.
