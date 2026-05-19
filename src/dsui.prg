@@ -132,7 +132,7 @@ STATIC FUNCTION DSUI_ResultBlock( cText )
 // A line already at or over the width is returned unchanged.
 FUNCTION DSUI_DiffPad( cLine )
    LOCAL nLen := hb_UTF8Len( hb_CStr( cLine ) )
-   RETURN iif( nLen < 74, cLine + Space( 74 - nLen ), cLine )
+   RETURN iif( nLen < 90, cLine + Space( 90 - nLen ), cLine )
 
 // The Claude Code-style tool-call line: an accent dot, then Tool(args). The
 // dot is accent-coloured; the label is left in the default foreground.
