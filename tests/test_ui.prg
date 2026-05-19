@@ -135,4 +135,9 @@ FUNCTION Test_UI()
              "ui: banner shows the cwd" )
    T_Assert( DSUI_Glyph( "tl" ) $ DSUI_Banner( "m", "c", "u" ), ;
              "ui: banner has the rounded box" )
+
+   // diff lines are space-padded so the background colour fills the row
+   T_Equal( hb_UTF8Len( DSUI_DiffPad( "ab" ) ), 74, "ui: diff pad fills short line to 74" )
+   T_Equal( DSUI_DiffPad( Replicate( "x", 80 ) ), Replicate( "x", 80 ), ;
+            "ui: diff pad leaves a long line unchanged" )
    RETURN NIL
