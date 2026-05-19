@@ -9,6 +9,7 @@
 - Tools: read, write, edit, glob, grep, shell
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading and `CC.md` project-instruction loading
+- Persistent agent memory — `memory.md` loaded into the system prompt
 - Diff rendering on edit / write
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style banner,
   framed prompt and tool-call rendering

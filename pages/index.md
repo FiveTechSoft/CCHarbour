@@ -28,6 +28,7 @@ of the assistant that runs entirely in the browser. You will need your own
 - Tool-using agent loop: read, write, edit, glob, grep, shell
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` configuration and `CC.md` project context
+- Persistent agent memory — a per-project `memory.md` the agent maintains
 - UTF-8 console, auto-detected ANSI colour, Claude Code-style terminal UI
 
 [Get started](getting-started.md){ .md-button .md-button--primary }

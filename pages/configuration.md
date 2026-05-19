@@ -8,7 +8,7 @@ over the built-in defaults:
 
 | Key               | Default                     | Meaning                       |
 |-------------------|-----------------------------|-------------------------------|
-| `model`           | `deepseek-chat`             | model name                    |
+| `model`           | `deepseek-v4-flash`         | model name                    |
 | `base_url`        | `https://api.deepseek.com`  | API endpoint                  |
 | `max_iterations`  | `25`                        | tool-call loop cap per turn   |
 | `color`           | `true`                      | ANSI colour output            |

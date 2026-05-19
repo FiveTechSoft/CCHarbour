@@ -75,14 +75,15 @@ the path in `CCHARBOUR_CONFIG`), merged over the defaults:
 
 | Key              | Default                     | Meaning                          |
 |------------------|-----------------------------|----------------------------------|
-| `model`          | `deepseek-chat`             | model name                       |
+| `model`          | `deepseek-v4-flash`         | model name                       |
 | `base_url`       | `https://api.deepseek.com`  | API endpoint                     |
 | `max_iterations` | `25`                        | tool-call loop cap per turn      |
 | `color`          | `true`                      | ANSI colour output               |
 | `permissions`    | see below                   | per-tool gate                    |
 
-Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`/`glob`/`grep`/`memory` are
-`allow`; `write`/`edit`/`shell` are `ask`. A `CC.md` file in the working
+Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
+`github_read` and `memory` are `allow`; `write`, `edit`, `shell`, `web_search`,
+`web_fetch` and `github_write` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
 
 ## Project layout
