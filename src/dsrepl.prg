@@ -294,7 +294,8 @@ STATIC FUNCTION DSREPL_SanitiseName( cName )
 STATIC FUNCTION DSREPL_RenderNew()
    RETURN { "md" => DSMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
-            "reasoningChars" => 0, "lastUsage" => {=>} }
+            "reasoningChars" => 0, "lastUsage" => {=>}, ;
+            "lastFrameTime" => 0 }
 
 // Renders one agent event into the terminal, using the render state oRender.
 STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
@@ -370,13 +371,19 @@ STATIC FUNCTION DSREPL_RenderEv( hEv, oRender )
 // ── Spinner helpers (animated reasoning indicator) ──────────────────────
 
 // Draws the spinner line at the current cursor position. cExtra is an
-// optional label like "Thinking...". The frame advances on each call.
+// optional label like "Thinking...". The frame advances at most every
+// 100ms so the spinner turns at a relaxed pace regardless of token speed.
 STATIC FUNCTION DSREPL_SpinnerShow( oRender, cExtra )
-   LOCAL cFrame, cMsg, nEst
+   LOCAL cFrame, cMsg, nEst, nNow
+   // throttle: only advance the frame if at least 100ms have passed
+   nNow := hb_MilliSeconds()
+   IF nNow - oRender[ "lastFrameTime" ] >= 100
+      oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < ;
+                                        Len( s_aSpinnerFrames ), ;
+                                        oRender[ "spinnerFrame" ] + 1, 1 )
+      oRender[ "lastFrameTime" ] := nNow
+   ENDIF
    cFrame := s_aSpinnerFrames[ oRender[ "spinnerFrame" ] ]
-   oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < ;
-                                     Len( s_aSpinnerFrames ), ;
-                                     oRender[ "spinnerFrame" ] + 1, 1 )
    cMsg := cFrame + " " + iif( Empty( cExtra ), "", cExtra + " " )
    // show estimated token count from reasoning chars (rough: ~4 chars/token)
    IF oRender[ "reasoningChars" ] > 0
