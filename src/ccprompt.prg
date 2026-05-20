@@ -106,7 +106,9 @@ FUNCTION CCPROMPT_Teardown( oPrompt )
 
 // Redraws the box on the bottom three rows: top frame, the editor line, the
 // bottom frame. Recomputes the region from a fresh CCCON_Size() so a resize
-// is picked up. Cursor is saved and restored around the draw.
+// is picked up -- the scroll margin is re-emitted too, otherwise a grown
+// terminal would scroll output in the old, smaller region. Cursor is saved
+// and restored around the draw; callers must not hold an outer ESC[s.
 FUNCTION CCPROMPT_Redraw( oPrompt )
    LOCAL hReg, hW, hSz
    hSz := CCCON_Size()
@@ -118,6 +120,7 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
    CCPROMPT_Raw( ;
       Chr(27) + "[s" + ;                                            // save cursor
+      Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
       CCUI_FrameTop() + Chr(13) + Chr(10) + ;
       CCUI_InputBoxLine( hW[ "text" ] ) + Chr(13) + Chr(10) + ;
