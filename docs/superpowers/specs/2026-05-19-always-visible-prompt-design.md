@@ -30,8 +30,8 @@ they want.
 - **Queue by default.** A plain message submitted with `Enter` mid-turn is
   appended to a FIFO queue. The current turn runs to completion, then each
   queued message is processed as its own turn, in order, until the queue is
-  empty. A dim `[queued: <summary>]` line is printed when a message is
-  queued.
+  empty. A dim `[handling: <summary>]` line is printed as each queued message
+  is picked up for its turn.
 - **`/btw` interrupts with a message.** A submitted line beginning with
   `/btw ` interrupts the current turn immediately; the text after `/btw ` (the
   remainder of the line) becomes the next user message and is answered at

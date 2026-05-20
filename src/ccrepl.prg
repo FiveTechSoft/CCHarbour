@@ -41,6 +41,7 @@ FUNCTION Main( cModel )
       CCREPL_Run( oClient, oReg, cModel, bGate, hSet[ "max_iterations" ] )
    RECOVER USING oErr
       CCCON_RawMode( .F. )   // restore the console if a crash happened mid-editor
+      CCREPL_Out( Chr(27) + "[r" )   // reset any VT scroll region the prompt set
       CCREPL_Out( Chr(10) + "Fatal: " + ;
               iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" ) + ;
               Chr(10) )
@@ -51,7 +52,7 @@ FUNCTION Main( cModel )
 
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
-   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, lCooked, hLoaded, hTurn
+   LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, lCooked, hLoaded, hTurn, oPrompt
    aMsgs    := { { "role" => "system", "content" => CCUI_SystemPrompt() } }
    cSuggest := ""
    CCREPL_Out( CCUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
@@ -59,9 +60,16 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CCREPL_Out( CCUI_Color( "[loaded CC.md project instructions]", ;
                               "90" ) + Chr(10) )
    ENDIF
+   oPrompt := NIL
+   IF CCCON_HasConsole() .AND. CCUI_ColorOn()
+      oPrompt := CCPROMPT_New()
+      CCPROMPT_Activate( oPrompt )
+   ENDIF
    DO WHILE .T.
       lCooked := .F.
-      IF CCCON_HasConsole()
+      IF oPrompt != NIL
+         cLine := CCREPL_PromptIdle( oPrompt )
+      ELSEIF CCCON_HasConsole()
          cLine := CCIN_ReadLine( cSuggest )
          IF ValType( cLine ) == "H"   // the no-console sentinel
             lCooked := .T.
@@ -118,14 +126,14 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                       CCUI_InitPrompt(), hAction[ "text" ] )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
-         hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn )
+         hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn, oPrompt )
          hRes := hTurn[ "result" ]
          // when the turn stopped on the iteration cap, offer to resume it
          // with 25 more iterations -- repeatably, until done or declined.
          DO WHILE hRes[ "success" ] .AND. ;
                   hRes[ "stop_reason" ] == "max_iterations" .AND. ;
                   CCREPL_AskExtend()
-            hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, 25, hRes[ "messages" ] )
+            hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, 25, hRes[ "messages" ], oPrompt )
             hRes  := hTurn[ "result" ]
          ENDDO
          cSuggest := CCMD_Suggestion( hTurn[ "render" ][ "md" ] )
@@ -133,8 +141,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             aMsgs := hRes[ "messages" ]
             IF hRes[ "stop_reason" ] == "max_iterations"
                CCREPL_Out( CCUI_Color( "[stopped: iteration cap]", "33" ) + Chr(10) )
-            ELSEIF hRes[ "stop_reason" ] == "paused"
-               CCREPL_Out( CCUI_Color( "[paused by user]", "33" ) + Chr(10) )
+            ELSEIF hRes[ "stop_reason" ] == "interrupted"
+               CCREPL_Out( CCUI_Color( "[interrupted]", "33" ) + Chr(10) )
             ENDIF
          ELSE
             IF hb_CStr( hRes[ "error_type" ] ) == "cancelled"
@@ -144,21 +152,54 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                        hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
             ENDIF
          ENDIF
+         // a /btw interrupt carries the next message; an Esc interrupt just
+         // returns to idle. Then drain any messages queued during the turn.
+         DO WHILE oPrompt != NIL
+            IF CCPROMPT_Interrupted( oPrompt )
+               cMsg := iif( oPrompt[ "interrupt" ][ "kind" ] == "btw", ;
+                            oPrompt[ "interrupt" ][ "text" ], "" )
+               oPrompt[ "interrupt" ] := NIL
+            ELSE
+               cMsg := hb_CStr( CCPROMPT_Dequeue( oPrompt ) )
+            ENDIF
+            IF Empty( cMsg )
+               EXIT
+            ENDIF
+            CCREPL_Out( CCUI_Color( "[handling: " + ;
+                        CCUI_Summarize( cMsg, 60 ) + "]", "90" ) + Chr(10) )
+            aTurn := AClone( aMsgs )
+            AAdd( aTurn, { "role" => "user", "content" => cMsg } )
+            hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn, oPrompt )
+            hRes  := hTurn[ "result" ]
+            IF hRes[ "success" ]
+               aMsgs := hRes[ "messages" ]
+               IF hRes[ "stop_reason" ] == "interrupted"
+                  CCREPL_Out( CCUI_Color( "[interrupted]", "33" ) + Chr(10) )
+               ENDIF
+            ENDIF
+         ENDDO
       ENDCASE
    ENDDO
+   IF oPrompt != NIL
+      CCPROMPT_Teardown( oPrompt )
+   ENDIF
    RETURN NIL
 
 // Runs one agent turn: calls CC_AgentRun, renders output, shows token bar,
 // accumulates usage, and returns { result, render }.
-STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessages )
-   LOCAL hRes, oRender
+STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessages, oPrompt )
+   LOCAL hRes, oRender, hOpts
    oRender := CCREPL_RenderNew()
-   hRes := CC_AgentRun( oClient, aMessages, ;
-      { "model" => cModel, ;
-        "tools" => CCTOOLS_Schemas( oReg ), ;
-        "tool_executor" => bGate, ;
-        "max_iterations" => nMaxIter }, ;
-      {| hEv | CCREPL_RenderEv( hEv, oRender ) } )
+   hOpts := { "model" => cModel, ;
+              "tools" => CCTOOLS_Schemas( oReg ), ;
+              "tool_executor" => bGate, ;
+              "max_iterations" => nMaxIter }
+   IF oPrompt != NIL
+      hOpts[ "interrupt_check" ] := {|| CCPROMPT_Interrupted( oPrompt ) }
+   ENDIF
+   hRes := CC_AgentRun( oClient, aMessages, hOpts, ;
+      {| hEv | CCREPL_RenderEv( hEv, oRender ), ;
+               iif( oPrompt != NIL, CCPROMPT_Poll( oPrompt ), NIL ) } )
    CCREPL_Out( CCMD_Flush( oRender[ "md" ] ) )
    IF hRes[ "success" ]
       CCREPL_ShowTokenBar( hRes[ "usage" ] )
@@ -167,6 +208,28 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_Out( Chr(10) )
    ENDIF
    RETURN { "result" => hRes, "render" => oRender }
+
+// Idles on the persistent box until the user submits a line (Enter on a
+// non-empty buffer, or a /btw line). Returns the submitted text, or loops
+// on a bare Esc.
+STATIC FUNCTION CCREPL_PromptIdle( oPrompt )
+   LOCAL cAction, cText
+   DO WHILE .T.
+      cAction := CCPROMPT_Poll( oPrompt )
+      IF cAction == "queued"
+         RETURN CCPROMPT_Dequeue( oPrompt )
+      ELSEIF cAction == "interrupt"
+         IF oPrompt[ "interrupt" ][ "kind" ] == "btw" .AND. ;
+            !Empty( oPrompt[ "interrupt" ][ "text" ] )
+            cText := oPrompt[ "interrupt" ][ "text" ]
+            oPrompt[ "interrupt" ] := NIL
+            RETURN cText
+         ENDIF
+         oPrompt[ "interrupt" ] := NIL
+      ENDIF
+      hb_IdleSleep( 0.02 )
+   ENDDO
+   RETURN NIL
 
 // Merges a usage hash (from one agent turn) into the session total.
 STATIC FUNCTION CCREPL_AccumUsage( hTurnUsage )

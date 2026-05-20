@@ -1,6 +1,7 @@
 /* Windows console support for CCHarbour: console detection, raw-mode
  * toggling, and raw key reading for the line editor. */
 #include "hbapi.h"
+#include "hbapiitm.h"
 #include <windows.h>
 
 /* CCCON_HasConsole() -> .T. when stdin is a real interactive console. */
@@ -52,7 +53,7 @@ HB_FUNC( CCCON_RAWMODE )
  *     0  end of input
  *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
  *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
- *   -12 Tab
+ *   -12 Tab        -13 Esc
  *   -99 an unmapped key (caller ignores it). */
 HB_FUNC( CCCON_READKEY )
 {
@@ -97,6 +98,7 @@ HB_FUNC( CCCON_READKEY )
          else if( vk == VK_UP )          { result = -9; done = HB_TRUE; }
          else if( vk == VK_DOWN )        { result = -10; done = HB_TRUE; }
          else if( vk == VK_TAB )          { result = -12; done = HB_TRUE; }
+         else if( vk == VK_ESCAPE )       { result = -13; done = HB_TRUE; }
          else if( ch >= 32 )             { result = ( int ) ch; done = HB_TRUE; }
          /* else: a non-printable key with no mapping -> read the next event */
       }
@@ -188,4 +190,63 @@ HB_FUNC( CCCON_PEEKESC )
    }
 
    hb_retl( 0 );
+}
+
+/* CCCON_Size() -> { "rows" => <n>, "cols" => <n> } : the visible console
+ * window size. Falls back to 24x80 when there is no console. */
+HB_FUNC( CCCON_SIZE )
+{
+   HANDLE h = GetStdHandle( STD_OUTPUT_HANDLE );
+   CONSOLE_SCREEN_BUFFER_INFO csbi;
+   int rows = 24, cols = 80;
+   PHB_ITEM pHash;
+   PHB_ITEM pKey;
+   PHB_ITEM pVal;
+
+   if( h != INVALID_HANDLE_VALUE && h != NULL &&
+       GetConsoleScreenBufferInfo( h, &csbi ) )
+   {
+      rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+      cols = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
+      if( rows < 1 ) rows = 24;
+      if( cols < 1 ) cols = 80;
+   }
+
+   pHash = hb_hashNew( NULL );
+   pKey  = hb_itemNew( NULL );
+   pVal  = hb_itemNew( NULL );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "rows" ), hb_itemPutNI( pVal, rows ) );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "cols" ), hb_itemPutNI( pVal, cols ) );
+   hb_itemRelease( pKey );
+   hb_itemRelease( pVal );
+   hb_itemReturnRelease( pHash );
+}
+
+/* CCCON_KeyPending() -> .T. when a key-down event is waiting in the console
+ * input queue. Non-blocking; does NOT consume the event. */
+HB_FUNC( CCCON_KEYPENDING )
+{
+   HANDLE h = GetStdHandle( STD_INPUT_HANDLE );
+   DWORD  nEvents = 0, nRead, i;
+   INPUT_RECORD recs[ 32 ];
+
+   if( h == INVALID_HANDLE_VALUE || h == NULL ||
+       ! GetNumberOfConsoleInputEvents( h, &nEvents ) || nEvents == 0 )
+   {
+      hb_retl( HB_FALSE );
+      return;
+   }
+   if( nEvents > 32 ) nEvents = 32;
+   if( PeekConsoleInputW( h, recs, nEvents, &nRead ) && nRead > 0 )
+   {
+      for( i = 0; i < nRead; i++ )
+      {
+         if( recs[ i ].EventType == KEY_EVENT && recs[ i ].Event.KeyEvent.bKeyDown )
+         {
+            hb_retl( HB_TRUE );
+            return;
+         }
+      }
+   }
+   hb_retl( HB_FALSE );
 }

@@ -16,6 +16,7 @@ FUNCTION Main()
    Test_UI()
    Test_Markdown()
    Test_Input()
+   Test_Prompt()
    Test_InputHistory()
    Test_Settings()
    Test_Perm()
@@ -48,6 +49,7 @@ FUNCTION CCREPL_Out( cText )
    HB_SYMBOL_UNUSED( cText )
    RETURN NIL
  
-// Stub for CCREPL_ReadLine used by dsagent.prg (pause/Esc feature). 
-FUNCTION CCREPL_ReadLine() 
+// Stub for CCREPL_ReadLine used by dsagent.prg (pause/Esc feature).
+FUNCTION CCREPL_ReadLine()
    RETURN ""
+

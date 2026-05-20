@@ -76,16 +76,25 @@ Anything else is sent to the assistant.
 
 ### Key bindings (raw-mode input box)
 
-| Key           | Action                        |
-|---------------|-------------------------------|
-| ← / →         | move cursor left / right      |
-| ↑ / ↓         | navigate input history        |
-| Home / End    | jump to start / end of line   |
-| Delete        | delete character at cursor    |
-| Backspace     | delete character before cursor|
-| Ctrl+C        | cancel a running stream       |
-| Shift+Enter   | insert a newline (multi-line) |
-| Enter         | submit the line               |
+The input box stays visible at all times, including while the agent is working.
+A plain message submitted with Enter mid-turn is queued and answered after the
+current turn finishes (multiple messages queue in order). A line beginning with
+`/btw <text>` interrupts the current turn immediately and is answered next.
+Pressing `Esc` also interrupts the current turn (with no new message); any
+partial work and tool results already produced are kept in the conversation.
+
+| Key              | Action                                                  |
+|------------------|---------------------------------------------------------|
+| ← / →            | move cursor left / right                                |
+| ↑ / ↓            | navigate input history                                  |
+| Home / End       | jump to start / end of line                             |
+| Delete           | delete character at cursor                              |
+| Backspace        | delete character before cursor                          |
+| Ctrl+C           | cancel a running stream                                 |
+| Shift+Enter      | insert a newline (multi-line)                           |
+| Enter            | submit the line (queued if agent is busy)               |
+| Esc              | interrupt the running turn (no new message)             |
+| `/btw <text>`    | interrupt the running turn; answer `<text>` next        |
 
 ### Configuration
 
@@ -112,7 +121,7 @@ directory is appended to the system prompt as project instructions.
 | Módulo (`src/`)       | Propósito |
 |-----------------------|-----------|
 | `ccrepl.prg`          | Punto de entrada (`Main`), bucle REPL interactivo, manejo de comandos `/`, ejecución de turnos del agente, renderizado de eventos, barra de tokens, spinner animado, carga/guardo de sesiones |
-| `ccagent.prg`         | Bucle multi-turno del agente: llama a la API DeepSeek, ejecuta herramientas, maneja pausa por Esc, límite de iteraciones con opción de extender |
+| `ccagent.prg`         | Bucle multi-turno del agente: llama a la API DeepSeek, ejecuta herramientas, soporta interrupción mid-turn (`interrupt_check`), límite de iteraciones con opción de extender |
 | `ccapi.prg`           | Cliente de la API DeepSeek (Chat Completions con streaming SSE), construcción del cuerpo de la petición, clasificación de errores HTTP/API/red |
 | `cchttp.prg`          | Transporte HTTP vía subproceso `curl.exe` (streaming y fetch), parseo del código de estado HTTP desde dump de cabeceras, soporte cancelación vía Ctrl+C |
 | `ccsse.prg`           | Parser SSE (Server-Sent Events): extrae `text_delta`, `reasoning_delta`, `tool_call_delta`, `finish`, `usage` y `[DONE]` del stream |
@@ -139,7 +148,7 @@ directory is appended to the system prompt as project instructions.
 ### Done (v0.5.0)
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
-- Agent loop with tool calls, iteration cap with extend prompt, **pause on Escape**
+- Agent loop with tool calls, iteration cap with extend prompt; **Esc interrupts the turn**, `/btw` interrupts and queues a reply, plain mid-turn input queues for after the turn
 - Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory
 - **DuckDuckGo web search** — no API key required (replaced Tavily)
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
