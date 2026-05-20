@@ -106,9 +106,8 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
                         "content" => cRes } )
       NEXT
-      // if the user paused and cancelled remaining tools, stop this iteration
-      IF hResult[ "stop_reason" ] == "paused" .OR. ;
-         hResult[ "stop_reason" ] == "interrupted"
+      // a mid-turn interrupt stops the outer loop
+      IF hResult[ "stop_reason" ] == "interrupted"
          EXIT
       ENDIF
    ENDDO
