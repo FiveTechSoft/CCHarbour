@@ -41,6 +41,7 @@ FUNCTION Main( cModel )
       CCREPL_Run( oClient, oReg, cModel, bGate, hSet[ "max_iterations" ] )
    RECOVER USING oErr
       CCCON_RawMode( .F. )   // restore the console if a crash happened mid-editor
+      CCREPL_Out( Chr(27) + "[r" )   // reset any VT scroll region the prompt set
       CCREPL_Out( Chr(10) + "Fatal: " + ;
               iif( ValType( oErr ) == "O", hb_CStr( oErr:Description ), "exception" ) + ;
               Chr(10) )
@@ -172,6 +173,9 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             hRes  := hTurn[ "result" ]
             IF hRes[ "success" ]
                aMsgs := hRes[ "messages" ]
+               IF hRes[ "stop_reason" ] == "interrupted"
+                  CCREPL_Out( CCUI_Color( "[interrupted]", "33" ) + Chr(10) )
+               ENDIF
             ENDIF
          ENDDO
       ENDCASE
