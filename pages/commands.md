@@ -11,6 +11,30 @@ assistant.
 | `/clear`        | reset the conversation                          |
 | `/exit`         | quit (alias `/quit`)                            |
 
+## Input box
+
+The input box is visible at all times, including while the agent is working.
+
+| Key / input      | Action                                                      |
+|------------------|-------------------------------------------------------------|
+| ← / →            | move cursor left / right                                    |
+| ↑ / ↓            | navigate input history                                      |
+| Home / End       | jump to start / end of line                                 |
+| Delete           | delete character at cursor                                  |
+| Backspace        | delete character before cursor                              |
+| Ctrl+C           | cancel a running stream                                     |
+| Shift+Enter      | insert a newline (multi-line input)                         |
+| Enter            | submit the line (queued if the agent is busy)               |
+| Esc              | interrupt the running turn (no new message)                 |
+| `/btw <text>`    | interrupt the running turn; answer `<text>` next            |
+
+**Mid-turn input.** A message submitted with Enter while the agent is working is
+queued and answered after the current turn finishes. Multiple messages queue in
+order. A line beginning with `/btw <text>` interrupts immediately and is answered
+next. Pressing Esc interrupts the current turn with no new message. In both
+interrupt cases, any partial work and tool results already produced are kept in
+the conversation history.
+
 ## /init
 
 `/init` asks the agent to inspect the repository — its layout, build process
