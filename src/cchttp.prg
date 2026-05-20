@@ -1,24 +1,24 @@
 // HTTP transport for the DeepSeek client.
 //
-// Transport path: curl.exe subprocess (NOT hbcurl).
+// Transport path: curl subprocess (NOT hbcurl).
 // The installed hbcurl contrib exposes no per-chunk Harbour write callback
 // -- HB_CURLOPT_WRITEFUNCTION is hidden at the Harbour level (see
 // contrib/hbcurl/core.c: only file/fhandle/buffer download setups exist).
-// Real incremental streaming therefore uses the libcurl CLI: curl.exe is
+// Real incremental streaming therefore uses the libcurl CLI: curl is
 // spawned per request, the body is fed to its stdin, and its stdout is read
-// chunk-by-chunk. curl.exe ships with Windows 10/11 (system32). Each call
+// chunk-by-chunk. curl ships with Windows 10/11 (system32). Each call
 // spawns its own process -> pool-safe, no shared state.
 
 #include "fileio.ch"
 
 // Module-level test transport. When set (and no per-request transport is
-// given), CCHTTP_Fetch routes through it instead of curl.exe. Tests only.
+// given), CCHTTP_Fetch routes through it instead of curl. Tests only.
 STATIC s_bTestTransport := NIL
 
 // Performs a streaming POST. hReq: { url, headers (array of "K: V"), body, timeout }.
 // bOnChunk is called with each received raw text chunk.
 // bTransport (optional codeblock {|hReq,bOnChunk| -> hResult }) overrides curl;
-// when NIL the real curl.exe transport (CCHTTP_CurlPost) is used.
+// when NIL the real curl transport (CCHTTP_CurlPost) is used.
 // Returns: { ok, status, curl_code, error }
 FUNCTION CCHTTP_Post( hReq, bOnChunk, bTransport )
    IF bTransport != NIL
@@ -26,7 +26,7 @@ FUNCTION CCHTTP_Post( hReq, bOnChunk, bTransport )
    ENDIF
    RETURN CCHTTP_CurlPost( hReq, bOnChunk )
 
-// Real transport: spawns curl.exe and streams its stdout to bOnChunk.
+// Real transport: spawns curl and streams its stdout to bOnChunk.
 FUNCTION CCHTTP_CurlPost( hReq, bOnChunk )
    LOCAL hProc, hIn, hOut, hErr, hTmp
    LOCAL cHdrFile := "", cCmd, cHdr, nTimeout
@@ -42,7 +42,7 @@ FUNCTION CCHTTP_CurlPost( hReq, bOnChunk )
       FClose( hTmp )
    ENDIF
 
-   cCmd := "curl.exe -sS -N --max-time " + LTrim( Str( nTimeout ) ) + ;
+   cCmd := "curl -sS -N --max-time " + LTrim( Str( nTimeout ) ) + ;
            " -X POST -D " + Chr( 34 ) + cHdrFile + Chr( 34 ) + ;
            " --data-binary @-"
    FOR EACH cHdr IN hReq[ "headers" ]
@@ -56,7 +56,7 @@ FUNCTION CCHTTP_CurlPost( hReq, bOnChunk )
          FErase( cHdrFile )
       ENDIF
       RETURN { "ok" => .F., "status" => 0, "curl_code" => -1, ;
-               "error" => "failed to spawn curl.exe" }
+               "error" => "failed to spawn curl" }
    ENDIF
 
    // feed the request body to curl's stdin, then close it so curl proceeds
@@ -132,7 +132,7 @@ STATIC FUNCTION CCHTTP_UnsafeUrl( cUrl )
    NEXT
    RETURN .F.
 
-// Real transport: spawns curl.exe and accumulates its whole stdout.
+// Real transport: spawns curl and accumulates its whole stdout.
 STATIC FUNCTION CCHTTP_CurlFetch( hReq )
    LOCAL hProc, hIn, hOut, hErr, hTmp
    LOCAL cHdrFile := "", cCmd, cHdr, nTimeout, cMethod
@@ -165,7 +165,7 @@ STATIC FUNCTION CCHTTP_CurlFetch( hReq )
       FClose( hTmp )
    ENDIF
 
-   cCmd := "curl.exe -sS --max-time " + LTrim( Str( nTimeout ) ) + ;
+   cCmd := "curl -sS --max-time " + LTrim( Str( nTimeout ) ) + ;
            " -X " + cMethod + " -D " + Chr( 34 ) + cHdrFile + Chr( 34 )
    IF lHasBody
       cCmd += " --data-binary @-"
@@ -181,7 +181,7 @@ STATIC FUNCTION CCHTTP_CurlFetch( hReq )
          FErase( cHdrFile )
       ENDIF
       RETURN { "ok" => .F., "status" => 0, "body" => "", ;
-               "error" => "failed to spawn curl.exe" }
+               "error" => "failed to spawn curl" }
    ENDIF
 
    IF lHasBody
