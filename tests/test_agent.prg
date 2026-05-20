@@ -43,7 +43,7 @@ STATIC FUNCTION HttpOK()
    RETURN { "ok" => .T., "status" => 200, "curl_code" => 0, "error" => "" }
 
 FUNCTION Test_Agent()
-   LOCAL oClient, hRes, bTransport, aInput, hAsstMsg, i
+   LOCAL oClient, hRes, bTransport, aInput, hAsstMsg, i, hR
 
    oClient := CC_Client( { "api_key" => "k", "model" => "deepseek-chat" } )
 
@@ -163,4 +163,14 @@ FUNCTION Test_Agent()
              "agent: tool_calls message has reasoning_content" )
    T_Equal( hAsstMsg[ "reasoning_content" ], "think", ;
             "agent: reasoning_content value round-trips" )
+
+   // interrupt_check: a check that returns .T. stops the loop before the
+   // first API call, with stop_reason "interrupted" and success .T.
+   hR := CC_AgentRun( NIL, ;
+      { { "role" => "user", "content" => "hello" } }, ;
+      { "interrupt_check" => {|| .T. } }, ;
+      NIL )
+   T_Equal( hR[ "success" ], .T., "agent: interrupt -> success" )
+   T_Equal( hR[ "stop_reason" ], "interrupted", "agent: interrupt stop_reason" )
+   T_Equal( hR[ "iterations" ], 0, "agent: interrupt before any iteration" )
    RETURN NIL

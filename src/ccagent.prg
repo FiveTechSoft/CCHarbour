@@ -6,7 +6,7 @@
 // Returns hResult: { success, messages, content, stop_reason, iterations,
 //                    usage, error_type, message }
 FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
-   LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams, tc, cRes
+   LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams, tc, cRes, bInterrupt
 
    IF ValType( hOpts ) != "H"
       hOpts := {=>}
@@ -30,8 +30,15 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                   ValType( hOpts[ "max_iterations" ] ) == "N" .AND. ;
                   hOpts[ "max_iterations" ] > 0, hOpts[ "max_iterations" ], 25 )
    hUsage := {=>}
+   bInterrupt := iif( hb_HHasKey( hOpts, "interrupt_check" ) .AND. ;
+                      ValType( hOpts[ "interrupt_check" ] ) == "B", ;
+                      hOpts[ "interrupt_check" ], NIL )
 
    DO WHILE nIter < nMax
+      IF bInterrupt != NIL .AND. Eval( bInterrupt )
+         hResult[ "stop_reason" ] := "interrupted"
+         EXIT
+      ENDIF
       nIter++
       CC_Emit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
 
@@ -84,46 +91,11 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       ENDIF
 
       // execute every tool call this turn, append each result as a tool message
-      // Before each tool, check for Escape (pause requested by user)
       FOR EACH tc IN hChat[ "tool_calls" ]
-         // non-blocking check for Esc key press
-         IF CCCON_PeekEsc()
-            CC_Emit( bOnEvent, { "type" => "pause_request", ;
-                                      "tool_name" => tc[ "name" ], ;
-                                      "tool_args" => tc[ "arguments" ] } )
-            // wait for user decision: Enter=continue, c=skip rest, a=abort turn
-            DO WHILE .T.
-               CCREPL_Out( CCUI_PausePrompt() )
-               cRes := CCREPL_ReadLine()
-               IF cRes == NIL
-                  EXIT
-               ENDIF
-               cRes := Lower( AllTrim( cRes ) )
-               IF cRes == ""
-                  // Enter -> continue with this tool
-                  CCREPL_Out( CCUI_Color( "  [continuing...]", "90" ) + Chr(10) )
-                  EXIT
-               ELSEIF Left( cRes, 1 ) == "c"
-                  // 'c' -> cancel remaining tools, skip to next iteration
-                  CC_Emit( bOnEvent, { "type" => "tool_result", "id" => tc[ "id" ], ;
-                                            "content" => "[paused and skipped by user]" } )
-                  AAdd( aMsgs, { "role" => "tool", "tool_call_id" => tc[ "id" ], ;
-                                 "content" => "[paused and skipped by user]" } )
-                  // skip all remaining tool calls by jumping past the loop
-                  hResult[ "stop_reason" ] := "paused"
-                  EXIT
-               ELSEIF Left( cRes, 1 ) == "a"
-                  // 'a' -> abort the entire turn
-                  CCREPL_Out( CCUI_Color( "  [aborting turn...]", "31" ) + Chr(10) )
-                  hResult[ "error_type" ]  := "cancelled"
-                  hResult[ "message" ]     := "paused and aborted by user"
-                  hResult[ "stop_reason" ] := "error"
-                  RETURN hResult
-               ENDIF
-            ENDDO
-            IF hResult[ "stop_reason" ] == "paused"
-               EXIT
-            ENDIF
+         // honour an interruption requested mid-turn
+         IF bInterrupt != NIL .AND. Eval( bInterrupt )
+            hResult[ "stop_reason" ] := "interrupted"
+            EXIT
          ENDIF
          CC_Emit( bOnEvent, { "type" => "tool_call", "id" => tc[ "id" ], ;
                                    "name" => tc[ "name" ], ;
@@ -135,7 +107,8 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
                         "content" => cRes } )
       NEXT
       // if the user paused and cancelled remaining tools, stop this iteration
-      IF hResult[ "stop_reason" ] == "paused"
+      IF hResult[ "stop_reason" ] == "paused" .OR. ;
+         hResult[ "stop_reason" ] == "interrupted"
          EXIT
       ENDIF
    ENDDO
