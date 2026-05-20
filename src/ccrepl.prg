@@ -10,6 +10,11 @@ STATIC s_hSessionUsage := {=>}
 // Braille-pattern spinner frames for the animated "thinking" indicator.
 STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 
+// The active persistent prompt box, when one is mounted. While set, CCREPL_Out
+// writes agent output at a saved scroll-region anchor and returns the cursor
+// to the input box, so the visible cursor stays inside the box.
+STATIC s_oBoxPrompt := NIL
+
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, lVT
@@ -64,6 +69,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    IF CCCON_HasConsole() .AND. CCUI_ColorOn()
       oPrompt := CCPROMPT_New()
       CCPROMPT_Activate( oPrompt )
+      s_oBoxPrompt := oPrompt
    ENDIF
    DO WHILE .T.
       lCooked := .F.
@@ -184,6 +190,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       ENDCASE
    ENDDO
    IF oPrompt != NIL
+      s_oBoxPrompt := NIL
       CCPROMPT_Teardown( oPrompt )
    ENDIF
    RETURN NIL
@@ -502,9 +509,27 @@ FUNCTION CCREPL_Out( cText )
    IF ValType( cText ) == "C" .AND. Len( cText ) > 0
       cText := StrTran( cText, Chr(13), "" )
       cText := StrTran( cText, Chr(10), Chr(13) + Chr(10) )
-      FWrite( hb_GetStdOut(), cText )
+      IF s_oBoxPrompt != NIL .AND. s_oBoxPrompt[ "region" ][ "active" ]
+         // box mode: jump to the saved scroll-region anchor, write there,
+         // re-save the anchor, then return the cursor to the input box so
+         // the visible cursor stays where the user is typing. One atomic
+         // write -> the terminal never renders the intermediate position.
+         FWrite( hb_GetStdOut(), ;
+            Chr(27) + "[u" + cText + Chr(27) + "[s" + CCREPL_BoxCursorSeq() )
+      ELSE
+         FWrite( hb_GetStdOut(), cText )
+      ENDIF
    ENDIF
    RETURN NIL
+
+// The VT escape that moves the cursor onto the input box's editing line at
+// the current edit column (box content starts at column 5: border, space,
+// "> ", then text).
+STATIC FUNCTION CCREPL_BoxCursorSeq()
+   LOCAL hReg := s_oBoxPrompt[ "region" ], hW
+   hW := CCIN_Window( s_oBoxPrompt[ "editor" ], CCUI_InputInnerWidth() )
+   RETURN Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ;
+          LTrim( Str( 5 + hW[ "col" ] ) ) + "H"
 
 // Sets the Windows console to the UTF-8 code page (65001) so the model's
 // UTF-8 output renders, and enables virtual-terminal mode so ANSI colours

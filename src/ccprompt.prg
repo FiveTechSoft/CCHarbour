@@ -89,8 +89,10 @@ FUNCTION CCPROMPT_Activate( oPrompt )
    ENDIF
    // ESC[1;<bottom>r  -> set scroll region; cursor then homes to (1,1)
    CCPROMPT_Raw( Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" )
-   // park the cursor on the last row of the scroll region
+   // park the cursor on the last row of the scroll region and save it as the
+   // initial output anchor (CCREPL_Out restores to it before each write)
    CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + ";1H" )
+   CCPROMPT_Raw( Chr(27) + "[s" )
    CCPROMPT_Redraw( oPrompt )
    RETURN oPrompt
 
@@ -107,8 +109,10 @@ FUNCTION CCPROMPT_Teardown( oPrompt )
 // Redraws the box on the bottom three rows: top frame, the editor line, the
 // bottom frame. Recomputes the region from a fresh CCCON_Size() so a resize
 // is picked up -- the scroll margin is re-emitted too, otherwise a grown
-// terminal would scroll output in the old, smaller region. Cursor is saved
-// and restored around the draw; callers must not hold an outer ESC[s.
+// terminal would scroll output in the old, smaller region. The cursor is
+// left on the input line at the editing column, so the visible terminal
+// cursor sits inside the box where the user types. The output anchor (the
+// ESC[s slot, owned by CCREPL_Out) is deliberately not touched here.
 FUNCTION CCPROMPT_Redraw( oPrompt )
    LOCAL hReg, hW, hSz
    hSz := CCCON_Size()
@@ -119,21 +123,22 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    ENDIF
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
    CCPROMPT_Raw( ;
-      Chr(27) + "[s" + ;                                            // save cursor
       Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
       CCUI_FrameTop() + Chr(13) + Chr(10) + ;
       CCUI_InputBoxLine( hW[ "text" ] ) + Chr(13) + Chr(10) + ;
       CCUI_FrameBottom() + ;
-      Chr(27) + "[u" )                                              // restore cursor
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
+              LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
    RETURN oPrompt
 
 // Non-blocking: drains every pending key into the editor, then redraws the
 // box. On Enter the buffer is classified; on Esc an interrupt is recorded.
 // Returns an action string: "none", "queued", or "interrupt".
 FUNCTION CCPROMPT_Poll( oPrompt )
-   LOCAL oEd := oPrompt[ "editor" ], nKey, hC, cAction := "none"
+   LOCAL oEd := oPrompt[ "editor" ], nKey, hC, cAction := "none", lDrained := .F.
    DO WHILE CCCON_KeyPending()
+      lDrained := .T.
       nKey := CCCON_ReadKey()
       DO CASE
       CASE nKey == -13                       // Esc -> interrupt, no message
@@ -167,5 +172,9 @@ FUNCTION CCPROMPT_Poll( oPrompt )
          EXIT   // stop draining once an interrupt is seen
       ENDIF
    ENDDO
-   CCPROMPT_Redraw( oPrompt )
+   // only redraw when a key actually changed something -- an idle poll loop
+   // must not repaint 50x/second
+   IF lDrained
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
    RETURN cAction
