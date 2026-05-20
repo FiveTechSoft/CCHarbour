@@ -160,7 +160,10 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                             oPrompt[ "interrupt" ][ "text" ], "" )
                oPrompt[ "interrupt" ] := NIL
             ELSE
-               cMsg := hb_CStr( CCPROMPT_Dequeue( oPrompt ) )
+               // do NOT hb_CStr() this -- an empty queue returns NIL, and
+               // hb_CStr(NIL) is the literal string "NIL", which is not Empty
+               // and would loop forever running "NIL" as a message.
+               cMsg := CCPROMPT_Dequeue( oPrompt )
             ENDIF
             IF Empty( cMsg )
                EXIT
