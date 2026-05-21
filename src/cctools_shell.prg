@@ -1,8 +1,9 @@
 #include "fileio.ch"   // F_ERROR
 
-// shell: runs a command through cmd.exe and returns combined output.
-// The command always runs via "cmd.exe /c"; there is deliberately no shell
-// parameter, since models tend to send it a boolean and break the call.
+// shell: runs a command through the system shell and returns combined output.
+// On Windows the command runs via "cmd.exe /c"; on POSIX via "/bin/sh".
+// There is deliberately no shell parameter, since models tend to send it a
+// boolean and break the call.
 // When cCoAuthor is non-empty, any "git commit" command automatically gets
 // a --trailer "Co-authored-by: ..." appended (configurable in settings.json
 // under the "co_author" key).
@@ -16,7 +17,7 @@ FUNCTION CCTool_Shell( cCoAuthor, nTimeout )
       nTimeout := 0
    ENDIF
    RETURN { "name" => "shell", ;
-            "description" => "Run a shell command via cmd.exe and return its combined output and exit code.", ;
+            "description" => "Run a shell command and return its combined output and exit code.", ;
             "parameters" => { "type" => "object", ;
                "properties" => { ;
                   "command" => { "type" => "string", ;
@@ -30,7 +31,7 @@ FUNCTION CCTool_Shell( cCoAuthor, nTimeout )
 
 STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    LOCAL cCommand, cCmdLine, cOut := "", cErr := "", nExit, cResult
-   LOCAL cOutFile, hProc, hIn, hOut, hErr, nStart, lTimedOut := .F.
+   LOCAL cOutFile, cScriptFile := "", hProc, hIn, hOut, hErr, nStart, lTimedOut := .F.
    LOCAL nActualTimeout, lShow, nLeft, nShown := -1
 
    cCommand := hb_CStr( hArgs[ "command" ] )
@@ -65,7 +66,15 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
          FClose( hOut )
       ENDIF
 
+#ifdef __PLATFORM__WINDOWS
       cCmdLine := 'cmd.exe /c (' + cCommand + ') > "' + cOutFile + '" 2>&1'
+#else
+      // POSIX: write the command to a temp script so it never needs argv-level
+      // quoting; the script redirects its own output to the capture file.
+      cScriptFile := CCTool_ShellScript( "exec > '" + cOutFile + "' 2>&1" + ;
+                                         Chr( 10 ) + cCommand + Chr( 10 ) )
+      cCmdLine := "/bin/sh '" + cScriptFile + "'"
+#endif
 
       hProc := hb_processOpen( cCmdLine, @hIn, @hOut, @hErr )
       IF hProc == F_ERROR
@@ -122,7 +131,12 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
       ENDIF
    ELSE
       // === Original approach (no timeout) — uses hb_processRun directly ===
+#ifdef __PLATFORM__WINDOWS
       cCmdLine := "cmd.exe /c " + cCommand
+#else
+      cScriptFile := CCTool_ShellScript( cCommand + Chr( 10 ) )
+      cCmdLine := "/bin/sh '" + cScriptFile + "'"
+#endif
       nExit := hb_processRun( cCmdLine, , @cOut, @cErr )
       IF nExit == -1
          RETURN "Error: cannot run shell: " + cCmdLine
@@ -134,6 +148,9 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    ENDIF
 
    // Common output post-processing
+   IF !Empty( cScriptFile )
+      FErase( cScriptFile )
+   ENDIF
    IF hb_BLen( cResult ) > 30000
       cResult := hb_BLeft( cResult, 30000 ) + Chr(10) + "[output truncated]" + Chr(10)
    ENDIF
@@ -158,6 +175,19 @@ STATIC FUNCTION CCTool_ShowCountdown( nTotal, nLeft )
 STATIC FUNCTION CCTool_ClearCountdown()
    FWrite( hb_GetStdOut(), Chr(13) + Chr(27) + "[K" )
    RETURN NIL
+
+// Writes cBody to a temporary shell script and returns its path.  Used on
+// POSIX so a shell command never needs argv-level quoting: the raw command
+// goes into the file, and only the (safe) temp path appears on the command
+// line.  Returns "" when the temp file cannot be created.
+STATIC FUNCTION CCTool_ShellScript( cBody )
+   LOCAL cFile := ""
+   LOCAL hFile := hb_FTempCreateEx( @cFile, hb_DirTemp(), "ccsh", ".sh" )
+   IF hFile != F_ERROR
+      FWrite( hFile, cBody )
+      FClose( hFile )
+   ENDIF
+   RETURN cFile
 
 // Returns .T. when cCmd looks like a "git commit" invocation.
 // Checks that the command contains "git commit" and does not already have
@@ -256,8 +286,8 @@ STATIC FUNCTION CCTool_EstimateTimeout( cCommand )
 
    // --- Build / compile ---
    IF "msbuild" $ cLow .OR. "make" $ cLow .OR. "nmake" $ cLow .OR. ;
-      "harbour" $ cLow .OR. "bcc32" $ cLow .OR. ;
-      "gcc" $ cLow .OR. "g++" $ cLow .OR. "cl.exe" $ cLow
+      "harbour" $ cLow .OR. "hbmk2" $ cLow .OR. "bcc32" $ cLow .OR. ;
+      "gcc" $ cLow .OR. "g++" $ cLow .OR. "clang" $ cLow .OR. "cl.exe" $ cLow
       RETURN 120
    ENDIF
 
