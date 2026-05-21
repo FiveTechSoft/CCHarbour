@@ -148,6 +148,44 @@ Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
 `web_fetch` and `github_write` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
 
+## Disclaimer
+
+Read this before using CCHarbour.
+
+**Token usage and cost.** CCHarbour is an autonomous agent. Every turn sends
+the whole conversation to a third-party LLM API, and the agent may loop
+through many tool calls before it answers. This can consume a **large and
+unpredictable number of API tokens, billed to you by your API provider**.
+Long sessions, large files and broad tool use all increase that cost. Watch
+your usage with the `/cost` command and set spending limits with your
+provider. You alone are responsible for every charge that CCHarbour incurs
+on your account.
+
+**Use at your own risk.** Through its tools CCHarbour can read, modify and
+delete files and run arbitrary shell commands on your machine. The permission
+gate (`allow` / `deny` / `ask`) is the only safeguard; setting a tool to
+`allow` lets the agent act with no confirmation. Run CCHarbour only against
+code you have backed up or under version control, review the permission
+settings before each session, and do not grant `allow` to `shell` for
+prompts or projects you do not trust.
+
+**No warranty.** CCHarbour is provided "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY — INCLUDING, WITHOUT LIMITATION, API CHARGES, DATA LOSS OR
+BUSINESS INTERRUPTION — WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE. By using CCHarbour you accept these terms.
+
+**Third parties.** CCHarbour is not affiliated with, endorsed by or sponsored
+by DeepSeek, Anthropic or any other API provider. Your use of an LLM API is
+additionally governed by that provider's own terms of service. "Claude Code"
+is referenced only to describe the project's style and remains a trademark of
+its respective owner.
+
+See the [`LICENSE`](LICENSE) file for the full licence terms.
+
 ## Project layout
 
 | Módulo (`src/`)       | Propósito |
@@ -247,3 +285,9 @@ up the directory tree and from the home directory.
 A running scratch list of UI/UX ideas to explore — terminal tricks, status
 display, and ergonomics borrowed from Claude Code — is kept in
 [`todo.txt`](todo.txt).
+
+## License
+
+CCHarbour is released under the [MIT License](LICENSE) —
+Copyright (c) 2026 FiveTech Software. See the [Disclaimer](#disclaimer) for
+the warranty and liability terms and an important note on API token cost.
