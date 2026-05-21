@@ -1,9 +1,11 @@
 /* POSIX console support for CCHarbour (macOS + Linux): console detection,
  * raw-mode toggling, and raw key reading for the line editor. */
 #include "hbapi.h"
+#include "hbapiitm.h"
 #include <unistd.h>
 #include <termios.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <stdio.h>
 
 static struct termios s_CCCON_savedMode;
@@ -164,4 +166,41 @@ HB_FUNC( CCCON_PEEKESC )
       }
    }
    hb_retl( 0 );
+}
+
+/* CCCON_Size() -> hash { "rows" => n, "cols" => n } with the terminal size.
+ * Falls back to 24x80 when the size cannot be queried. */
+HB_FUNC( CCCON_SIZE )
+{
+   struct winsize ws;
+   int rows = 24, cols = 80;
+   PHB_ITEM pHash;
+   PHB_ITEM pKey;
+   PHB_ITEM pVal;
+
+   if( ioctl( STDOUT_FILENO, TIOCGWINSZ, &ws ) == 0 )
+   {
+      if( ws.ws_row > 0 ) rows = ws.ws_row;
+      if( ws.ws_col > 0 ) cols = ws.ws_col;
+   }
+
+   pHash = hb_hashNew( NULL );
+   pKey  = hb_itemNew( NULL );
+   pVal  = hb_itemNew( NULL );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "rows" ), hb_itemPutNI( pVal, rows ) );
+   hb_hashAdd( pHash, hb_itemPutC( pKey, "cols" ), hb_itemPutNI( pVal, cols ) );
+   hb_itemRelease( pKey );
+   hb_itemRelease( pVal );
+   hb_itemReturnRelease( pHash );
+}
+
+/* CCCON_KeyPending() -> .T. when a key is waiting in the input buffer.
+ * Non-blocking; does NOT consume the event. */
+HB_FUNC( CCCON_KEYPENDING )
+{
+   fd_set set;
+   struct timeval tv = { 0, 0 };
+   FD_ZERO( &set );
+   FD_SET( STDIN_FILENO, &set );
+   hb_retl( select( STDIN_FILENO + 1, &set, NULL, NULL, &tv ) > 0 );
 }
