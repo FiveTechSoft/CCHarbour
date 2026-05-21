@@ -87,6 +87,10 @@ FUNCTION Test_UI()
    T_Assert( "Suggested next:" $ CCUI_SystemPrompt(), ;
              "ui: system prompt requests a suggested next line" )
 
+   // system prompt asks the agent to describe non-obvious actions first
+   T_Assert( "non-obvious" $ CCUI_SystemPrompt(), ;
+             "ui: system prompt asks to describe non-obvious actions" )
+
    // --- tool-call line + result summary ---
    CCUI_SetColor( .F. )
    T_Assert( "Read(x.prg)" $ CCUI_ToolCallLine( "read", '{"path":"x.prg"}' ), ;
