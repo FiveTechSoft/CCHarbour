@@ -365,12 +365,16 @@ FUNCTION CCUI_SystemPrompt()
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
             "tasks. Be concise. " + ;
-            "Just before a tool call that performs a non-obvious action — " + ;
-            "especially running a shell command — write one or two short lines " + ;
-            "describing what you are about to do and why. Skip this for " + ;
-            "trivial, self-evident actions. " + ;
             "End every reply with a final line in the exact form " + ;
-            "'Suggested next: <a short prompt the user might send next>'."
+            "'Suggested next: <a short prompt the user might send next>'." + ;
+            Chr(10) + Chr(10) + ;
+            "IMPORTANT — narrate your actions. Immediately before EVERY tool " + ;
+            "call that runs a shell command, or that otherwise does something " + ;
+            "non-obvious, you MUST first write one or two short sentences saying " + ;
+            "what you are about to do and why. This narration is required even " + ;
+            "though your replies are otherwise concise — it is not optional. " + ;
+            "Only skip it for trivial, self-evident actions such as reading a " + ;
+            "file or listing a directory."
    cProj := CCUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
