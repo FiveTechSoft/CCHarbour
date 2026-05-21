@@ -15,16 +15,25 @@ FUNCTION CCSETTINGS_Defaults()
 
 // Loads settings.json merged over the defaults.
 // cPath omitted -> env CCHARBOUR_CONFIG, else .ccharbour/settings.json under cwd.
-// Missing or malformed file -> the pure defaults. Never throws.
+// When the default file is missing it is auto-created with the defaults so
+// the user has something to edit. Missing (after that) or malformed file ->
+// the pure defaults. Never throws.
 FUNCTION CCSETTINGS_Load( cPath )
    LOCAL hSet := CCSETTINGS_Defaults(), cText, xJson, cKey, cTool
+   LOCAL lDefaultPath := .F.
    IF Empty( cPath )
       cPath := hb_GetEnv( "CCHARBOUR_CONFIG" )
    ENDIF
    IF Empty( cPath )
       cPath := ".ccharbour" + hb_ps() + "settings.json"
+      lDefaultPath := .T.
    ENDIF
    IF !hb_FileExists( cPath )
+      // Only auto-create at the default location; an explicit
+      // CCHARBOUR_CONFIG path is left untouched.
+      IF lDefaultPath
+         CCSETTINGS_Create( cPath, hSet )
+      ENDIF
       RETURN hSet
    ENDIF
    cText := hb_MemoRead( cPath )
@@ -44,3 +53,14 @@ FUNCTION CCSETTINGS_Load( cPath )
       ENDIF
    NEXT
    RETURN hSet
+
+// Writes hSet to cPath as human-readable JSON, creating the parent
+// directory when needed. Best-effort: any failure is ignored, since the
+// in-memory defaults still apply when no file can be written.
+STATIC FUNCTION CCSETTINGS_Create( cPath, hSet )
+   LOCAL cDir := hb_FNameDir( cPath )
+   IF !Empty( cDir ) .AND. !hb_DirExists( cDir )
+      hb_DirBuild( cDir )
+   ENDIF
+   hb_MemoWrit( cPath, hb_jsonEncode( hSet, .T. ) )
+   RETURN NIL
