@@ -91,6 +91,10 @@ FUNCTION Test_UI()
    T_Assert( "non-obvious" $ CCUI_SystemPrompt(), ;
              "ui: system prompt asks to describe non-obvious actions" )
 
+   // system prompt states the OS and working directory
+   T_Assert( "working directory" $ CCUI_SystemPrompt(), ;
+             "ui: system prompt states the working directory" )
+
    // --- tool-call line + result summary ---
    CCUI_SetColor( .F. )
    T_Assert( "Read(x.prg)" $ CCUI_ToolCallLine( "read", '{"path":"x.prg"}' ), ;

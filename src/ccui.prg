@@ -365,6 +365,11 @@ FUNCTION CCUI_SystemPrompt()
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
             "tasks. Be concise. " + ;
+            "You are running on " + OS() + ", and the current working " + ;
+            "directory is " + hb_cwd() + ". Relative paths resolve against " + ;
+            "that directory — use relative paths, or absolute paths under it; " + ;
+            "never invent absolute paths to other locations. Use shell " + ;
+            "commands and conventions appropriate to this operating system. " + ;
             "End every reply with a final line in the exact form " + ;
             "'Suggested next: <a short prompt the user might send next>'." + ;
             Chr(10) + Chr(10) + ;
