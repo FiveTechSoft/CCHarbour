@@ -370,11 +370,15 @@ FUNCTION CCUI_SystemPrompt()
             Chr(10) + Chr(10) + ;
             "IMPORTANT — narrate your actions. Immediately before EVERY tool " + ;
             "call that runs a shell command, or that otherwise does something " + ;
-            "non-obvious, you MUST first write one or two short sentences saying " + ;
-            "what you are about to do and why. This narration is required even " + ;
-            "though your replies are otherwise concise — it is not optional. " + ;
-            "Only skip it for trivial, self-evident actions such as reading a " + ;
-            "file or listing a directory."
+            "non-obvious, you MUST first write one or two short sentences. " + ;
+            "Each narration MUST state BOTH: (1) what you are about to do, and " + ;
+            "(2) WHY — the reason or goal behind it, not just the action. A " + ;
+            "narration that gives only the action is incomplete and not " + ;
+            "acceptable. For example, write 'Listing the build directory to " + ;
+            "confirm hbmk2 produced the binary.' — NOT 'Listing the build " + ;
+            "directory.' This narration is required even though your replies " + ;
+            "are otherwise concise — it is not optional. Only skip it for " + ;
+            "trivial, self-evident actions such as reading a single named file."
    cProj := CCUI_ProjectContext()
    IF !Empty( cProj )
       cBase += Chr(10) + Chr(10) + ;
