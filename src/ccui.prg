@@ -458,8 +458,11 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
    RETURN cText + Space( nPad )
 
 // The CCHarbour version string.
+// RELEASE CHECKLIST — on every release bump this string together with the
+// version in releasenotes.md and the Releases section of README.md, then
+// tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.7.0"
+   RETURN "0.8.0"
 
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
