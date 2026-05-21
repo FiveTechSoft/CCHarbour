@@ -1,3 +1,5 @@
+# Linux build project for CCHarbour.
+# ccconsole_posix.c is pure POSIX (termios/unistd/select) -> shared with macOS.
 -occ
 -mt
 -gtnul

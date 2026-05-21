@@ -1,5 +1,5 @@
-/* macOS console support for CCHarbour: console detection, raw-mode
- * toggling, and raw key reading for the line editor. */
+/* POSIX console support for CCHarbour (macOS + Linux): console detection,
+ * raw-mode toggling, and raw key reading for the line editor. */
 #include "hbapi.h"
 #include <unistd.h>
 #include <termios.h>
