@@ -1,6 +1,25 @@
-CCHarbour v0.7.0 — Shell command timeouts with a live countdown, plus reliability fixes.
+CCHarbour v0.8.0 — Linux and macOS support: cc now builds and runs on all three platforms.
 
-## New since v0.6.0
+## New since v0.7.0
+
+- **Linux & macOS builds** — new `cc_linux.hbp` / `cc_mac.hbp` project files,
+  a `build_cc_linux.sh` script, and `build-linux` / `build-mac` CI workflows.
+  Every tagged release now ships a Windows, Linux and macOS binary.
+- **POSIX console backend** — `ccconsole_mac.c` renamed to `ccconsole_posix.c`
+  and shared by the Linux and macOS builds (termios/select, no OS-specific
+  code). Added the `CCCON_Size` and `CCCON_KeyPending` functions it lacked.
+- **Cross-platform shell tool** — the `shell` tool ran commands only through
+  `cmd.exe`; it now uses `/bin/sh` on Linux and macOS. Without this every
+  shell command failed on those platforms.
+- **Auto-created settings** — on first run CCHarbour writes a default
+  `.ccharbour/settings.json` so the configuration is there to discover and
+  edit.
+- **Build-project fix** — `cc_mac.hbp` was missing `ccprompt.prg`, leaving
+  the macOS build broken since the always-visible prompt landed.
+
+## v0.7.0 — Shell command timeouts with a live countdown, plus reliability fixes.
+
+### New since v0.6.0
 
 - **Shell timeout** — the `shell` tool now bounds how long a command may run.
   Set it with the `shell_timeout` setting (default 30s), an optional per-call
@@ -50,8 +69,15 @@ CCHarbour v0.7.0 — Shell command timeouts with a live countdown, plus reliabil
 
 ## Usage
 ```
+REM Windows
 set DEEPSEEK_API_KEY=sk-...
 cc.exe
 ```
+```
+# Linux / macOS
+export DEEPSEEK_API_KEY=sk-...
+chmod +x cc-linux && ./cc-linux
+```
 
-The attached `cc.exe` is a standalone Windows x64 binary (no DLLs required).
+This release ships three standalone x64 binaries: `cc.exe` (Windows, no DLLs
+required), `cc-linux` (Linux) and `cc-macos` (macOS).

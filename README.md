@@ -31,12 +31,21 @@ The default backend is the [DeepSeek](https://api.deepseek.com) chat API
 
 ## Requirements
 
-- **Harbour** 3.2 — installed at `C:\harbour` (adjust `build.bat` otherwise).
-- **Visual Studio** C++ toolchain (2019 Build Tools or 2022) — provides the
-  MSVC linker and CRT the `msvc64` Harbour libraries need.
-- Windows. The console layer uses Win32 APIs directly.
+CCHarbour builds on **Windows, Linux and macOS**. The console layer has a
+native Win32 backend (`ccconsole.c`) and a shared POSIX backend
+(`ccconsole_posix.c`, termios/select); everything else is the same Harbour
+source on every platform.
+
+- **Harbour** 3.2 — `hbmk2` on `PATH`.
+- A C compiler:
+  - Windows — Visual Studio C++ toolchain (2019/2022 Build Tools) for
+    `build.bat`, or mingw-w64 (used by CI).
+  - Linux — gcc.
+  - macOS — clang (Xcode command-line tools).
 
 ## Build
+
+### Windows
 
 ```bat
 build.bat
@@ -49,14 +58,37 @@ static-CRT link leaves CRT import symbols unresolved. It produces `cc.exe`.
 **Hot-swap:** `update_cc.bat` replaces `cc.exe` with a freshly-built copy
 (`cc_new.exe`) without needing to stop a running REPL session.
 
+### Linux
+
+```sh
+./build_cc_linux.sh
+```
+
+Wraps `hbmk2 cc_linux.hbp` and produces `cc`. Needs Harbour and gcc.
+
+### macOS
+
+```sh
+hbmk2 cc_mac.hbp
+```
+
+Produces `cc`. Needs Harbour and clang.
+
 ## Run
 
 ```bat
+REM Windows
 set DEEPSEEK_API_KEY=sk-...
 cc.exe
 ```
 
-Optional: `cc.exe <model>` overrides the model; `DEEPSEEK_MODEL` does the same
+```sh
+# Linux / macOS
+export DEEPSEEK_API_KEY=sk-...
+./cc
+```
+
+Optional: `cc <model>` overrides the model; `DEEPSEEK_MODEL` does the same
 via the environment.
 
 ### Commands
@@ -130,7 +162,7 @@ directory is appended to the system prompt as project instructions.
 | `cctools.prg`         | Registro y despacho de herramientas: crea el registry, genera schemas OpenAI, ejecuta el handler con validación de argumentos y captura de errores |
 | `cctools_file.prg`    | Herramientas `read` (con line-numbered output, offset, max_lines), `write` (crea directorios, muestra diff), `edit` (reemplazo exacto con `replace_all`) |
 | `cctools_search.prg`  | Herramientas `glob` (lista archivos con máscara recursiva) y `grep` (regex sobre contenidos) |
-| `cctools_shell.prg`   | Herramienta `shell`: ejecuta comandos vía `cmd.exe /c`, inyecta automáticamente `Co-authored-by` en `git commit` |
+| `cctools_shell.prg`   | Herramienta `shell`: ejecuta comandos vía `cmd.exe /c` (Windows) o `/bin/sh` (Linux/macOS), inyecta automáticamente `Co-authored-by` en `git commit` |
 | `cctools_web.prg`     | Herramientas `web_fetch` (GET vía HTTP) y `web_search` (DuckDuckGo Instant Answer API sin API key) |
 | `cctools_github.prg`  | Herramientas `github_read` (repo, file, list, issues, issue, prs, pr, search) y `github_write` (create_issue, comment, create_pr) |
 | `cctools_memory.prg`  | Herramienta `memory`: operaciones `append`/`read`/`clear` sobre `memory.md`, persistente entre sesiones |
@@ -140,6 +172,7 @@ directory is appended to the system prompt as project instructions.
 | `ccui.prg`            | UI completa: banner con logo "CC", parseo de comandos `/`, colores ANSI, palette, system prompt con CC.md + memory.md, resumen de tool calls, diff coloreado, caja de input con marco |
 | `ccinput.prg`         | Editor multilínea en raw-mode: cursor keys, Home/End, Delete, historial (↑/↓), paste detection (<50ms), sugerencias vía Tab, Shift+Enter para nueva línea |
 | `ccconsole.c`         | Soporte nativo Windows (Win32 API): detección de consola, raw mode, lectura de teclas, detección no-bloqueante de Ctrl+C y Escape |
+| `ccconsole_posix.c`   | Equivalente POSIX (termios/select) compartido por las compilaciones de Linux y macOS |
 | `tests/`               | Suite de tests (340+ tests, 0 fallos) |
 | `docs/superpowers/`    | Especificaciones de diseño y planes de implementación |
 
@@ -181,7 +214,15 @@ directory is appended to the system prompt as project instructions.
 
 ## Releases
 
-**v0.7.0 — current.** Shell command timeouts (`shell_timeout` setting, per-call `timeout`, auto-estimate) with a live countdown, timed-shell reliability fixes, UTF-8 tool-result sanitising, and richer API error messages, plus all features from v0.6.0.
+**v0.8.0 — current.** Linux and macOS support — `cc` builds and runs on all
+three platforms. New `cc_linux.hbp` / `cc_mac.hbp` projects, a
+`build_cc_linux.sh` script, and `build-linux` / `build-mac` CI workflows;
+every tagged release ships a Windows, Linux and macOS binary. The console
+backend `ccconsole_mac.c` is renamed `ccconsole_posix.c` and shared by both
+POSIX builds; the `shell` tool now runs via `/bin/sh` off Windows; and a
+default `.ccharbour/settings.json` is auto-created on first run.
+
+**v0.7.0 — previous.** Shell command timeouts (`shell_timeout` setting, per-call `timeout`, auto-estimate) with a live countdown, timed-shell reliability fixes, UTF-8 tool-result sanitising, and richer API error messages, plus all features from v0.6.0.
 
 **v0.6.0 — previous.** Massive refactor: all files and functions renamed from ds* to cc* prefix (e.g. `dsui.prg` → `ccui.prg`, `DSUI_Version()` → `CCUI_Version()`), plus all features from v0.5.1.
 
