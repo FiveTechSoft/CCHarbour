@@ -21,5 +21,6 @@ src/ccperm.prg
 src/ccui.prg
 src/ccmarkdown.prg
 src/ccinput.prg
+src/ccprompt.prg
 src/ccconsole_posix.c
 src/ccrepl.prg
