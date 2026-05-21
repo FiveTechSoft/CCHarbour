@@ -220,6 +220,7 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
 - Agent loop with tool calls, iteration cap with extend prompt; **Esc interrupts the turn**, `/btw` interrupts and queues a reply, plain mid-turn input queues for after the turn
+- **Action narration** — the agent describes what it is about to do, in one or two lines, just before a non-obvious tool call such as a shell command
 - Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory
 - **DuckDuckGo web search** — no API key required (replaced Tavily)
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
