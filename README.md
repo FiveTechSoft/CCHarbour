@@ -148,6 +148,26 @@ Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
 `web_fetch` and `github_write` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
 
+## Tools
+
+The agent works through these eleven tools. Each is gated by the permission
+shown (`allow` runs without asking, `ask` prompts, `deny` blocks). Parameters
+marked ★ are required; the rest are optional.
+
+| Tool | Gate | Purpose and parameters |
+|------|------|------------------------|
+| `read` | allow | Read a text file; returns line-numbered content. `path`★, `offset` (leading lines to skip), `max_lines` (default 2000). |
+| `write` | ask | Write content to a file, overwriting it. `path`★, `content`★. |
+| `edit` | ask | Replace an exact string in a file. `path`★, `old_string`★, `new_string`★, `replace_all` (replace every occurrence). |
+| `glob` | allow | List files matching a filename pattern, recursively. `pattern`★ (e.g. `*.prg`, `**/*.txt`), `path` (root directory, default cwd). |
+| `grep` | allow | Search file contents with a regular expression; returns `file:line:text` matches. `pattern`★, `path` (root directory), `glob` (filename mask filter). |
+| `shell` | ask | Run a shell command; returns its combined output and exit code. `command`★, `timeout` (max seconds, 0 = no limit). |
+| `web_fetch` | ask | Fetch the raw content of a URL. `url`★. |
+| `web_search` | ask | Search the web via the DuckDuckGo API (no API key). `query`★, `max_results` (default 8). |
+| `github_read` | allow | Read from GitHub. `operation`★ (`repo`/`file`/`list`/`issues`/`issue`/`prs`/`pr`/`search`), `repo` (`owner/name`), `path`, `number`, `query`. |
+| `github_write` | ask | Write to GitHub; needs `GITHUB_TOKEN`. `operation`★ (`create_issue`/`comment`/`create_pr`), `repo`★, `number`, `title`, `body`, `head`, `base`. |
+| `memory` | allow | The agent's persistent memory across sessions, stored in `memory.md`. `operation`★ (`append`/`read`/`clear`), `text` (entry to add, for `append`). |
+
 ## Disclaimer
 
 Read this before using CCHarbour.
