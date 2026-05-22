@@ -228,4 +228,10 @@ FUNCTION Test_UI()
    cTipLn := CCUI_TipLine( "hello world" )
    T_Assert( "Tip: hello world" $ cTipLn, "ui: tip line shows Tip: prefix and text" )
    T_Assert( Right( cTipLn, 1 ) == Chr(10), "ui: tip line ends in LF" )
+
+   // --- banner shows a rotating tip, not the old static /init line ---
+   cBanTip := CCUI_Banner( "m", "c", "u" )
+   T_Assert( "Tip: " $ cBanTip, "ui: banner shows a Tip line" )
+   T_Assert( !( "Run /init to create a CC.md file" $ cBanTip ), ;
+             "ui: banner no longer shows the static /init line" )
    RETURN NIL
