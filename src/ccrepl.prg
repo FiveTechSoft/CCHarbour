@@ -15,6 +15,10 @@ STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "�
 // to the input box, so the visible cursor stays inside the box.
 STATIC s_oBoxPrompt := NIL
 
+// Index into the CCUI tip pool, advanced once per idle prompt so the idle
+// line cycles through the tips rather than always showing the same one.
+STATIC s_nTipIdx := 0
+
 // Program entry point. Optional cModel CLI argument overrides the settings model.
 FUNCTION Main( cModel )
    LOCAL hSet, hCfg, oClient, oReg, bGate, oErr, lVT
@@ -74,6 +78,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    DO WHILE .T.
       lCooked := .F.
       IF oPrompt != NIL
+         CCREPL_Out( CCUI_TipLine( CCUI_TipAt( ++s_nTipIdx ) ) )
          cLine := CCREPL_PromptIdle( oPrompt )
       ELSEIF CCCON_HasConsole()
          cLine := CCIN_ReadLine( cSuggest )
