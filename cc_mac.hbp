@@ -20,5 +20,6 @@ src/ccui.prg
 src/ccmarkdown.prg
 src/ccinput.prg
 src/ccprompt.prg
+src/ccselect.prg
 src/ccconsole_posix.c
 src/ccrepl.prg
