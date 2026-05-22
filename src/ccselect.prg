@@ -52,7 +52,8 @@ STATIC FUNCTION CCSEL_Paint( oSel, lRepaint )
    RETURN NIL
 
 // Reads a free-text answer for the "Other" option: prints a prompt, then
-// collects printable characters until Enter. Backspace deletes the last char.
+// collects printable characters until Enter or Esc. Backspace deletes the
+// last char.
 STATIC FUNCTION CCSEL_ReadOther()
    LOCAL cBuf := "", nKey
    CCSEL_Raw( Chr(10) + "Other (type your answer, Enter to confirm): " )
@@ -62,7 +63,7 @@ STATIC FUNCTION CCSEL_ReadOther()
       ENDDO
       nKey := CCCON_ReadKey()
       DO CASE
-      CASE nKey == -1                       // Enter -> done
+      CASE nKey == -1 .OR. nKey == -13      // Enter or Esc -> confirm
          EXIT
       CASE nKey == -2                       // Backspace
          IF !Empty( cBuf )
@@ -98,7 +99,8 @@ FUNCTION CCSEL_Run( oSel )
          CCSEL_Move( oSel, -1 )
       CASE nKey == -10                      // Down
          CCSEL_Move( oSel, 1 )
-      CASE nKey >= 49 .AND. nKey <= 57      // digit 1-9 -> jump and select
+      CASE nKey >= 49 .AND. nKey <= 57      // digit 1-9 -> jump and select;
+         // CCSEL_SetCursor clamps a digit past the last option to the last
          CCSEL_SetCursor( oSel, nKey - 48 )
          lDone := .T.
       CASE nKey == -1                       // Enter -> confirm

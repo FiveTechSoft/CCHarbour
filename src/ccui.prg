@@ -344,6 +344,7 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "diff_add"   ; RETURN "42"
    CASE cName == "diff_del"   ; RETURN "48;5;52"
    CASE cName == "suggestion" ; RETURN "2;38;2;180;255;180"
+   CASE cName == "invert"     ; RETURN "7"          // inverse video
    ENDCASE
    RETURN "0"
 
@@ -539,7 +540,7 @@ FUNCTION CCUI_QuestionBlock( oSel )
       cRow := iif( i == oSel[ "cursor" ], cArrow + " ", "  " ) + ;
               LTrim( Str( i ) ) + ". " + aOpts[ i ]
       IF i == oSel[ "cursor" ]
-         cRow := CCUI_Color( cRow, "7" )   // inverse video
+         cRow := CCUI_Color( cRow, CCUI_Pal( "invert" ) )
       ENDIF
       cOut += cRow + Chr(10)
    NEXT
