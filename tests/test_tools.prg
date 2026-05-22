@@ -22,6 +22,8 @@ FUNCTION Test_Tools()
    oReg := CCTOOLS_Registry()
    T_Equal( ValType( oReg ), "H", "tools: registry is a hash" )
    T_Assert( hb_HHasKey( oReg, "ask_user" ), "tools: ask_user is registered" )
+   T_Assert( hb_HHasKey( CCTOOLS_Registry(), "todo_write" ), ;
+             "tools: todo_write is registered" )
    CCTOOLS_Register( oReg, hCustom )
    T_Equal( hb_HHasKey( oReg, "echo" ), .T., "tools: register adds tool" )
 
@@ -176,9 +178,9 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 2 127.0.0.1" } ) )
    T_Assert( "[exit code:" $ cRes, "tools: shell auto-estimate (B) finishes ping -n 2" )
 
-   // end-to-end: the default registry exposes all twelve builtin tools
+   // end-to-end: the default registry exposes all thirteen builtin tools
    aSchemas := CCTOOLS_Schemas( CCTOOLS_Registry() )
-   T_Equal( Len( aSchemas ), 12, "tools: registry has twelve builtins" )
+   T_Equal( Len( aSchemas ), 13, "tools: registry has thirteen builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
    T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
    T_Assert( FindSchema( aSchemas, "edit" )  != NIL, "tools: builtin edit" )

@@ -9,6 +9,7 @@ FUNCTION Test_UI()
    LOCAL hA
    LOCAL aJL, aJR, aJoined, cBan, oQ, cQB
    LOCAL aTips, cTipLn, cBanTip
+   LOCAL cTodoBlk
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -234,4 +235,20 @@ FUNCTION Test_UI()
    T_Assert( "Tip: " $ cBanTip, "ui: banner shows a Tip line" )
    T_Assert( !( "Run /init to create a CC.md file" $ cBanTip ), ;
              "ui: banner no longer shows the static /init line" )
+
+   // --- CCUI_TodoBlock ---
+   cTodoBlk := CCUI_TodoBlock( { { "text" => "wash up", "status" => "completed" }, ;
+                                 { "text" => "cook", "status" => "in_progress" }, ;
+                                 { "text" => "sleep", "status" => "pending" } } )
+   T_Assert( "Todos:" $ cTodoBlk, "ui: todo block has a header" )
+   T_Assert( "wash up" $ cTodoBlk, "ui: todo block shows completed item text" )
+   T_Assert( "cook" $ cTodoBlk, "ui: todo block shows in_progress item text" )
+   T_Assert( "sleep" $ cTodoBlk, "ui: todo block shows pending item text" )
+   T_Assert( Chr(226) + Chr(136) + Chr(154) $ cTodoBlk, ;
+             "ui: todo block has the completed glyph" )
+   T_Assert( Chr(226) + Chr(150) + Chr(160) $ cTodoBlk, ;
+             "ui: todo block has the in_progress glyph" )
+   T_Assert( Chr(226) + Chr(150) + Chr(161) $ cTodoBlk, ;
+             "ui: todo block has the pending glyph" )
+   T_Assert( Right( cTodoBlk, 1 ) == Chr(10), "ui: todo block ends in LF" )
    RETURN NIL

@@ -78,6 +78,9 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    DO WHILE .T.
       lCooked := .F.
       IF oPrompt != NIL
+         IF CCTODO_HasOpen()
+            CCREPL_Out( CCUI_TodoBlock( CCTODO_Get() ) )
+         ENDIF
          CCREPL_Out( CCUI_TipLine( CCUI_TipAt( ++s_nTipIdx ) ) )
          cLine := CCREPL_PromptIdle( oPrompt )
       ELSEIF CCCON_HasConsole()
