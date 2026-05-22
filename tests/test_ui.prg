@@ -1,5 +1,6 @@
 FUNCTION Test_UI()
    LOCAL hA
+   LOCAL aJL, aJR, aJoined, cBan, oQ, cQB
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -70,7 +71,7 @@ FUNCTION Test_UI()
              "ui: banner has model line" )
    T_Assert( "cwd: C:\proj" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has cwd line" )
-   T_Assert( "/help for help" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+   T_Assert( "Run /help to list commands" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has help hint" )
    T_Assert( CCUI_Glyph( "tl" ) $ CCUI_Banner( "m", "c", "u" ), ;
              "ui: banner has a rounded top-left corner" )
@@ -155,4 +156,51 @@ FUNCTION Test_UI()
    T_Assert( "memory" $ Lower( CCUI_SystemPrompt() ) .OR. ;
              ValType( CCUI_MemoryContext() ) == "C", "ui: memory context available" )
    T_Equal( ValType( CCUI_MemoryContext() ), "C", "ui: memory context returns a string" )
+
+   // --- CCUI_ReleaseTagline ---
+   T_Equal( CCUI_ReleaseTagline( "first line" + Chr(10) + "second", "FB" ), ;
+            "first line", "ui: tagline takes the first line" )
+   T_Equal( CCUI_ReleaseTagline( Chr(10) + Chr(10) + "  real  " + Chr(10), "FB" ), ;
+            "real", "ui: tagline skips blank lines and trims" )
+   T_Equal( CCUI_ReleaseTagline( "", "FB" ), ;
+            "FB", "ui: empty text falls back" )
+   T_Equal( CCUI_ReleaseTagline( "  " + Chr(13) + Chr(10), "FB" ), ;
+            "FB", "ui: whitespace-only text falls back" )
+
+   // --- CCUI_BannerJoin ---
+   aJL := { CCUI_Cell( "A", "L", "" ) }
+   aJR := { CCUI_Cell( "B", "L", "" ), CCUI_Cell( "C", "L", "" ) }
+   aJoined := CCUI_BannerJoin( aJL, aJR, 5, 5 )
+   T_Equal( Len( aJoined ), 2, "ui: bannerjoin pads to the taller column" )
+   T_Equal( hb_UTF8Len( aJoined[ 1 ] ), 13, ;
+            "ui: bannerjoin row width is left + 3 divider + right" )
+   T_Equal( hb_UTF8Len( aJoined[ 2 ] ), 13, ;
+            "ui: bannerjoin pads the short column with blanks" )
+   T_Assert( "A" $ aJoined[ 1 ] .AND. "B" $ aJoined[ 1 ], ;
+             "ui: bannerjoin row 1 holds both cells" )
+
+   // --- CCUI_Banner two-panel layout ---
+   cBan := CCUI_Banner( "test-model", "c:\proj", "Tester" )
+   T_Assert( "Welcome back, Tester!" $ cBan, ;
+             "ui: banner greets the user by name" )
+   T_Assert( "Tips for getting started" $ cBan, ;
+             "ui: banner shows the tips panel header" )
+   T_Assert( "What's new" $ cBan, ;
+             "ui: banner shows the what's-new header" )
+   T_Assert( "model: test-model" $ cBan, ;
+             "ui: banner shows the model" )
+
+   // --- CCUI_ClearScreenSeq ---
+   T_Equal( CCUI_ClearScreenSeq(), ;
+            Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H", ;
+            "ui: clear-screen sequence is 3J + 2J + H" )
+
+   // --- CCUI_QuestionBlock ---
+   oQ := CCSEL_New( "Choose a colour", { "Red", "Green" } )
+   cQB := CCUI_QuestionBlock( oQ )
+   T_Assert( "Choose a colour" $ cQB, "ui: question block shows the question" )
+   T_Assert( "1. Red" $ cQB, "ui: question block numbers options" )
+   T_Assert( "3. Other" $ cQB, "ui: question block lists Other" )
+   T_Equal( Len( hb_ATokens( cQB, Chr(10) ) ), 5, ;
+            "ui: question block is question + 3 options + trailing line" )
    RETURN NIL

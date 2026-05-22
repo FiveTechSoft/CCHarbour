@@ -104,6 +104,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CASE hAction[ "type" ] == "help"
          CCREPL_Out( CCUI_Help() + Chr(10) )
       CASE hAction[ "type" ] == "clear"
+         CCREPL_ClearScreen( oPrompt )
          aMsgs := { { "role" => "system", "content" => CCUI_SystemPrompt() } }
          s_hSessionUsage := {=>}
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
@@ -239,6 +240,20 @@ STATIC FUNCTION CCREPL_PromptIdle( oPrompt )
       ENDIF
       hb_IdleSleep( 0.02 )
    ENDDO
+   RETURN NIL
+
+// Wipes the terminal screen for /clear. Skipped when there is no console or
+// colour/VT output is off (piped input) -- the escape bytes would be garbage.
+// When the persistent box is mounted, ESC[2J also clears it, so the box and
+// its scroll region are rebuilt with CCPROMPT_Activate.
+STATIC FUNCTION CCREPL_ClearScreen( oPrompt )
+   IF !CCCON_HasConsole() .OR. !CCUI_ColorOn()
+      RETURN NIL
+   ENDIF
+   FWrite( hb_GetStdOut(), CCUI_ClearScreenSeq() )
+   IF oPrompt != NIL
+      CCPROMPT_Activate( oPrompt )
+   ENDIF
    RETURN NIL
 
 // Merges a usage hash (from one agent turn) into the session total.

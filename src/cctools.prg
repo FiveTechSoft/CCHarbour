@@ -19,6 +19,7 @@ FUNCTION CCTOOLS_Registry( hKeys )
    CCTOOLS_Register( oReg, CCTool_GithubRead( hb_HGetDef( hKeys, "github", "" ) ) )
    CCTOOLS_Register( oReg, CCTool_GithubWrite( hb_HGetDef( hKeys, "github", "" ) ) )
    CCTOOLS_Register( oReg, CCTool_Memory( "memory.md" ) )
+   CCTOOLS_Register( oReg, CCTool_AskUser() )
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

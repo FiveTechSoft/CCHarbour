@@ -344,6 +344,7 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "diff_add"   ; RETURN "42"
    CASE cName == "diff_del"   ; RETURN "48;5;52"
    CASE cName == "suggestion" ; RETURN "2;38;2;180;255;180"
+   CASE cName == "invert"     ; RETURN "7"          // inverse video
    ENDCASE
    RETURN "0"
 
@@ -354,6 +355,12 @@ FUNCTION CCUI_VT( cSeq )
       RETURN ""
    ENDIF
    RETURN Chr(27) + "[" + cSeq
+
+// The VT sequence that wipes the terminal: ESC[3J clears scrollback,
+// ESC[2J clears the visible screen, ESC[H homes the cursor. Returned
+// unconditionally; callers decide whether the terminal can accept it.
+FUNCTION CCUI_ClearScreenSeq()
+   RETURN Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H"
 
 // The system message seeded into every conversation. When a CC.md file is
 // present in the working directory its contents are appended as project
@@ -464,19 +471,97 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 FUNCTION CCUI_Version()
    RETURN "0.8.0"
 
-// Builds the Claude Code-style startup banner: a single-panel rounded box with
-// a block-letter "CC" logo on the left (default foreground) and the
-// name+version (accent colour), a tagline, the /help hint, the model and the
-// working directory on the right. Returns the whole banner as one string ending in LF.
-FUNCTION CCUI_Banner( cModel, cCwd, cUser )
-   LOCAL nInner := 95, cH := CCUI_Glyph( "h" ), cV
-   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B
-   LOCAL aLogo, aInfo, aRows, cOut, i, cText, cSGR, cCell
+// Returns the first non-empty, trimmed line of cText (CR stripped). When no
+// such line exists, returns cFallback. Used for the banner's "What's new".
+FUNCTION CCUI_ReleaseTagline( cText, cFallback )
+   LOCAL cLine
+   FOR EACH cLine IN hb_ATokens( hb_CStr( cText ), Chr(10) )
+      cLine := AllTrim( StrTran( cLine, Chr(13), "" ) )
+      IF !Empty( cLine )
+         RETURN cLine
+      ENDIF
+   NEXT
+   RETURN hb_CStr( cFallback )
 
-   HB_SYMBOL_UNUSED( cUser )
+// The "What's new" line for the banner: the first line of releasenotes.md,
+// looked up beside the executable first, then in the working directory. When
+// the file is absent or empty, falls back to "CCHarbour v<version>".
+FUNCTION CCUI_WhatsNew()
+   LOCAL cFallback := "CCHarbour v" + CCUI_Version()
+   LOCAL cPath := hb_DirBase() + "releasenotes.md"
+   IF !hb_FileExists( cPath )
+      cPath := "releasenotes.md"
+   ENDIF
+   IF hb_FileExists( cPath )
+      RETURN CCUI_ReleaseTagline( hb_MemoRead( cPath ), cFallback )
+   ENDIF
+   RETURN cFallback
+
+// Builds a banner cell: text, alignment ("L"/"C"/"R"), and an SGR code ("" = none).
+FUNCTION CCUI_Cell( cText, cAlign, cSGR )
+   RETURN { "text" => hb_CStr( cText ), ;
+            "align" => iif( Empty( cAlign ), "L", cAlign ), ;
+            "sgr" => hb_CStr( cSGR ) }
+
+// Renders one cell to nWidth display columns, padded then colour-wrapped.
+STATIC FUNCTION CCUI_PanelRow( hCell, nWidth )
+   LOCAL cCell := CCUI_PadCell( hCell[ "text" ], nWidth, hCell[ "align" ] )
+   IF !Empty( hCell[ "sgr" ] )
+      cCell := CCUI_Color( cCell, hCell[ "sgr" ] )
+   ENDIF
+   RETURN cCell
+
+// Joins a left and a right column of cells row-for-row into finished banner
+// lines: left cell, a dim vertical divider with a space each side, right cell.
+// The shorter column is padded with blank cells so both reach equal height.
+FUNCTION CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
+   LOCAL aOut := {}, nRows, i, hL, hR
+   LOCAL hBlank := CCUI_Cell( "", "L", "" )
+   LOCAL cDiv := " " + CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + " "
+   nRows := Max( Len( aLeft ), Len( aRight ) )
+   FOR i := 1 TO nRows
+      hL := iif( i <= Len( aLeft ),  aLeft[ i ],  hBlank )
+      hR := iif( i <= Len( aRight ), aRight[ i ], hBlank )
+      AAdd( aOut, CCUI_PanelRow( hL, nLeftW ) + cDiv + CCUI_PanelRow( hR, nRightW ) )
+   NEXT
+   RETURN aOut
+
+// Renders a CCSEL selector state to a printable block: a "●" bullet and the
+// question, then one numbered row per option. The row at the cursor is marked
+// with a "❯" arrow and inverse video; other rows get two leading spaces.
+// Each line ends in LF. Pure -- no console I/O.
+FUNCTION CCUI_QuestionBlock( oSel )
+   LOCAL cOut, i, aOpts := oSel[ "options" ], cRow
+   LOCAL cBullet := Chr(226) + Chr(151) + Chr(143)   // U+25CF ●
+   LOCAL cArrow  := Chr(226) + Chr(157) + Chr(175)   // U+276F ❯
+   cOut := CCUI_Color( cBullet, CCUI_Pal( "accent" ) ) + " " + ;
+           CCUI_Color( oSel[ "question" ], CCUI_Pal( "bold" ) ) + Chr(10)
+   FOR i := 1 TO Len( aOpts )
+      cRow := iif( i == oSel[ "cursor" ], cArrow + " ", "  " ) + ;
+              LTrim( Str( i ) ) + ". " + aOpts[ i ]
+      IF i == oSel[ "cursor" ]
+         cRow := CCUI_Color( cRow, CCUI_Pal( "invert" ) )
+      ENDIF
+      cOut += cRow + Chr(10)
+   NEXT
+   RETURN cOut
+
+// Builds the two-panel startup banner inside one rounded box, 99 columns wide
+// (matching the input frame). Left panel: a "Welcome back" line, the six-row
+// block "CC" logo, the name+version and the model. Right panel: a "Tips for
+// getting started" list and a "What's new" line from releasenotes.md. The
+// shorter panel is blank-padded to equal height. Returns the banner ending in LF.
+FUNCTION CCUI_Banner( cModel, cCwd, cUser )
+   LOCAL nInner := 95, nLeftW := 44, nRightW := 48
+   LOCAL cH := CCUI_Glyph( "h" ), cV, cName, aLogo, aLeft, aRight, aRows, cOut, i
+
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
-   cV     := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
+   cName  := AllTrim( hb_CStr( cUser ) )
+   IF Empty( cName )
+      cName := AllTrim( hb_CStr( hb_GetEnv( "USER" ) ) )
+   ENDIF
+   cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
 
    // the "CC" logo, six rows of block-drawing glyphs
    aLogo := { ;
@@ -487,35 +572,34 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
       " ╚██████╗╚██████╗ ", ;
       "  ╚═════╝ ╚═════╝ " }
 
-   // the info column, paired row-for-row with the logo
-   aInfo := { ;
-      cAccent + " CCHarbour  v" + CCUI_Version(), ;
-      "terminal coding assistant " + Chr(226)+Chr(128)+Chr(183) + ;
-         " Claude Code-style", ;
-      "", ;
-      "/help for help", ;
-      "model: " + cModel, ;
-      "cwd: " + cCwd }
-
-   // each row: { plain text, SGR code or "" }. The first info row (name +
-   // version) is accent; the rest plain.
-   aRows := {}
+   // left panel: welcome, logo (6), name+version, model
+   aLeft := {}
+   AAdd( aLeft, CCUI_Cell( iif( Empty( cName ), "Welcome back!", ;
+                                "Welcome back, " + cName + "!" ), "C", "" ) )
    FOR i := 1 TO 6
-      cText := CCUI_PadCell( aLogo[ i ], 18, "L" ) + " " + aInfo[ i ]
-      cSGR  := iif( i == 1, CCUI_Pal( "accent" ), "" )
-      AAdd( aRows, { cText, cSGR } )
+      AAdd( aLeft, CCUI_Cell( aLogo[ i ], "C", "" ) )
    NEXT
+   AAdd( aLeft, CCUI_Cell( "CCHarbour  v" + CCUI_Version(), "C", CCUI_Pal( "accent" ) ) )
+   AAdd( aLeft, CCUI_Cell( "model: " + cModel, "C", "" ) )
+
+   // right panel: tips list, divider, what's new (9 rows, matching the left)
+   aRight := {}
+   AAdd( aRight, CCUI_Cell( "Tips for getting started", "L", CCUI_Pal( "bold" ) ) )
+   AAdd( aRight, CCUI_Cell( "", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Type a request to begin", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Run /help to list commands", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Run /init to create a CC.md file", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( Replicate( cH, nRightW ), "L", CCUI_Pal( "dim" ) ) )
+   AAdd( aRight, CCUI_Cell( "What's new", "L", CCUI_Pal( "bold" ) ) )
+   AAdd( aRight, CCUI_Cell( CCUI_WhatsNew(), "L", CCUI_Pal( "dim" ) ) )
+   AAdd( aRight, CCUI_Cell( "cwd: " + cCwd, "L", CCUI_Pal( "dim" ) ) )
+
+   aRows := CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
 
    cOut := CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
            CCUI_Glyph( "tr" ), CCUI_Pal( "dim" ) ) + Chr(10)
    FOR i := 1 TO Len( aRows )
-      cText := aRows[ i ][ 1 ]
-      cSGR  := aRows[ i ][ 2 ]
-      cCell := CCUI_PadCell( cText, nInner, "L" )
-      IF !Empty( cSGR )
-         cCell := CCUI_Color( cCell, cSGR )
-      ENDIF
-      cOut += cV + " " + cCell + " " + cV + Chr(10)
+      cOut += cV + " " + aRows[ i ] + " " + cV + Chr(10)
    NEXT
    cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
            CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)

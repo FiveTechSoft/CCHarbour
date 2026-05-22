@@ -15,6 +15,7 @@ test_ui.prg
 test_markdown.prg
 test_input.prg
 test_prompt.prg
+test_select.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
@@ -30,11 +31,13 @@ test_diff.prg
 ../src/cctools_web.prg
 ../src/cctools_github.prg
 ../src/cctools_memory.prg
+../src/cctools_ask.prg
 ../src/ccdiff.prg
 ../src/ccui.prg
 ../src/ccmarkdown.prg
 ../src/ccinput.prg
 ../src/ccprompt.prg
+../src/ccselect.prg
 ../src/ccconsole.c
 ../src/ccsettings.prg
 ../src/ccperm.prg

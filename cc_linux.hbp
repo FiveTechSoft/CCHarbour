@@ -15,6 +15,7 @@ src/cctools_shell.prg
 src/cctools_web.prg
 src/cctools_github.prg
 src/cctools_memory.prg
+src/cctools_ask.prg
 src/ccdiff.prg
 src/ccsettings.prg
 src/ccperm.prg
@@ -22,5 +23,6 @@ src/ccui.prg
 src/ccmarkdown.prg
 src/ccinput.prg
 src/ccprompt.prg
+src/ccselect.prg
 src/ccconsole_posix.c
 src/ccrepl.prg
