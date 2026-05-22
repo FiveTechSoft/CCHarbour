@@ -1,6 +1,14 @@
+STATIC FUNCTION ArrayToStr( aArr )
+   LOCAL cOut := "", x
+   FOR EACH x IN aArr
+      cOut += hb_CStr( x ) + Chr(10)
+   NEXT
+   RETURN cOut
+
 FUNCTION Test_UI()
    LOCAL hA
    LOCAL aJL, aJR, aJoined, cBan, oQ, cQB
+   LOCAL aTips, cTipLn, cBanTip
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -203,4 +211,21 @@ FUNCTION Test_UI()
    T_Assert( "3. Other" $ cQB, "ui: question block lists Other" )
    T_Equal( Len( hb_ATokens( cQB, Chr(10) ) ), 5, ;
             "ui: question block is question + 3 options + trailing line" )
+
+   // --- CCUI_Tips / CCUI_TipAt ---
+   aTips := CCUI_Tips()
+   T_Equal( ValType( aTips ), "A", "ui: tips pool is an array" )
+   T_Assert( Len( aTips ) > 0, "ui: tips pool is non-empty" )
+   T_Equal( ValType( CCUI_TipAt( 1 ) ), "C", "ui: tip at index is a string" )
+   T_Equal( CCUI_TipAt( 1 ), CCUI_TipAt( Len( aTips ) + 1 ), ;
+            "ui: tip index wraps past the end" )
+   T_Equal( CCUI_TipAt( 0 ), CCUI_TipAt( Len( aTips ) ), ;
+            "ui: tip index 0 wraps to the last" )
+   T_Assert( CCUI_TipAt( 999 ) $ ArrayToStr( aTips ), ;
+             "ui: a large tip index still maps into the pool" )
+
+   // --- CCUI_TipLine ---
+   cTipLn := CCUI_TipLine( "hello world" )
+   T_Assert( "Tip: hello world" $ cTipLn, "ui: tip line shows Tip: prefix and text" )
+   T_Assert( Right( cTipLn, 1 ) == Chr(10), "ui: tip line ends in LF" )
    RETURN NIL

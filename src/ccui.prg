@@ -471,6 +471,31 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 FUNCTION CCUI_Version()
    RETURN "0.8.0"
 
+// The pool of short usage tips shown on the banner and at the idle prompt.
+FUNCTION CCUI_Tips()
+   RETURN { ;
+      "Use /clear to start fresh when switching topics", ;
+      "Press Esc to interrupt the agent mid-turn", ;
+      "Type /btw <note> to add context without interrupting", ;
+      "/init writes a CC.md so the agent learns project conventions", ;
+      "/cost shows token usage and estimated spend", ;
+      "/save and /load keep conversations across sessions", ;
+      "Edit per-tool permissions in .ccharbour/settings.json" }
+
+// Returns the tip at a 1-based index, wrapping modulo the pool length so any
+// integer -- including 0 and values past the end -- maps to a valid tip.
+FUNCTION CCUI_TipAt( nIndex )
+   LOCAL aTips := CCUI_Tips()
+   LOCAL nMod  := ( nIndex - 1 ) % Len( aTips )
+   IF nMod < 0
+      nMod += Len( aTips )
+   ENDIF
+   RETURN aTips[ nMod + 1 ]
+
+// Formats one tip as a dim-coloured "Tip: <text>" line ending in LF.
+FUNCTION CCUI_TipLine( cTip )
+   RETURN CCUI_Color( "Tip: " + hb_CStr( cTip ), CCUI_Pal( "dim" ) ) + Chr(10)
+
 // Returns the first non-empty, trimmed line of cText (CR stripped). When no
 // such line exists, returns cFallback. Used for the banner's "What's new".
 FUNCTION CCUI_ReleaseTagline( cText, cFallback )
