@@ -571,6 +571,28 @@ FUNCTION CCUI_QuestionBlock( oSel )
    NEXT
    RETURN cOut
 
+// Renders a todo list to a printable block: a "Todos:" header, then one line
+// per item -- a status glyph and the item text. completed = "√" (dim),
+// in_progress = "■" (accent), pending = "□". Each line ends in LF. Pure.
+FUNCTION CCUI_TodoBlock( aTodos )
+   LOCAL cOut := CCUI_Color( "Todos:", CCUI_Pal( "bold" ) ) + Chr(10)
+   LOCAL hItem, cGlyph
+   LOCAL cDone := Chr(226) + Chr(136) + Chr(154)   // U+221A √
+   LOCAL cProg := Chr(226) + Chr(150) + Chr(160)   // U+25A0 ■
+   LOCAL cPend := Chr(226) + Chr(150) + Chr(161)   // U+25A1 □
+   FOR EACH hItem IN aTodos
+      DO CASE
+      CASE hItem[ "status" ] == "completed"
+         cGlyph := CCUI_Color( cDone, CCUI_Pal( "dim" ) )
+      CASE hItem[ "status" ] == "in_progress"
+         cGlyph := CCUI_Color( cProg, CCUI_Pal( "accent" ) )
+      OTHERWISE
+         cGlyph := cPend
+      ENDCASE
+      cOut += "  " + cGlyph + " " + hItem[ "text" ] + Chr(10)
+   NEXT
+   RETURN cOut
+
 // Builds the two-panel startup banner inside one rounded box, 99 columns wide
 // (matching the input frame). Left panel: a "Welcome back" line, the six-row
 // block "CC" logo, the name+version and the model. Right panel: a "Tips for
