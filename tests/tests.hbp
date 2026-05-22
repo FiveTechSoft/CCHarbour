@@ -16,6 +16,7 @@ test_markdown.prg
 test_input.prg
 test_prompt.prg
 test_select.prg
+test_todo.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
@@ -38,6 +39,7 @@ test_diff.prg
 ../src/ccinput.prg
 ../src/ccprompt.prg
 ../src/ccselect.prg
+../src/cctodo.prg
 ../src/ccconsole.c
 ../src/ccsettings.prg
 ../src/ccperm.prg

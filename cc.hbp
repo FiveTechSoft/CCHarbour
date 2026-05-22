@@ -22,5 +22,6 @@ src/ccmarkdown.prg
 src/ccinput.prg
 src/ccprompt.prg
 src/ccselect.prg
+src/cctodo.prg
 src/ccconsole.c
 src/ccrepl.prg
