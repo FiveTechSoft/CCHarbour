@@ -156,6 +156,16 @@ FUNCTION Test_UI()
              ValType( CCUI_MemoryContext() ) == "C", "ui: memory context available" )
    T_Equal( ValType( CCUI_MemoryContext() ), "C", "ui: memory context returns a string" )
 
+   // --- CCUI_ReleaseTagline ---
+   T_Equal( CCUI_ReleaseTagline( "first line" + Chr(10) + "second", "FB" ), ;
+            "first line", "ui: tagline takes the first line" )
+   T_Equal( CCUI_ReleaseTagline( Chr(10) + Chr(10) + "  real  " + Chr(10), "FB" ), ;
+            "real", "ui: tagline skips blank lines and trims" )
+   T_Equal( CCUI_ReleaseTagline( "", "FB" ), ;
+            "FB", "ui: empty text falls back" )
+   T_Equal( CCUI_ReleaseTagline( "  " + Chr(13) + Chr(10), "FB" ), ;
+            "FB", "ui: whitespace-only text falls back" )
+
    // --- CCUI_ClearScreenSeq ---
    T_Equal( CCUI_ClearScreenSeq(), ;
             Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H", ;

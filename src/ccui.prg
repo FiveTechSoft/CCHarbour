@@ -470,6 +470,18 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 FUNCTION CCUI_Version()
    RETURN "0.8.0"
 
+// Returns the first non-empty, trimmed line of cText (CR stripped). When no
+// such line exists, returns cFallback. Used for the banner's "What's new".
+FUNCTION CCUI_ReleaseTagline( cText, cFallback )
+   LOCAL cLine
+   FOR EACH cLine IN hb_ATokens( hb_CStr( cText ), Chr(10) )
+      cLine := AllTrim( StrTran( cLine, Chr(13), "" ) )
+      IF !Empty( cLine )
+         RETURN cLine
+      ENDIF
+   NEXT
+   RETURN hb_CStr( cFallback )
+
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
 // name+version (accent colour), a tagline, the /help hint, the model and the
