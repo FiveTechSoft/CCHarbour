@@ -23,4 +23,10 @@ STATIC FUNCTION CCTool_AskUserRun( hArgs )
    ENDIF
    oSel := CCSEL_New( hb_CStr( hArgs[ "question" ] ), hArgs[ "options" ] )
    cAnswer := CCSEL_Run( oSel )
+   // with no console the selector cannot prompt and defaults to option 1 --
+   // say so, so the model does not treat it as a deliberate user choice
+   IF !CCCON_HasConsole()
+      RETURN "No console available to prompt the user; auto-selected the " + ;
+             "first option: " + cAnswer
+   ENDIF
    RETURN "The user selected: " + cAnswer
