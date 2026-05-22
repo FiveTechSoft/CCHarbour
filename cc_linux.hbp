@@ -16,6 +16,7 @@ src/cctools_web.prg
 src/cctools_github.prg
 src/cctools_memory.prg
 src/cctools_ask.prg
+src/cctools_todo.prg
 src/ccdiff.prg
 src/ccsettings.prg
 src/ccperm.prg
