@@ -1,6 +1,6 @@
 FUNCTION Test_UI()
    LOCAL hA
-   LOCAL aJL, aJR, aJoined, cBan
+   LOCAL aJL, aJR, aJoined, cBan, oQ, cQB
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -194,4 +194,13 @@ FUNCTION Test_UI()
    T_Equal( CCUI_ClearScreenSeq(), ;
             Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H", ;
             "ui: clear-screen sequence is 3J + 2J + H" )
+
+   // --- CCUI_QuestionBlock ---
+   oQ := CCSEL_New( "Choose a colour", { "Red", "Green" } )
+   cQB := CCUI_QuestionBlock( oQ )
+   T_Assert( "Choose a colour" $ cQB, "ui: question block shows the question" )
+   T_Assert( "1. Red" $ cQB, "ui: question block numbers options" )
+   T_Assert( "3. Other" $ cQB, "ui: question block lists Other" )
+   T_Equal( Len( hb_ATokens( cQB, Chr(10) ) ), 5, ;
+            "ui: question block is question + 3 options + trailing line" )
    RETURN NIL

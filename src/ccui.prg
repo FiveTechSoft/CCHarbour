@@ -525,6 +525,26 @@ FUNCTION CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
    NEXT
    RETURN aOut
 
+// Renders a CCSEL selector state to a printable block: a "●" bullet and the
+// question, then one numbered row per option. The row at the cursor is marked
+// with a "❯" arrow and inverse video; other rows get two leading spaces.
+// Each line ends in LF. Pure -- no console I/O.
+FUNCTION CCUI_QuestionBlock( oSel )
+   LOCAL cOut, i, aOpts := oSel[ "options" ], cRow
+   LOCAL cBullet := Chr(226) + Chr(151) + Chr(143)   // U+25CF ●
+   LOCAL cArrow  := Chr(226) + Chr(157) + Chr(175)   // U+276F ❯
+   cOut := CCUI_Color( cBullet, CCUI_Pal( "accent" ) ) + " " + ;
+           CCUI_Color( oSel[ "question" ], CCUI_Pal( "bold" ) ) + Chr(10)
+   FOR i := 1 TO Len( aOpts )
+      cRow := iif( i == oSel[ "cursor" ], cArrow + " ", "  " ) + ;
+              LTrim( Str( i ) ) + ". " + aOpts[ i ]
+      IF i == oSel[ "cursor" ]
+         cRow := CCUI_Color( cRow, "7" )   // inverse video
+      ENDIF
+      cOut += cRow + Chr(10)
+   NEXT
+   RETURN cOut
+
 // Builds the two-panel startup banner inside one rounded box, 99 columns wide
 // (matching the input frame). Left panel: a "Welcome back" line, the six-row
 // block "CC" logo, the name+version and the model. Right panel: a "Tips for
