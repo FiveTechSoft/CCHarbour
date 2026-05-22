@@ -482,6 +482,20 @@ FUNCTION CCUI_ReleaseTagline( cText, cFallback )
    NEXT
    RETURN hb_CStr( cFallback )
 
+// The "What's new" line for the banner: the first line of releasenotes.md,
+// looked up beside the executable first, then in the working directory. When
+// the file is absent or empty, falls back to "CCHarbour v<version>".
+FUNCTION CCUI_WhatsNew()
+   LOCAL cFallback := "CCHarbour v" + CCUI_Version()
+   LOCAL cPath := hb_DirBase() + "releasenotes.md"
+   IF !hb_FileExists( cPath )
+      cPath := "releasenotes.md"
+   ENDIF
+   IF hb_FileExists( cPath )
+      RETURN CCUI_ReleaseTagline( hb_MemoRead( cPath ), cFallback )
+   ENDIF
+   RETURN cFallback
+
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
 // name+version (accent colour), a tagline, the /help hint, the model and the
