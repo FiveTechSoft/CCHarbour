@@ -38,9 +38,15 @@ FUNCTION CCTODO_Set( aTodos )
    s_aTodos := CCTODO_Norm( aTodos )
    RETURN s_aTodos
 
-// Returns the stored session list (an empty array before the first Set).
+// Returns a fresh copy of the stored session list (an empty array before the
+// first Set). A copy, not the live STATIC, so a caller cannot mutate the
+// stored state without going through CCTODO_Set.
 FUNCTION CCTODO_Get()
-   RETURN s_aTodos
+   LOCAL aOut := {}, hItem
+   FOR EACH hItem IN s_aTodos
+      AAdd( aOut, { "text" => hItem[ "text" ], "status" => hItem[ "status" ] } )
+   NEXT
+   RETURN aOut
 
 // True when the stored list is non-empty and at least one item is not done.
 FUNCTION CCTODO_HasOpen()
