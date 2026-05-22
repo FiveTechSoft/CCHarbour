@@ -496,6 +496,35 @@ FUNCTION CCUI_WhatsNew()
    ENDIF
    RETURN cFallback
 
+// Builds a banner cell: text, alignment ("L"/"C"/"R"), and an SGR code ("" = none).
+FUNCTION CCUI_Cell( cText, cAlign, cSGR )
+   RETURN { "text" => hb_CStr( cText ), ;
+            "align" => iif( Empty( cAlign ), "L", cAlign ), ;
+            "sgr" => hb_CStr( cSGR ) }
+
+// Renders one cell to nWidth display columns, padded then colour-wrapped.
+STATIC FUNCTION CCUI_PanelRow( hCell, nWidth )
+   LOCAL cCell := CCUI_PadCell( hCell[ "text" ], nWidth, hCell[ "align" ] )
+   IF !Empty( hCell[ "sgr" ] )
+      cCell := CCUI_Color( cCell, hCell[ "sgr" ] )
+   ENDIF
+   RETURN cCell
+
+// Joins a left and a right column of cells row-for-row into finished banner
+// lines: left cell, a dim vertical divider with a space each side, right cell.
+// The shorter column is padded with blank cells so both reach equal height.
+FUNCTION CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
+   LOCAL aOut := {}, nRows, i, hL, hR
+   LOCAL hBlank := CCUI_Cell( "", "L", "" )
+   LOCAL cDiv := " " + CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + " "
+   nRows := Max( Len( aLeft ), Len( aRight ) )
+   FOR i := 1 TO nRows
+      hL := iif( i <= Len( aLeft ),  aLeft[ i ],  hBlank )
+      hR := iif( i <= Len( aRight ), aRight[ i ], hBlank )
+      AAdd( aOut, CCUI_PanelRow( hL, nLeftW ) + cDiv + CCUI_PanelRow( hR, nRightW ) )
+   NEXT
+   RETURN aOut
+
 // Builds the Claude Code-style startup banner: a single-panel rounded box with
 // a block-letter "CC" logo on the left (default foreground) and the
 // name+version (accent colour), a tagline, the /help hint, the model and the

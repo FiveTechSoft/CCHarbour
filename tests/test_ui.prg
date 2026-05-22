@@ -1,5 +1,6 @@
 FUNCTION Test_UI()
    LOCAL hA
+   LOCAL aJL, aJR, aJoined
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -165,6 +166,18 @@ FUNCTION Test_UI()
             "FB", "ui: empty text falls back" )
    T_Equal( CCUI_ReleaseTagline( "  " + Chr(13) + Chr(10), "FB" ), ;
             "FB", "ui: whitespace-only text falls back" )
+
+   // --- CCUI_BannerJoin ---
+   aJL := { CCUI_Cell( "A", "L", "" ) }
+   aJR := { CCUI_Cell( "B", "L", "" ), CCUI_Cell( "C", "L", "" ) }
+   aJoined := CCUI_BannerJoin( aJL, aJR, 5, 5 )
+   T_Equal( Len( aJoined ), 2, "ui: bannerjoin pads to the taller column" )
+   T_Equal( hb_UTF8Len( aJoined[ 1 ] ), 13, ;
+            "ui: bannerjoin row width is left + 3 divider + right" )
+   T_Equal( hb_UTF8Len( aJoined[ 2 ] ), 13, ;
+            "ui: bannerjoin pads the short column with blanks" )
+   T_Assert( "A" $ aJoined[ 1 ] .AND. "B" $ aJoined[ 1 ], ;
+             "ui: bannerjoin row 1 holds both cells" )
 
    // --- CCUI_ClearScreenSeq ---
    T_Equal( CCUI_ClearScreenSeq(), ;
