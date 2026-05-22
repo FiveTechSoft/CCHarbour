@@ -355,6 +355,12 @@ FUNCTION CCUI_VT( cSeq )
    ENDIF
    RETURN Chr(27) + "[" + cSeq
 
+// The VT sequence that wipes the terminal: ESC[3J clears scrollback,
+// ESC[2J clears the visible screen, ESC[H homes the cursor. Returned
+// unconditionally; callers decide whether the terminal can accept it.
+FUNCTION CCUI_ClearScreenSeq()
+   RETURN Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H"
+
 // The system message seeded into every conversation. When a CC.md file is
 // present in the working directory its contents are appended as project
 // instructions, so the agent honours per-project conventions. When a

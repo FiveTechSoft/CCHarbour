@@ -155,4 +155,9 @@ FUNCTION Test_UI()
    T_Assert( "memory" $ Lower( CCUI_SystemPrompt() ) .OR. ;
              ValType( CCUI_MemoryContext() ) == "C", "ui: memory context available" )
    T_Equal( ValType( CCUI_MemoryContext() ), "C", "ui: memory context returns a string" )
+
+   // --- CCUI_ClearScreenSeq ---
+   T_Equal( CCUI_ClearScreenSeq(), ;
+            Chr(27) + "[3J" + Chr(27) + "[2J" + Chr(27) + "[H", ;
+            "ui: clear-screen sequence is 3J + 2J + H" )
    RETURN NIL
