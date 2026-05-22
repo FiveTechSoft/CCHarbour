@@ -150,7 +150,7 @@ directory is appended to the system prompt as project instructions.
 
 ## Tools
 
-The agent works through these eleven tools. Each is gated by the permission
+The agent works through these twelve tools. Each is gated by the permission
 shown (`allow` runs without asking, `ask` prompts, `deny` blocks). Parameters
 marked ★ are required; the rest are optional.
 
@@ -167,6 +167,7 @@ marked ★ are required; the rest are optional.
 | `github_read` | allow | Read from GitHub. `operation`★ (`repo`/`file`/`list`/`issues`/`issue`/`prs`/`pr`/`search`), `repo` (`owner/name`), `path`, `number`, `query`. |
 | `github_write` | ask | Write to GitHub; needs `GITHUB_TOKEN`. `operation`★ (`create_issue`/`comment`/`create_pr`), `repo`★, `number`, `title`, `body`, `head`, `base`. |
 | `memory` | allow | The agent's persistent memory across sessions, stored in `memory.md`. `operation`★ (`append`/`read`/`clear`), `text` (entry to add, for `append`). |
+| `ask_user` | allow | Ask the user a multiple-choice question and return their selected answer. Renders an interactive selector (arrow keys or number, plus an "Other" free-text option). `question`★, `options`★ (2–4 choices). Never gated — asking is inherently consented. |
 
 ## Disclaimer
 
@@ -224,6 +225,8 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 | `cctools_web.prg`     | Herramientas `web_fetch` (GET vía HTTP) y `web_search` (DuckDuckGo Instant Answer API sin API key) |
 | `cctools_github.prg`  | Herramientas `github_read` (repo, file, list, issues, issue, prs, pr, search) y `github_write` (create_issue, comment, create_pr) |
 | `cctools_memory.prg`  | Herramienta `memory`: operaciones `append`/`read`/`clear` sobre `memory.md`, persistente entre sesiones |
+| `cctools_ask.prg`     | Herramienta `ask_user`: pregunta de opción múltiple resuelta con un selector interactivo |
+| `ccselect.prg`        | Selector interactivo de opción múltiple: estado puro (cursor, opciones) y bucle de teclas raw (flechas, dígitos, "Other") |
 | `ccperm.prg`          | Puerta de permisos: envuelve el executor raw con lógica `allow`/`deny`/`ask`; opción "a" (allow siempre) dura lo que dura la sesión |
 | `ccdiff.prg`          | Diff línea por línea vía LCS (Longest Common Subsequence): detecta líneas añadidas/eliminadas con 3 líneas de contexto, formato Claude Code-style |
 | `ccmarkdown.prg`      | Renderizado Markdown → ANSI en streaming: headings, listas, código (fence e inline), **bold**, *italic*, captura de "Suggested next:" |
@@ -241,7 +244,7 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 - DeepSeek / OpenAI-compatible API client with SSE streaming
 - Agent loop with tool calls, iteration cap with extend prompt; **Esc interrupts the turn**, `/btw` interrupts and queues a reply, plain mid-turn input queues for after the turn
 - **Action narration** — the agent describes what it is about to do, in one or two lines, just before a non-obvious tool call such as a shell command
-- Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory
+- Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory, ask_user
 - **DuckDuckGo web search** — no API key required (replaced Tavily)
 - Permission gate — `allow` / `deny` / `ask`, with session upgrade
 - `settings.json` loading with defaults and `co_author` setting
