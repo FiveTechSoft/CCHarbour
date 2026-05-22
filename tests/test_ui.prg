@@ -1,6 +1,6 @@
 FUNCTION Test_UI()
    LOCAL hA
-   LOCAL aJL, aJR, aJoined
+   LOCAL aJL, aJR, aJoined, cBan
 
    hA := CCUI_ParseCommand( "/exit" )
    T_Equal( hA[ "type" ], "exit", "ui: /exit parses to exit" )
@@ -71,7 +71,7 @@ FUNCTION Test_UI()
              "ui: banner has model line" )
    T_Assert( "cwd: C:\proj" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has cwd line" )
-   T_Assert( "/help for help" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
+   T_Assert( "Run /help to list commands" $ CCUI_Banner( "deepseek-chat", "C:\proj", "x" ), ;
              "ui: banner has help hint" )
    T_Assert( CCUI_Glyph( "tl" ) $ CCUI_Banner( "m", "c", "u" ), ;
              "ui: banner has a rounded top-left corner" )
@@ -178,6 +178,17 @@ FUNCTION Test_UI()
             "ui: bannerjoin pads the short column with blanks" )
    T_Assert( "A" $ aJoined[ 1 ] .AND. "B" $ aJoined[ 1 ], ;
              "ui: bannerjoin row 1 holds both cells" )
+
+   // --- CCUI_Banner two-panel layout ---
+   cBan := CCUI_Banner( "test-model", "c:\proj", "Tester" )
+   T_Assert( "Welcome back, Tester!" $ cBan, ;
+             "ui: banner greets the user by name" )
+   T_Assert( "Tips for getting started" $ cBan, ;
+             "ui: banner shows the tips panel header" )
+   T_Assert( "What's new" $ cBan, ;
+             "ui: banner shows the what's-new header" )
+   T_Assert( "model: test-model" $ cBan, ;
+             "ui: banner shows the model" )
 
    // --- CCUI_ClearScreenSeq ---
    T_Equal( CCUI_ClearScreenSeq(), ;

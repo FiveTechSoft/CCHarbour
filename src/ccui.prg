@@ -525,19 +525,22 @@ FUNCTION CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
    NEXT
    RETURN aOut
 
-// Builds the Claude Code-style startup banner: a single-panel rounded box with
-// a block-letter "CC" logo on the left (default foreground) and the
-// name+version (accent colour), a tagline, the /help hint, the model and the
-// working directory on the right. Returns the whole banner as one string ending in LF.
+// Builds the two-panel startup banner inside one rounded box, 99 columns wide
+// (matching the input frame). Left panel: a "Welcome back" line, the six-row
+// block "CC" logo, the name+version and the model. Right panel: a "Tips for
+// getting started" list and a "What's new" line from releasenotes.md. The
+// shorter panel is blank-padded to equal height. Returns the banner ending in LF.
 FUNCTION CCUI_Banner( cModel, cCwd, cUser )
-   LOCAL nInner := 95, cH := CCUI_Glyph( "h" ), cV
-   LOCAL cAccent := Chr(226)+Chr(156)+Chr(187)   // U+273B
-   LOCAL aLogo, aInfo, aRows, cOut, i, cText, cSGR, cCell
+   LOCAL nInner := 95, nLeftW := 44, nRightW := 48
+   LOCAL cH := CCUI_Glyph( "h" ), cV, cName, aLogo, aLeft, aRight, aRows, cOut, i
 
-   HB_SYMBOL_UNUSED( cUser )
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
-   cV     := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
+   cName  := AllTrim( hb_CStr( cUser ) )
+   IF Empty( cName )
+      cName := AllTrim( hb_CStr( hb_GetEnv( "USER" ) ) )
+   ENDIF
+   cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
 
    // the "CC" logo, six rows of block-drawing glyphs
    aLogo := { ;
@@ -548,35 +551,34 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
       " ╚██████╗╚██████╗ ", ;
       "  ╚═════╝ ╚═════╝ " }
 
-   // the info column, paired row-for-row with the logo
-   aInfo := { ;
-      cAccent + " CCHarbour  v" + CCUI_Version(), ;
-      "terminal coding assistant " + Chr(226)+Chr(128)+Chr(183) + ;
-         " Claude Code-style", ;
-      "", ;
-      "/help for help", ;
-      "model: " + cModel, ;
-      "cwd: " + cCwd }
-
-   // each row: { plain text, SGR code or "" }. The first info row (name +
-   // version) is accent; the rest plain.
-   aRows := {}
+   // left panel: welcome, logo (6), name+version, model
+   aLeft := {}
+   AAdd( aLeft, CCUI_Cell( iif( Empty( cName ), "Welcome back!", ;
+                                "Welcome back, " + cName + "!" ), "C", "" ) )
    FOR i := 1 TO 6
-      cText := CCUI_PadCell( aLogo[ i ], 18, "L" ) + " " + aInfo[ i ]
-      cSGR  := iif( i == 1, CCUI_Pal( "accent" ), "" )
-      AAdd( aRows, { cText, cSGR } )
+      AAdd( aLeft, CCUI_Cell( aLogo[ i ], "C", "" ) )
    NEXT
+   AAdd( aLeft, CCUI_Cell( "CCHarbour  v" + CCUI_Version(), "C", CCUI_Pal( "accent" ) ) )
+   AAdd( aLeft, CCUI_Cell( "model: " + cModel, "C", "" ) )
+
+   // right panel: tips list, divider, what's new (9 rows, matching the left)
+   aRight := {}
+   AAdd( aRight, CCUI_Cell( "Tips for getting started", "L", CCUI_Pal( "bold" ) ) )
+   AAdd( aRight, CCUI_Cell( "", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Type a request to begin", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Run /help to list commands", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( "Run /init to create a CC.md file", "L", "" ) )
+   AAdd( aRight, CCUI_Cell( Replicate( cH, nRightW ), "L", CCUI_Pal( "dim" ) ) )
+   AAdd( aRight, CCUI_Cell( "What's new", "L", CCUI_Pal( "bold" ) ) )
+   AAdd( aRight, CCUI_Cell( CCUI_WhatsNew(), "L", CCUI_Pal( "dim" ) ) )
+   AAdd( aRight, CCUI_Cell( "cwd: " + cCwd, "L", CCUI_Pal( "dim" ) ) )
+
+   aRows := CCUI_BannerJoin( aLeft, aRight, nLeftW, nRightW )
 
    cOut := CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( cH, nInner + 2 ) + ;
            CCUI_Glyph( "tr" ), CCUI_Pal( "dim" ) ) + Chr(10)
    FOR i := 1 TO Len( aRows )
-      cText := aRows[ i ][ 1 ]
-      cSGR  := aRows[ i ][ 2 ]
-      cCell := CCUI_PadCell( cText, nInner, "L" )
-      IF !Empty( cSGR )
-         cCell := CCUI_Color( cCell, cSGR )
-      ENDIF
-      cOut += cV + " " + cCell + " " + cV + Chr(10)
+      cOut += cV + " " + aRows[ i ] + " " + cV + Chr(10)
    NEXT
    cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( cH, nInner + 2 ) + ;
            CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)
