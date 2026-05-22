@@ -21,6 +21,10 @@ STATIC FUNCTION CCPERM_CloneModes( hPermissions )
 // Decides allow/deny for one call; "a" upgrades the tool to allow for the session.
 STATIC FUNCTION CCPERM_Decide( hPerm, bInner, bAsk, cName, cArgsJson )
    LOCAL cMode, cAns
+   // asking the user a question is inherently consented -- never gated
+   IF cName == "ask_user"
+      RETURN Eval( bInner, cName, cArgsJson )
+   ENDIF
    cMode := iif( hb_HHasKey( hPerm, cName ), hPerm[ cName ], "ask" )
    IF !( cMode == "allow" .OR. cMode == "deny" .OR. cMode == "ask" )
       cMode := "ask"
