@@ -20,6 +20,11 @@ STATIC s_oBoxPrompt := NIL
 // the codebase. Cleared by /plan accept (proceed) or /plan cancel (drop).
 STATIC s_lPlanMode := .F.
 
+// .T. while the session is in lean-mode (/lean). The system prompt drops the
+// skills list, project context and persisted memory so each turn sends ~500
+// fewer input tokens. Toggle off with /lean off.
+STATIC s_lLeanMode := .F.
+
 // Index into the CCUI tip pool, advanced once per idle prompt so the idle
 // line cycles through the tips rather than always showing the same one.
 STATIC s_nTipIdx := 0
@@ -155,6 +160,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
       CASE hAction[ "type" ] == "skill"
          CCREPL_ActivateSkill( hAction[ "text" ], aMsgs, oPrompt )
+      CASE hAction[ "type" ] == "lean"
+         CCREPL_ToggleLean( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -265,6 +272,50 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_Out( Chr(10) )
    ENDIF
    RETURN { "result" => hRes, "render" => oRender }
+
+// Implements /lean — toggles lean-mode. While on, CCUI_SystemPrompt returns
+// a minimal version of the prompt (no skills section, no CC.md, no
+// memory.md, no narration block), and a [lean] badge appears in the status
+// line. The trimmed prompt itself instructs the model to be ultra-terse,
+// so no extra skill body needs to be injected.
+STATIC FUNCTION CCREPL_ToggleLean( cArg, aMsgs, oPrompt )
+   LOCAL cMode := Lower( AllTrim( hb_CStr( cArg ) ) )
+   DO CASE
+   CASE cMode == "off"
+      IF !s_lLeanMode
+         CCREPL_Out( CCUI_Color( "[lean mode already off]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      s_lLeanMode := .F.
+      // refresh the system message so the next turn sees the full prompt
+      IF Len( aMsgs ) > 0 .AND. aMsgs[ 1 ][ "role" ] == "system"
+         aMsgs[ 1 ][ "content" ] := CCUI_SystemPrompt()
+      ENDIF
+      CCREPL_Out( CCUI_Color( "[lean mode OFF]", CCUI_Pal( "dim" ) ) + Chr(10) )
+   CASE Empty( cMode ) .OR. cMode == "on"
+      IF s_lLeanMode
+         CCREPL_Out( CCUI_Color( "[lean mode already on]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      s_lLeanMode := .T.
+      // refresh the system message so the next turn sees the trimmed prompt
+      IF Len( aMsgs ) > 0 .AND. aMsgs[ 1 ][ "role" ] == "system"
+         aMsgs[ 1 ][ "content" ] := CCUI_SystemPrompt()
+      ENDIF
+      CCREPL_Out( CCUI_Color( "[lean mode ON - system prompt trimmed. " + ;
+                              "/lean off to revert]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   OTHERWISE
+      CCREPL_Out( CCUI_Color( "Usage: /lean [on|off]", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN NIL
+   ENDCASE
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN NIL
 
 // Implements /plan, /plan accept, /plan cancel and /plan <free text>.
 // Returns the free-text prompt the caller should run as a user message
@@ -719,6 +770,12 @@ FUNCTION CCREPL_BoxPrompt()
 // the [plan-mode] badge.
 FUNCTION CCREPL_PlanMode()
    RETURN s_lPlanMode
+
+// True while the session is in lean-mode (toggled by /lean). Public so the
+// system-prompt builder can return a minimal version and the status line
+// can show the [lean] badge.
+FUNCTION CCREPL_LeanMode()
+   RETURN s_lLeanMode
 
 // True when the persistent box prompt is mounted with an active scroll
 // region. Modules that want to paint above the box (e.g. the question

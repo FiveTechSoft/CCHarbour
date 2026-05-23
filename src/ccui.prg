@@ -30,6 +30,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "skill", "text" => "caveman" }
    CASE cLow == "/plan" .OR. Left( cLow, 6 ) == "/plan "
       RETURN { "type" => "plan", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/lean" .OR. Left( cLow, 6 ) == "/lean "
+      RETURN { "type" => "lean", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -383,6 +385,12 @@ FUNCTION CCUI_ClearScreenSeq()
 // memory.md file is present it is appended as the agent's persisted memory.
 FUNCTION CCUI_SystemPrompt()
    LOCAL cBase, cProj, cMem
+   // lean mode: minimal prompt for token-saving sessions
+   IF CCREPL_LeanMode()
+      RETURN "You are CCHarbour, a terminal coding assistant on " + OS() + ;
+             " in " + hb_cwd() + ". Be very concise. End every reply with " + ;
+             "'Suggested next: <short prompt>'."
+   ENDIF
    cBase := "You are CCHarbour, a terminal coding assistant. " + ;
             "You have tools to read, write and edit files, search with glob and " + ;
             "grep, and run shell commands. Use them to help the user with coding " + ;
@@ -506,7 +514,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.5"
+   RETURN "0.8.6"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -873,6 +881,8 @@ FUNCTION CCUI_Help()
           "  /plan          enter plan mode (lock write/edit/shell)" + Chr(10) + ;
           "  /plan accept   approve the plan, unlock and proceed" + Chr(10) + ;
           "  /plan cancel   drop the plan and exit plan mode" + Chr(10) + ;
+          "  /lean          enter lean mode (trim system prompt, save tokens)" + Chr(10) + ;
+          "  /lean off      restore the full system prompt" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

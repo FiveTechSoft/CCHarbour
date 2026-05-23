@@ -66,4 +66,6 @@ FUNCTION CCREPL_BoxCursorSeq()
    RETURN ""
 FUNCTION CCREPL_PlanMode()
    RETURN .F.
+FUNCTION CCREPL_LeanMode()
+   RETURN .F.
 

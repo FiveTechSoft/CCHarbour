@@ -104,6 +104,7 @@ via the environment.
 | `/load [file]`  | load a saved conversation                       |
 | `/caveman`      | activate the caveman skill (ultra-compressed terse replies) |
 | `/plan [text]`  | enter plan mode (locks write/edit/shell); `/plan accept` proceeds, `/plan cancel` drops |
+| `/lean [on\|off]` | toggle lean mode — trims system prompt to save tokens |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -327,7 +328,12 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.5 — current.** Richer `todo_write` — three new optional fields:
+**v0.8.6 — current.** `/lean` — token-saving mode. The system prompt is
+trimmed (no skills section, no `CC.md`, no `memory.md`, no narration
+block); per-turn input drops by ~500-800 tokens. A `[lean]` badge shows
+in the status line. Toggle with `/lean off`.
+
+**v0.8.5 — previous.** Richer `todo_write` — three new optional fields:
 `id` (task identifier), `active_form` (present-continuous label shown
 while an item is `in_progress`), and `blocked_by` (array of ids this
 task depends on). Blocked items render indented, dimmed, with a `↳`

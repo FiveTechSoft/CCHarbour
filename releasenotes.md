@@ -1,6 +1,25 @@
-CCHarbour v0.8.5 — Richer todo_write: ids, blockers and present-continuous active labels.
+CCHarbour v0.8.6 — Lean mode (`/lean`) for token-saving sessions.
 
-## New since v0.8.4
+## New since v0.8.5
+
+- **`/lean`** — toggles lean-mode. While active, `CCUI_SystemPrompt`
+  returns a minimal prompt (no skills section, no `CC.md`, no `memory.md`,
+  no narration block). Per-turn input drops by ~500-800 tokens (from
+  ~2900 down to ~2100 on a vanilla "hi"). Useful late in long sessions
+  when context is filling up or when working against an expensive model
+  (Claude, GPT) where each input token matters.
+- **`/lean off`** — restores the full system prompt. The first system
+  message in the conversation is updated in place so the next turn sees
+  the change immediately.
+- **`[lean]` badge** — appears in the status line under the input box
+  while lean-mode is active, alongside any other badges (`plan-mode`,
+  active skills).
+- Auto-cleared by `/clear`: a session reset rebuilds the system prompt
+  from scratch and always uses the lean state in effect at that moment.
+
+## v0.8.5 — Richer todo_write: ids, blockers and present-continuous active labels.
+
+### New since v0.8.4
 
 - **`todo_write` got three new optional fields:**
   - **`id`** — a string identifier for the task. Other tasks can refer to

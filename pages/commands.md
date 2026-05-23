@@ -11,6 +11,7 @@ assistant.
 | `/clear`        | wipe the screen and reset the conversation      |
 | `/caveman`      | activate the caveman skill (terse replies)      |
 | `/plan [text]`  | enter plan mode (locks write/edit/shell)        |
+| `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -92,6 +93,28 @@ cannot modify the codebase or run commands. Forms:
 
 Use it for non-trivial work where you want to review the approach before any
 file is touched.
+
+## /lean
+
+`/lean` toggles a token-saving "lean mode". While active, `CCUI_SystemPrompt`
+returns a minimal version of the prompt: no skills section, no `CC.md`, no
+`memory.md`, no narration block. Per-turn input drops by ~500-800 tokens
+(roughly 2900 → 2100 on a vanilla "hi"). A `[lean]` badge shows up in the
+status line.
+
+Use it late in long sessions when context is filling up, or against a
+pricier model (Claude, GPT) where every input token matters. The model
+loses access to your CC.md project context and memory.md while lean is on,
+so answer quality on project-specific questions degrades — turn it off
+(`/lean off`) before resuming complex work.
+
+Forms:
+
+- `/lean` (or `/lean on`) — enter lean mode.
+- `/lean off` — restore the full system prompt.
+
+Toggling rebuilds the first system message in place, so the next turn
+immediately sees the new state without needing `/clear`.
 
 ## /btw
 

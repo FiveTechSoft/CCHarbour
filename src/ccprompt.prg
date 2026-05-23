@@ -128,6 +128,9 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    IF CCREPL_PlanMode()
       hb_AIns( aBadges, 1, "plan-mode", .T. )
    ENDIF
+   IF CCREPL_LeanMode()
+      hb_AIns( aBadges, 1, "lean", .T. )
+   ENDIF
    CCPROMPT_Raw( ;
       Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
