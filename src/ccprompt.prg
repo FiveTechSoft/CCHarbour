@@ -126,7 +126,9 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
       Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
       CCUI_FrameTop() + Chr(13) + Chr(10) + ;
-      CCUI_InputBoxLine( hW[ "text" ] ) + Chr(13) + Chr(10) + ;
+      iif( CCIN_HasSuggestion( oPrompt[ "editor" ] ), ;
+          CCUI_InputBoxSuggestion( hW[ "text" ] ), ;
+          CCUI_InputBoxLine( hW[ "text" ] ) ) + Chr(13) + Chr(10) + ;
       CCUI_FrameBottom() + ;
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
               LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
@@ -140,6 +142,31 @@ FUNCTION CCPROMPT_Poll( oPrompt )
    DO WHILE CCCON_KeyPending()
       lDrained := .T.
       nKey := CCCON_ReadKey()
+      // when a suggestion is active, the next key either accepts it (Tab/Enter)
+      // or cancels it (any edit). Tab/Backspace/Delete are handled here in full;
+      // Enter and printable keys clear the suggestion flag (and buffer for
+      // printable) then fall through to the main DO CASE below.
+      IF CCIN_HasSuggestion( oEd )
+         DO CASE
+         CASE nKey == -12                    // Tab: accept the suggestion text
+            CCIN_ClearSuggestion( oEd )
+            oEd[ "cursor" ] := hb_UTF8Len( oEd[ "buf" ] )
+            lDrained := .T.
+            LOOP
+         CASE nKey == -1                     // Enter: submit the suggestion
+            CCIN_ClearSuggestion( oEd )
+         CASE nKey == -2 .OR. nKey == -7     // Backspace/Delete: cancel
+            CCIN_ClearSuggestion( oEd )
+            oEd[ "buf" ] := ""
+            oEd[ "cursor" ] := 0
+            lDrained := .T.
+            LOOP
+         CASE nKey > 0 .OR. nKey == -11 .OR. nKey == -9 .OR. nKey == -10
+            CCIN_ClearSuggestion( oEd )
+            oEd[ "buf" ] := ""
+            oEd[ "cursor" ] := 0
+         ENDCASE
+      ENDIF
       DO CASE
       CASE nKey == -13                       // Esc -> interrupt, no message
          oPrompt[ "interrupt" ] := { "kind" => "esc", "text" => "" }

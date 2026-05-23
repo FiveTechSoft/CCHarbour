@@ -124,6 +124,7 @@ partial work and tool results already produced are kept in the conversation.
 | Backspace        | delete character before cursor                          |
 | Ctrl+C           | cancel a running stream                                 |
 | Shift+Enter      | insert a newline (multi-line)                           |
+| Tab              | accept the model's "Suggested next" prompt              |
 | Enter            | submit the line (queued if agent is busy)               |
 | Esc              | interrupt the running turn (no new message)             |
 | `/btw <text>`    | interrupt the running turn; answer `<text>` next        |
@@ -254,6 +255,10 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
   **Harbour ship logo**, framed prompt and tool-call rendering
 - Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete,
   multi-line input with Shift+Enter and paste detection
+- **User prompt echoed in white** above the input box so the scroll keeps a
+  clear transcript of what was asked
+- **"Suggested next" pre-filled in the input box** in translucent green;
+  press Tab to accept it as-is, or start typing to replace it
 - `Ctrl+C` to cancel a running stream
 - Conversation persistence — `/save` and `/load` commands
 - `/cost` command showing token usage and estimated cost per turn and session

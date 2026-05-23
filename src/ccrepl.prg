@@ -82,6 +82,12 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             CCREPL_Out( CCUI_TodoBlock( CCTODO_Get() ) )
          ENDIF
          CCREPL_Out( CCUI_TipLine( CCUI_TipAt( ++s_nTipIdx ) ) )
+         // seed the box editor with the model's "Suggested next:" so it shows
+         // as a green translucent prompt the user can Tab-accept or replace
+         IF !Empty( cSuggest )
+            oPrompt[ "editor" ] := CCIN_New( cSuggest )
+            CCPROMPT_Redraw( oPrompt )
+         ENDIF
          cLine := CCREPL_PromptIdle( oPrompt )
       ELSEIF CCCON_HasConsole()
          cLine := CCIN_ReadLine( cSuggest )
@@ -102,6 +108,12 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       ENDIF
       IF lCooked
          CCREPL_Out( CCUI_FrameBottom() + Chr(10) )
+      ENDIF
+      // echo the submitted prompt in white above the box, so the transcript
+      // shows what the user just asked. Cooked path skipped: the line is
+      // already visible in the terminal as the user typed it.
+      IF !lCooked .AND. !Empty( AllTrim( hb_CStr( cLine ) ) )
+         CCREPL_Out( Chr(10) + CCUI_Color( "> " + cLine, CCUI_Pal( "user" ) ) + Chr(10) )
       ENDIF
       hAction := CCUI_ParseCommand( cLine )
       DO CASE
@@ -183,6 +195,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             IF Empty( cMsg )
                EXIT
             ENDIF
+            CCREPL_Out( CCUI_Color( "> " + cMsg, CCUI_Pal( "user" ) ) + Chr(10) )
             CCREPL_Out( CCUI_Color( "[handling: " + ;
                         CCUI_Summarize( cMsg, 60 ) + "]", "90" ) + Chr(10) )
             aTurn := AClone( aMsgs )

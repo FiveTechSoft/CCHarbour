@@ -345,6 +345,7 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "diff_del"   ; RETURN "48;5;52"
    CASE cName == "suggestion" ; RETURN "2;38;2;180;255;180"
    CASE cName == "invert"     ; RETURN "7"          // inverse video
+   CASE cName == "user"       ; RETURN "97"         // bright white user echo
    ENDCASE
    RETURN "0"
 
