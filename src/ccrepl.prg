@@ -44,15 +44,11 @@ FUNCTION Main( cModel )
       cModel := hSet[ "model" ]
    ENDIF
    // No-key path: still start the REPL so the user can use /provider to
-   // configure a backend. The actual chat call later will fail clearly
-   // if a turn is dispatched without a key.
+   // configure a backend. The warning itself is printed BELOW the banner
+   // from inside CCREPL_Run (otherwise it would shift the banner down and
+   // throw off the dynamic-box header-row count).
    hCfg := CCCFG_Resolve( {=>} )
-   IF !hCfg[ "ok" ]
-      CCREPL_Out( CCUI_Color( "[no API key configured -- type /provider to " + ;
-                              "set up a provider (deepseek/glm/moonshot/openai), " + ;
-                              "or export DEEPSEEK_API_KEY before starting]", ;
-                              "33" ) + Chr(10) )
-   ENDIF
+   HB_SYMBOL_UNUSED( hCfg )
    oClient := CC_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ] } )
    oReg    := CCTOOLS_Registry( { ;
       "github"       => CCCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ), ;
@@ -100,6 +96,15 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       // output appears right under it instead of jumping to the bottom.
       CCPROMPT_Activate( oPrompt, nHeaderRows + 1 )
       s_oBoxPrompt := oPrompt
+   ENDIF
+   // Surface the no-key warning AFTER the banner so the banner is not
+   // pushed off the top row and the dynamic-box content-row counter
+   // remains correct. The warning lives in the scrollable content area.
+   IF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
+      CCREPL_Out( CCUI_Color( "[no API key configured -- type /provider to " + ;
+                              "set up a backend (deepseek/glm/moonshot/openai), " + ;
+                              "or export DEEPSEEK_API_KEY before starting]", ;
+                              "33" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
       lCooked := .F.
