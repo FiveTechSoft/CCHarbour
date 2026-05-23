@@ -236,7 +236,10 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    hRes := CC_AgentRun( oClient, aMessages, hOpts, ;
       {| hEv | CCREPL_RenderEv( hEv, oRender ), ;
                iif( oPrompt != NIL, CCPROMPT_Poll( oPrompt ), NIL ) } )
-   CCREPL_Out( CCMD_Flush( oRender[ "md" ] ) )
+   // any narration left in the buffer was the final answer (no tool call
+   // followed) -- print it now with the assistant bullet
+   oRender[ "pendingText" ] += CCMD_Flush( oRender[ "md" ] )
+   CCREPL_FlushPending( oRender )
    IF hRes[ "success" ]
       CCREPL_ShowTokenBar( hRes[ "usage" ] )
       CCREPL_AccumUsage( hRes[ "usage" ] )
@@ -449,11 +452,41 @@ STATIC FUNCTION CCREPL_SanitiseName( cName )
 // Creates a per-turn render state: the markdown renderer, an id->tool-name
 // map (to label tool results), the assistant-bullet run flag, spinner state,
 // reasoning-character counter, and last-seen usage hash.
+// Prints the buffered narration text (pendingText) with the assistant
+// bullet prefix, then clears it. No-op when nothing is pending.
+STATIC FUNCTION CCREPL_FlushPending( oRender )
+   IF Empty( oRender[ "pendingText" ] )
+      RETURN NIL
+   ENDIF
+   IF !oRender[ "inText" ]
+      CCREPL_Out( Chr(10) + ;
+         CCUI_Color( Chr(226)+Chr(143)+Chr(186), CCUI_Pal( "accent" ) ) + "  " )
+      oRender[ "inText" ] := .T.
+   ENDIF
+   CCREPL_Out( oRender[ "pendingText" ] )
+   oRender[ "pendingText" ] := ""
+   RETURN NIL
+
+// Returns the current terminal column count, falling back to 100 when no
+// console is available (piped input, tests).
+STATIC FUNCTION CCREPL_Cols()
+   LOCAL hSz
+   IF !CCCON_HasConsole()
+      RETURN 100
+   ENDIF
+   hSz := CCCON_Size()
+   IF ValType( hSz ) == "H" .AND. hb_HHasKey( hSz, "cols" ) .AND. ;
+      hSz[ "cols" ] >= 20
+      RETURN hSz[ "cols" ]
+   ENDIF
+   RETURN 100
+
 STATIC FUNCTION CCREPL_RenderNew()
    RETURN { "md" => CCMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
             "reasoningChars" => 0, "lastUsage" => {=>}, ;
-            "lastFrameTime" => 0 }
+            "lastFrameTime" => 0, ;
+            "pendingText" => "" }   // narration buffered for the next tool block
 
 // Renders one agent event into the terminal, using the render state oRender.
 STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
@@ -477,18 +510,11 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_SpinnerShow( oRender, "Thinking..." )
 
    CASE cType == "text_delta"
-      IF oRender[ "spinner" ]
-         CCREPL_SpinnerClear()
-         oRender[ "spinner" ] := .F.
-      ENDIF
-      IF !oRender[ "inText" ]
-         // blank line before the assistant bullet, so an answer that follows
-         // a tool result is separated from it -- matches Claude Code spacing
-         CCREPL_Out( Chr(10) + CCUI_Color( Chr(226)+Chr(143)+Chr(186), ;
-                                           CCUI_Pal( "accent" ) ) + "  " )
-         oRender[ "inText" ] := .T.
-      ENDIF
-      CCREPL_Out( CCMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) ) )
+      // accumulate text without streaming it live -- the next tool_call
+      // event will fold the buffered text into its block as the explanation
+      // line, and any tail (the final answer) is flushed at end of turn
+      oRender[ "pendingText" ] += ;
+         CCMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) )
 
    CASE cType == "usage"
       // store the usage hash for display after the turn
@@ -499,15 +525,27 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
       ENDIF
-      CCREPL_Out( CCMD_Flush( oRender[ "md" ] ) )
-      oRender[ "inText" ] := .F.
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
-      CCREPL_Out( CCUI_ToolCallLine( hEv[ "name" ], hEv[ "arguments" ] ) )
+      // ask_user owns its own rendering: CCSEL_Paint paints separator,
+      // header, question, options and hint as one absolute-positioned
+      // block so a Up/Down keystroke does not scroll the scroll region.
+      // Nothing to print from here; just drain the markdown buffer.
+      IF Lower( hb_CStr( hEv[ "name" ] ) ) == "ask_user"
+         CCMD_Flush( oRender[ "md" ] )
+      ELSE
+         CCREPL_Out( CCUI_ToolBlock( ;
+            CCUI_ToolHeader( hEv[ "name" ] ), ;
+            CCUI_ToolContent( hEv[ "arguments" ] ), ;
+            oRender[ "pendingText" ] + CCMD_Flush( oRender[ "md" ] ), ;
+            CCREPL_Cols() ) )
+      ENDIF
+      oRender[ "pendingText" ] := ""
+      oRender[ "inText" ] := .F.
 
    CASE cType == "tool_result"
-      CCREPL_Out( CCMD_Flush( oRender[ "md" ] ) )
+      CCREPL_FlushPending( oRender )
       oRender[ "inText" ] := .F.
       cId := hb_CStr( hb_HGetDef( hEv, "id", "" ) )
       CCREPL_Out( CCUI_ResultSummary( ;
@@ -519,7 +557,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
       ENDIF
-      CCREPL_Out( CCMD_Flush( oRender[ "md" ] ) )
+      CCREPL_FlushPending( oRender )
       oRender[ "inText" ] := .F.
       CCREPL_Out( CCUI_RenderEvent( hEv ) )
 
@@ -595,6 +633,21 @@ STATIC FUNCTION CCREPL_AskExtend()
    ENDIF
    RETURN Lower( Left( AllTrim( cLine ), 1 ) ) == "y"
 
+// The active persistent box prompt instance, or NIL when no box is
+// mounted. Public so the question selector can route keystrokes into the
+// box editor while it waits for the user to choose an option.
+FUNCTION CCREPL_BoxPrompt()
+   RETURN s_oBoxPrompt
+
+// True when the persistent box prompt is mounted with an active scroll
+// region. Modules that want to paint above the box (e.g. the question
+// selector) check this to know whether they can rely on the ESC[s/[u
+// anchor managed by CCREPL_Out.
+FUNCTION CCREPL_BoxActive()
+   RETURN s_oBoxPrompt != NIL .AND. ;
+          ValType( s_oBoxPrompt[ "region" ] ) == "H" .AND. ;
+          s_oBoxPrompt[ "region" ][ "active" ] == .T.
+
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
 // so UTF-8 output is not re-encoded. The console code page is set to UTF-8
 // by CCREPL_InitConsole, so these bytes render correctly. Line feeds are
@@ -622,8 +675,9 @@ FUNCTION CCREPL_Out( cText )
 
 // The VT escape that moves the cursor onto the input box's editing line at
 // the current edit column (box content starts at column 5: border, space,
-// "> ", then text).
-STATIC FUNCTION CCREPL_BoxCursorSeq()
+// "> ", then text). Public so the question selector can park the visible
+// cursor in the box while it waits for a key.
+FUNCTION CCREPL_BoxCursorSeq()
    LOCAL hReg := s_oBoxPrompt[ "region" ], hW
    hW := CCIN_Window( s_oBoxPrompt[ "editor" ], CCUI_InputInnerWidth() )
    RETURN Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ;

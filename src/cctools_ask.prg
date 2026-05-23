@@ -29,4 +29,13 @@ STATIC FUNCTION CCTool_AskUserRun( hArgs )
       RETURN "No console available to prompt the user; auto-selected the " + ;
              "first option: " + cAnswer
    ENDIF
+   IF Empty( cAnswer )
+      RETURN "User cancelled the question with Esc. Drop this line of " + ;
+             "questioning and wait for the user's next instruction."
+   ENDIF
+   IF cAnswer == "__CCSEL_EXPLAIN__"
+      RETURN "User pressed Ctrl+E asking for an explanation. Elaborate on " + ;
+             "the question and each option in 1-2 short lines, then re-ask " + ;
+             "with the ask_user tool."
+   ENDIF
    RETURN "The user selected: " + cAnswer

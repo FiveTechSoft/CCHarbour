@@ -141,6 +141,7 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
 // Returns an action string: "none", "queued", or "interrupt".
 FUNCTION CCPROMPT_Poll( oPrompt )
    LOCAL oEd := oPrompt[ "editor" ], nKey, hC, cAction := "none", lDrained := .F.
+   LOCAL cHist
    DO WHILE CCCON_KeyPending()
       lDrained := .T.
       nKey := CCCON_ReadKey()
@@ -181,10 +182,13 @@ FUNCTION CCPROMPT_Poll( oPrompt )
          CASE hC[ "action" ] == "btw"
             oPrompt[ "interrupt" ] := { "kind" => "btw", "text" => hC[ "text" ] }
             cAction := "interrupt"
+            CCIN_HistoryAdd( hC[ "text" ] )
          OTHERWISE
             CCPROMPT_Enqueue( oPrompt, hC[ "text" ] )
             cAction := "queued"
+            CCIN_HistoryAdd( hC[ "text" ] )
          ENDCASE
+         CCIN_HistoryReset()
          oPrompt[ "editor" ] := CCIN_New( "" )
          oEd := oPrompt[ "editor" ]
       CASE nKey == -2 ; CCIN_Backspace( oEd )
@@ -193,9 +197,21 @@ FUNCTION CCPROMPT_Poll( oPrompt )
       CASE nKey == -5 ; CCIN_Home( oEd )
       CASE nKey == -6 ; CCIN_End( oEd )
       CASE nKey == -7 ; CCIN_Delete( oEd )
+      CASE nKey == -9                          // Up -> previous history entry
+         cHist := CCIN_HistoryPrev( oEd[ "buf" ] )
+         IF cHist != NIL
+            oEd[ "buf" ] := cHist
+            oEd[ "cursor" ] := hb_UTF8Len( cHist )
+         ENDIF
+      CASE nKey == -10                         // Down -> next history entry
+         cHist := CCIN_HistoryNext( oEd[ "buf" ] )
+         IF cHist != NIL
+            oEd[ "buf" ] := cHist
+            oEd[ "cursor" ] := hb_UTF8Len( cHist )
+         ENDIF
       CASE nKey == -11 ; CCIN_Insert( oEd, Chr(10) )   // Shift+Enter -> newline
       CASE nKey > 0 ; CCIN_Insert( oEd, CCIN_Utf8Chr( nKey ) )
-      // other keys (Tab, Up, Down, Ctrl+C, unmapped) are ignored mid-prompt
+      // other keys (Tab, Ctrl+C, unmapped) are ignored mid-prompt
       ENDCASE
       IF cAction == "interrupt"
          EXIT   // stop draining once an interrupt is seen

@@ -61,7 +61,7 @@ static int read_one_byte( void )
  *     0  end of input
  *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
  *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
- *   -12 Tab
+ *   -12 Tab       -14 Ctrl+E
  *   -99 an unmapped key (caller ignores it). */
 HB_FUNC( CCCON_READKEY )
 {
@@ -76,6 +76,8 @@ HB_FUNC( CCCON_READKEY )
 
    if( ch == 3 )
       result = -8;          /* Ctrl+C */
+   else if( ch == 5 )
+      result = -14;         /* Ctrl+E */
    else if( ch == 13 || ch == 10 )
       result = -1;          /* Enter */
    else if( ch == 127 )

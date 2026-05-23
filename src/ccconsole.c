@@ -53,7 +53,7 @@ HB_FUNC( CCCON_RAWMODE )
  *     0  end of input
  *    -1 Enter      -2 Backspace  -3 Left    -4 Right   -5 Home  -6 End
  *    -7 Delete     -8 Ctrl+C     -9 Up      -10 Down   -11 Shift+Enter
- *   -12 Tab        -13 Esc
+ *   -12 Tab        -13 Esc       -14 Ctrl+E
  *   -99 an unmapped key (caller ignores it). */
 HB_FUNC( CCCON_READKEY )
 {
@@ -86,6 +86,7 @@ HB_FUNC( CCCON_READKEY )
          HB_BOOL shift = ( cks & SHIFT_PRESSED ) != 0;
 
          if( ctrl && vk == 'C' )         { result = -8; done = HB_TRUE; }
+         else if( ctrl && vk == 'E' )    { result = -14; done = HB_TRUE; }
          else if( vk == VK_RETURN && shift )
                                           { result = -11; done = HB_TRUE; }
          else if( vk == VK_RETURN )      { result = -1; done = HB_TRUE; }

@@ -103,6 +103,7 @@ via the environment.
 | `/save [file]`  | save the conversation to disk                   |
 | `/load [file]`  | load a saved conversation                       |
 | `/caveman`      | activate the caveman skill (ultra-compressed terse replies) |
+| `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
 Anything else is sent to the assistant.
@@ -314,7 +315,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.2 — current.** Project skills — `.md` files under
+**v0.8.3 — current.** Unified tool-call block (cyan-violet rule, label,
+green command, soft-white narration) for every tool. `ask_user` selector
+gets its own absolute-positioned block: wrap-around Up/Down, no scroll
+jitter, prior model output preserved. Mid-question controls: Tab amends
+the highlight in the input box, Esc cancels, Ctrl+E asks the model to
+explain. While the selector is up the input box stays editable (with
+history, `/btw`, `/exit`); the cursor parks in the box.
+
+**v0.8.2 — previous.** Project skills — `.md` files under
 `.ccharbour/skills/` describe a checklist or set of instructions the model
 can pull in on demand, via the new `use_skill` tool, via the `/caveman`
 slash command, or via auto-trigger regex patterns in the skill frontmatter.

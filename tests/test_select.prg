@@ -27,8 +27,8 @@ FUNCTION Test_Select()
    CCSEL_Move( oSel, -1 )
    T_Equal( oSel[ "cursor" ], 1, "select: move up" )
    CCSEL_Move( oSel, -1 )
-   T_Equal( oSel[ "cursor" ], 1, "select: move up stops at top" )
-   CCSEL_Move( oSel, 99 )
-   T_Equal( oSel[ "cursor" ], 3, "select: move down stops at bottom" )
+   T_Equal( oSel[ "cursor" ], 3, "select: move up from first wraps to last" )
+   CCSEL_Move( oSel, 1 )
+   T_Equal( oSel[ "cursor" ], 1, "select: move down from last wraps to first" )
 
    RETURN NIL

@@ -141,9 +141,9 @@ FUNCTION Test_UI()
    T_Assert( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
 
    // version + banner
-   T_Equal( CCUI_Version(), "0.8.2", "ui: version string" )
+   T_Equal( CCUI_Version(), "0.8.3", "ui: version string" )
    CCUI_SetColor( .F. )
-   T_Assert( "v0.8.2" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+   T_Assert( "v0.8.3" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the version" )
    T_Assert( "CCHarbour" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the name" )
@@ -210,8 +210,9 @@ FUNCTION Test_UI()
    T_Assert( "Choose a colour" $ cQB, "ui: question block shows the question" )
    T_Assert( "1. Red" $ cQB, "ui: question block numbers options" )
    T_Assert( "3. Other" $ cQB, "ui: question block lists Other" )
-   T_Equal( Len( hb_ATokens( cQB, Chr(10) ) ), 5, ;
-            "ui: question block is question + 3 options + trailing line" )
+   T_Equal( Len( hb_ATokens( cQB, Chr(10) ) ), 8, ;
+            "ui: question block is question + blank + 3 options + blank + hint + trailing line" )
+   T_Assert( "Esc to cancel" $ cQB, "ui: question block shows the hint tail" )
 
    // --- CCUI_Tips / CCUI_TipAt ---
    aTips := CCUI_Tips()

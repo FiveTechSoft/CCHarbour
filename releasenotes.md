@@ -1,6 +1,46 @@
-CCHarbour v0.8.2 — Project skills: process-discipline checklists the model can load on demand, with a status line and an auto-trigger.
+CCHarbour v0.8.3 — Unified tool-call block, ask_user selector polish, and richer mid-question controls.
 
-## New since v0.8.1
+## New since v0.8.2
+
+- **Unified tool-call block** — every tool call now renders as a single
+  block: a cyan-violet rule the full terminal width, the tool's display
+  label ("Bash command", "Edit", "Read", "Glob", "Web fetch", ...) on its
+  own line, the primary argument (command / path / pattern / url / query)
+  indented in bright green, and any narration the model produced on a soft
+  white line below.
+- **`ask_user` block** — the selector now paints separator, " Ask user",
+  blank, question, blank, options, blank, hint as one absolute-positioned
+  block right above the input box. Up/Down navigate with wrap-around (Down
+  on the last option lands on the first, Up on the first lands on the
+  last); each repaint lands in the same rows so the screen no longer
+  jitters or scrolls.
+- **Hint tail** — every question lists `Esc to cancel · Tab to amend ·
+  ctrl+e to explain` in dim under the options.
+- **Mid-question keys** —
+  - **Tab** (amend) drops the highlighted option into the input box
+    pre-filled, so the user can edit and submit a tweaked version.
+  - **Esc** cancels the question; the tool returns "User cancelled" so the
+    model drops that line of questioning.
+  - **Ctrl+E** asks the model to explain; the tool returns a sentinel the
+    model interprets as "elaborate and re-ask".
+- **Type in the box during a question** — printable keys, backspace,
+  cursor keys, Home/End, Delete, Shift+Enter all edit the input box even
+  while the selector is up. Enter on a non-empty box submits the line
+  (cancelling the selector and queuing the message for the next turn);
+  `/exit` or `/quit` quits cc immediately; `/btw <text>` records a mid-turn
+  interrupt that the agent picks up at the next boundary.
+- **Box prompt history** — Up/Down in the input box now navigate the
+  history, matching the cooked-mode editor.
+- **Cursor follows the box** — while the selector waits for a key, the
+  visible cursor parks inside the input box rather than blinking above the
+  options.
+- **Content preserved** — when the question block first paints, the
+  scroll region scrolls up by exactly the block's height so any model
+  output above remains visible instead of being overwritten.
+
+## v0.8.2 — Project skills: process-discipline checklists the model can load on demand, with a status line and an auto-trigger.
+
+### New since v0.8.1
 
 - **Project skills** — `.md` files under `.ccharbour/skills/` describe a
   checklist or set of instructions the model can pull in for the turn. Each

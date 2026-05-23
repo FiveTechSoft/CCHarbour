@@ -55,3 +55,13 @@ FUNCTION CCREPL_Out( cText )
 FUNCTION CCREPL_ReadLine()
    RETURN ""
 
+// Stubs so the test build links ccselect.prg / ccprompt.prg without pulling
+// in ccrepl.prg (which defines Main and the live STATIC s_oBoxPrompt).
+// Tests never mount a box, so these stubs are never exercised.
+FUNCTION CCREPL_BoxPrompt()
+   RETURN NIL
+FUNCTION CCREPL_BoxActive()
+   RETURN .F.
+FUNCTION CCREPL_BoxCursorSeq()
+   RETURN ""
+

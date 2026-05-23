@@ -28,6 +28,13 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "load", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/caveman"
       RETURN { "type" => "skill", "text" => "caveman" }
+   CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
+      // /btw is the mid-turn interrupt classifier in the box (handled by
+      // CCPROMPT_Classify); at the cooked prompt or any other path that
+      // routes through here, just strip the prefix and treat the rest as
+      // an ordinary message to the model.
+      RETURN { "type" => "message", ;
+               "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    ENDCASE
    RETURN { "type" => "message", "text" => cTrim }
 
@@ -348,6 +355,9 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "suggestion" ; RETURN "2;38;2;180;255;180"
    CASE cName == "invert"     ; RETURN "7"          // inverse video
    CASE cName == "user"       ; RETURN "97"         // bright white user echo
+   CASE cName == "bash_header"  ; RETURN "38;2;128;160;230"   // cyan-violet header
+   CASE cName == "bash_command" ; RETURN "92"                  // bright green command
+   CASE cName == "bash_explain" ; RETURN "2;97"                // soft (faint) bright white
    ENDCASE
    RETURN "0"
 
@@ -494,7 +504,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.2"
+   RETURN "0.8.3"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -585,7 +595,8 @@ FUNCTION CCUI_QuestionBlock( oSel )
    LOCAL cBullet := Chr(226) + Chr(151) + Chr(143)   // U+25CF ●
    LOCAL cArrow  := Chr(226) + Chr(157) + Chr(175)   // U+276F ❯
    cOut := CCUI_Color( cBullet, CCUI_Pal( "accent" ) ) + " " + ;
-           CCUI_Color( oSel[ "question" ], CCUI_Pal( "bold" ) ) + Chr(10)
+           CCUI_Color( oSel[ "question" ], CCUI_Pal( "bold" ) ) + ;
+           Chr(10) + Chr(10)   // blank line between question and options
    FOR i := 1 TO Len( aOpts )
       cRow := iif( i == oSel[ "cursor" ], cArrow + " ", "  " ) + ;
               LTrim( Str( i ) ) + ". " + aOpts[ i ]
@@ -594,6 +605,10 @@ FUNCTION CCUI_QuestionBlock( oSel )
       ENDIF
       cOut += cRow + Chr(10)
    NEXT
+   cOut += Chr(10)   // blank line between options and the hint tail
+   cOut += CCUI_Color( "  Esc to cancel " + Chr(194) + Chr(183) + ;
+                       " Tab to amend " + Chr(194) + Chr(183) + ;
+                       " ctrl+e to explain", CCUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
 // Renders a todo list to a printable block: a "Todos:" header, then one line
@@ -722,6 +737,73 @@ FUNCTION CCUI_SkillsStatusLine( aActive, nCols )
    cLine := PadR( cLine, Max( 1, nCols - 1 ) )
    RETURN CCUI_Color( cLine, CCUI_Pal( "accent" ) )
 
+// Renders the multi-line block used for every tool call: a cyan-violet rule
+// the full terminal width, the tool's display label ("Bash command", "Edit",
+// "Read", ...) on its own line, a blank, then the tool's primary content
+// (the command / path / pattern) in green, then the model's narration on a
+// soft-white line. Every line is plain (no border) and indented three
+// spaces to match Claude Code's tool-call style.
+FUNCTION CCUI_ToolBlock( cHeader, cContent, cExplain, nCols )
+   LOCAL cOut, cLine
+   IF ValType( nCols ) != "N" .OR. nCols < 20
+      nCols := 100
+   ENDIF
+   // Unicode box-drawings ─ is 0xE2 0x94 0x80
+   cOut := Chr(10) + ;
+           CCUI_Color( Replicate( Chr(226)+Chr(148)+Chr(128), nCols - 1 ), ;
+                       CCUI_Pal( "bash_header" ) ) + Chr(10) + ;
+           CCUI_Color( " " + hb_CStr( cHeader ), CCUI_Pal( "bash_header" ) ) + ;
+           Chr(10)
+   // only add the spacer line when there is content or an explanation to
+   // separate from the header -- ask_user uses an empty content block and
+   // wants the QuestionBlock to land right under the label
+   IF !Empty( cContent ) .OR. !Empty( cExplain )
+      cOut += Chr(10)
+   ENDIF
+   FOR EACH cLine IN hb_ATokens( hb_CStr( cContent ), Chr(10) )
+      cOut += CCUI_Color( "   " + cLine, CCUI_Pal( "bash_command" ) ) + Chr(10)
+   NEXT
+   IF !Empty( cExplain )
+      FOR EACH cLine IN hb_ATokens( AllTrim( hb_CStr( cExplain ) ), Chr(10) )
+         IF !Empty( cLine )
+            cOut += CCUI_Color( "   " + cLine, ;
+                                CCUI_Pal( "bash_explain" ) ) + Chr(10)
+         ENDIF
+      NEXT
+   ENDIF
+   RETURN cOut
+
+// Maps a tool name to the header text used in CCUI_ToolBlock. "shell" is
+// special-cased to "Bash command" since users recognise that label from
+// Claude Code; every other tool name is capitalised and underscores become
+// spaces ("github_read" -> "Github read").
+FUNCTION CCUI_ToolHeader( cName )
+   LOCAL cLow := Lower( hb_CStr( cName ) )
+   IF cLow == "shell"
+      RETURN "Bash command"
+   ENDIF
+   cLow := StrTran( cLow, "_", " " )
+   RETURN Upper( Left( cLow, 1 ) ) + SubStr( cLow, 2 )
+
+// Extracts the "main" argument from a tool's JSON args -- the thing the
+// user wants to see in full inside the tool block. The first key found,
+// in priority order: command, path, pattern, url, query, text, name,
+// content. Falls back to the raw JSON when none match.
+FUNCTION CCUI_ToolContent( cArgsJson )
+   LOCAL xArgs, aKeys, cKey
+   xArgs := hb_jsonDecode( hb_CStr( cArgsJson ) )
+   IF ValType( xArgs ) != "H"
+      RETURN hb_CStr( cArgsJson )
+   ENDIF
+   aKeys := { "command", "path", "pattern", "url", "query", ;
+              "text", "name", "content" }
+   FOR EACH cKey IN aKeys
+      IF hb_HHasKey( xArgs, cKey )
+         RETURN hb_CStr( xArgs[ cKey ] )
+      ENDIF
+   NEXT
+   RETURN hb_jsonEncode( xArgs )
+
 // One framed input-box prompt line with the text rendered in the suggestion
 // (light-green) colour.
 FUNCTION CCUI_InputBoxSuggestion( cText )
@@ -768,5 +850,6 @@ FUNCTION CCUI_Help()
           "  /load [name]   load a saved conversation" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
           "  /caveman       activate the caveman skill (terse replies)" + Chr(10) + ;
+          "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."
