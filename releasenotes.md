@@ -1,6 +1,51 @@
-CCHarbour v0.8.8 — propose_agents gate, paste collapse, dynamic input box, bullet split, broader list of skills, and other UX polish.
+CCHarbour v0.8.9 — Multi-provider API support, modernised docs site, premium playground theme.
 
-## New since v0.8.7
+## New since v0.8.8
+
+- **Multi-provider API keys** — `CCCFG_Resolve` now tries
+  `DEEPSEEK_API_KEY` → `CCHARBOUR_API_KEY` → `GLM_API_KEY` /
+  `ZHIPU_API_KEY` → `MOONSHOT_API_KEY` → `OPENAI_API_KEY` →
+  `settings.json` in order. Any OpenAI-compatible Chat Completions
+  endpoint (DeepSeek, GLM-4.6 / Zhipu, Moonshot Kimi, OpenAI, …) works
+  once `base_url` and `model` are set in `settings.json`.
+- **Docs site overhaul** — MkDocs Material now ships with a light/dark
+  palette toggle, sticky tabbed navigation, search suggest /
+  highlight / share, code copy + annotation, content tabs, social
+  icons, and a richer pymdownx set (tabbed, details, mark, keys,
+  tasklist, tilde, caret, betterem). The landing page becomes a hero
+  with badges, an ASCII screenshot, a card grid of features, a
+  tabbed 30-second tour, and use cases. Getting Started is rewritten
+  per-OS (Linux/macOS, cmd, PowerShell) with first-session walkthrough
+  and per-platform build instructions. Configuration adds a Providers
+  section with sign-up links, indicative pricing per 1M tokens, and
+  coding-tier ratings.
+- **Playground premium theme** —
+  - Animated mesh-gradient background that drifts subtly behind the
+    glass panels.
+  - Glassmorphism on banner, footer, settings and tool cards
+    (`backdrop-filter blur + saturate`).
+  - CC logo rendered with a cyan → violet gradient and an 8 s
+    background-position shimmer.
+  - Pill-shaped version chip, pulsing "online" status dot, gradient
+    border-mask on the footer, breathing focus glow on the input.
+  - Primary button is a teal linear gradient that lifts on hover;
+    Settings and Reset get an outline "ghost" look.
+  - Mobile breakpoint at 760 px.
+- **Playground gains tools** — JS ports of `memory` (localStorage),
+  `todo_write` (with `id` / `active_form` / `blocked_by`) and
+  `ask_user` (in-page modal with radio options, Other free-text,
+  Cancel / Confirm, Esc / Enter shortcuts). The browser playground
+  now exposes file / web / github / memory / todo_write / ask_user
+  tools.
+- **README refresh** — centred hero with badges, "Why CCHarbour"
+  highlights, quick start, 30-second configuration guide. The
+  in-source feature inventory is updated from "Done (v0.5.0)" to
+  the current v0.8.9 set, listing all 16 builtin tools, skills,
+  plan / lean modes, subagents, paste collapse and dynamic box.
+
+## v0.8.8 — propose_agents gate, paste collapse, dynamic input box, bullet split, broader list of skills, and other UX polish.
+
+### New since v0.8.7
 
 - **`propose_agents` tool** — the agent batches 2+ planned subagents and
   the user reviews them in an interactive multi-row selector. Space

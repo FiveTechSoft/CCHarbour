@@ -141,9 +141,9 @@ FUNCTION Test_UI()
    T_Assert( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
 
    // version + banner
-   T_Equal( CCUI_Version(), "0.8.8", "ui: version string" )
+   T_Equal( CCUI_Version(), "0.8.9", "ui: version string" )
    CCUI_SetColor( .F. )
-   T_Assert( "v0.8.8" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+   T_Assert( "v0.8.9" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the version" )
    T_Assert( "CCHarbour" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the name" )

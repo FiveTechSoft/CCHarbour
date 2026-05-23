@@ -389,7 +389,19 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.8 — current.** `propose_agents` gate (review batch of subagents in
+**v0.8.9 — current.** Multi-provider API keys — `CCCFG_Resolve` tries
+`DEEPSEEK_API_KEY` → `CCHARBOUR_API_KEY` → `GLM_API_KEY` →
+`MOONSHOT_API_KEY` → `OPENAI_API_KEY` → `settings.json`. Any
+OpenAI-compatible endpoint works once `base_url` and `model` are set.
+Documentation site overhaul (MkDocs Material with light/dark palette,
+tabbed nav, code copy, a richer landing, per-OS tabbed install
+instructions, and a Providers table with sign-up links, indicative
+pricing and coding tiers). Premium playground theme (animated mesh
+background, glassmorphism, cyan → violet logo shimmer, gradient
+buttons). Playground gains JS ports of `memory`, `todo_write` and
+`ask_user` (with a glass modal).
+
+**v0.8.8 — previous.** `propose_agents` gate (review batch of subagents in
 an interactive selector before dispatch), second-dispatch interceptor
 (redirects single-shot multi-dispatch through the gate), Agent block
 visualisation, subagent `timeout_s` + Esc cancel, paste collapse
