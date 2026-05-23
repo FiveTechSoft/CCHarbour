@@ -119,12 +119,17 @@ code, pre, .turn, .logo, #input {
   margin: 0;
   font-size: 9px;
   line-height: 1.05;
-  background: linear-gradient(135deg, var(--accent-bright), var(--accent-deep), var(--accent-purple));
+  background: linear-gradient(135deg,
+    #22d3ee 0%,    /* cyan-400  */
+    #06b6d4 25%,   /* cyan-500  */
+    #8b5cf6 75%,   /* violet-500 */
+    #a78bfa 100%   /* violet-400 */
+  );
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 14px var(--accent-glow));
+  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.35));
   animation: shimmer 8s ease-in-out infinite;
 }
 @keyframes shimmer {
@@ -502,6 +507,95 @@ button:disabled {
   background: rgba(45,212,191,0.05);
   transform: none;
   box-shadow: none;
+}
+
+/* ── ask_user modal ─────────────────────────────────────────────────────── */
+.ask-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 9, 15, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade-in 0.18s ease-out;
+  padding: 20px;
+}
+.ask-modal {
+  width: min(540px, 100%);
+  background: rgba(19, 26, 37, 0.95);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px var(--accent-glow);
+  animation: slide-down 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex; flex-direction: column; gap: 16px;
+  font-family: inherit;
+}
+.ask-q {
+  color: var(--accent-bright);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.ask-opts { display: flex; flex-direction: column; gap: 8px; }
+.ask-opts label,
+.ask-other-row label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(6, 9, 15, 0.4);
+  cursor: pointer;
+  color: var(--fg-d);
+  font-size: 13.5px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ask-opts label:hover,
+.ask-other-row label:hover { border-color: var(--accent); color: var(--fg); }
+.ask-opts input[type="radio"],
+.ask-other-row input[type="radio"] {
+  accent-color: var(--accent);
+  width: 14px; height: 14px; margin: 0;
+}
+.ask-other-row {
+  display: flex; align-items: stretch; gap: 8px;
+}
+.ask-other-row label { flex: 0 0 auto; }
+.ask-other {
+  flex: 1;
+  background: rgba(6, 9, 15, 0.6);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ask-other:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.ask-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding-top: 4px;
+}
+.ask-actions .ask-cancel {
+  background: transparent;
+  color: var(--fg-d);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.ask-actions .ask-cancel:hover {
+  border-color: var(--err);
+  color: var(--err);
+  background: rgba(248,113,113,0.05);
 }
 
 /* ── Animations ─────────────────────────────────────────────────────────── */

@@ -8,6 +8,7 @@ import { webTools } from "./web.js";
 import { githubTools } from "./github.js";
 import { memoryTools } from "./memory.js";
 import { todoTools } from "./todo.js";
+import { askTools } from "./ask.js";
 
 export function buildRegistry({ vfs, githubToken, confirmWrite, fetchImpl }) {
   const tools = [
@@ -16,6 +17,7 @@ export function buildRegistry({ vfs, githubToken, confirmWrite, fetchImpl }) {
     ...githubTools(githubToken || "", fetchImpl),
     ...memoryTools(),
     ...todoTools(),
+    ...askTools(),
   ];
   const byName = new Map(tools.map((t) => [t.name, t]));
 
