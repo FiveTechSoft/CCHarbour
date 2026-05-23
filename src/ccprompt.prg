@@ -120,6 +120,22 @@ STATIC FUNCTION CCPROMPT_Raw( cText )
    FWrite( hb_GetStdOut(), cText )
    RETURN NIL
 
+// Forces the dynamic box to pin at the floor immediately. Interactive
+// selectors (ask_user, propose_agents) paint above the box and assume a
+// stable position right above the floor, so once one of them opens the
+// box should stop "travelling" with content. No-op when already pinned.
+FUNCTION CCPROMPT_ForcePin( oPrompt )
+   LOCAL hSz
+   IF oPrompt == NIL ; RETURN oPrompt ; ENDIF
+   IF hb_HHasKey( oPrompt, "region" ) .AND. ;
+      hb_HGetDef( oPrompt[ "region" ], "pinned", .F. ) == .T.
+      RETURN oPrompt
+   ENDIF
+   hSz := CCCON_Size()
+   oPrompt[ "content_row" ] := hSz[ "rows" ] - CCPROMPT_BOX_ROWS
+   CCPROMPT_Redraw( oPrompt )
+   RETURN oPrompt
+
 // Activates the pinned box: sets the VT scroll region to
 // rows nTopRow..scroll_bottom so agent output scrolls only inside that
 // window. nTopRow defaults to 1 (full screen scrollable above the box);

@@ -76,6 +76,8 @@ STATIC FUNCTION CCPROPOSE_Paint( oSel, lRepaint )
    IF oPrompt != NIL .AND. ;
       ValType( oPrompt[ "region" ] ) == "H" .AND. ;
       oPrompt[ "region" ][ "active" ] == .T.
+      // Pin the box first so the selector has a stable anchor.
+      CCPROMPT_ForcePin( oPrompt )
       hReg := oPrompt[ "region" ]
       cSep := CCUI_Color( Replicate( Chr(226)+Chr(148)+Chr(128), ;
                                      hReg[ "cols" ] - 1 ), ;
@@ -86,7 +88,8 @@ STATIC FUNCTION CCPROPOSE_Paint( oSel, lRepaint )
       hb_AIns( aLines, 2, cLabel, .T. )
       hb_AIns( aLines, 3, "", .T. )
       nLines := Len( aLines )
-      nTop := hReg[ "scroll_bottom" ] - nLines + 1
+      // anchor the block just above the (now pinned) box
+      nTop := hReg[ "box_top" ] - nLines
       IF nTop < 1
          nTop := 1
       ENDIF

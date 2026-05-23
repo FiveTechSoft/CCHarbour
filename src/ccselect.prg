@@ -79,9 +79,14 @@ STATIC FUNCTION CCSEL_Paint( oSel, lRepaint )
       //   <blank>
       //   hint
       // -> total height = N + 7
+      // Pin the box to the floor so the block has a stable position
+      // above it (it would otherwise collide with the still-travelling
+      // dynamic box).
+      CCPROMPT_ForcePin( oPrompt )
       hReg := oPrompt[ "region" ]
       nLines := Len( oSel[ "options" ] ) + 7
-      nTop := hReg[ "scroll_bottom" ] - nLines + 1
+      // anchor the block just above the (now pinned) box
+      nTop := hReg[ "box_top" ] - nLines
       IF nTop < 1
          nTop := 1
       ENDIF
