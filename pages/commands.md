@@ -8,7 +8,9 @@ assistant.
 | `/help`         | show the command list                           |
 | `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
-| `/clear`        | reset the conversation                          |
+| `/clear`        | wipe the screen and reset the conversation      |
+| `/caveman`      | activate the caveman skill (terse replies)      |
+| `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
 ## Input box
@@ -45,6 +47,39 @@ project context on every later run.
 
 `/model` with no argument prints the active model. `/model <name>` switches it;
 the new model takes effect on the next message.
+
+## /clear
+
+`/clear` is a hard reset of the *current session* state. It does four things:
+
+1. **Wipes the terminal.** Clears the visible screen, the scrollback buffer
+   above it, and (when the input box is mounted) rebuilds the box and its
+   scroll region from scratch. Skipped on a non-VT terminal so the raw escape
+   bytes do not appear as garbage.
+2. **Resets the conversation.** Drops the entire message history sent to the
+   model and rebuilds a fresh system prompt from scratch (so any updated
+   `CC.md`, `memory.md`, or installed skills are picked up on the next turn).
+3. **Resets the session token counter.** `/cost` reports from zero again.
+4. Prints `[conversation reset]` in dim grey as confirmation.
+
+What `/clear` does **not** touch: persistent `memory.md`, `.ccharbour/settings.json`,
+saved sessions on disk, input-box history (Up/Down still recalls earlier prompts),
+and skills currently active in the status line.
+
+## /caveman
+
+`/caveman` activates the `caveman` skill — the model switches to ultra-compressed,
+terse, fragment-style replies (code and command output stay verbatim). The skill
+name shows up in the status line under the input box. Cancel by `/clear` or by
+asking the model to "stop caveman" / "normal mode".
+
+## /btw
+
+`/btw <text>` interrupts the running turn and queues `<text>` as the next
+user message. Without `<text>` it interrupts with no follow-up (like Esc).
+Also works while a question selector (`ask_user`) is on screen: the
+selector is cancelled and the interrupt is processed at the next agent
+boundary.
 
 ## Tools
 

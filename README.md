@@ -98,7 +98,7 @@ via the environment.
 | `/help`         | show the command list                           |
 | `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
-| `/clear`        | reset the conversation                          |
+| `/clear`        | wipe the screen + scrollback and reset the conversation |
 | `/cost`         | show token usage and estimated cost             |
 | `/save [file]`  | save the conversation to disk                   |
 | `/load [file]`  | load a saved conversation                       |
@@ -107,6 +107,17 @@ via the environment.
 | `/exit`         | quit (alias `/quit`)                            |
 
 Anything else is sent to the assistant.
+
+### `/clear`
+
+`/clear` is a hard reset of the current session. It (1) wipes the visible
+screen and the scrollback buffer above it and rebuilds the input box, (2)
+drops the message history sent to the model and rebuilds a fresh system
+prompt (so updated `CC.md`, `memory.md` and installed skills are picked up
+on the next turn), (3) resets the session token counter so `/cost` reports
+from zero again, and (4) prints `[conversation reset]`. It does **not**
+touch persistent `memory.md`, `settings.json`, saved sessions on disk, the
+input-box history, or the skills currently active in the status line.
 
 ### Key bindings (raw-mode input box)
 
