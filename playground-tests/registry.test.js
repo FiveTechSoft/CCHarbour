@@ -14,13 +14,25 @@ function reg(extra = {}) {
   });
 }
 
-test("registry: schemas cover all twelve browser tools, no shell", () => {
-  const { schemas } = reg();
+test("registry: schemas cover the full browser toolset, no shell", () => {
+  const { schemas } = reg({
+    getModel: () => "m", getApiKey: () => "k", getBaseUrl: () => "u",
+  });
   const names = schemas.map((s) => s.function.name).sort();
   assert.deepEqual(names, [
-    "ask_user", "edit", "github_read", "github_write", "glob", "grep",
-    "memory", "read", "todo_write", "web_fetch", "web_search", "write",
+    "ask_user", "dispatch_agent", "edit", "github_read", "github_write",
+    "glob", "grep", "memory", "propose_agents", "read", "todo_write",
+    "web_fetch", "web_search", "write",
   ]);
+});
+
+test("registry: dispatch_agent is skipped when no API key callbacks are provided", () => {
+  const { schemas } = reg();
+  const names = schemas.map((s) => s.function.name).sort();
+  assert.ok(!names.includes("dispatch_agent"),
+    "dispatch_agent must not appear without getModel/getApiKey");
+  assert.ok(names.includes("propose_agents"),
+    "propose_agents still ships (it does not need the model)");
 });
 
 test("registry: executor dispatches tool calls", async () => {

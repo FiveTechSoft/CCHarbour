@@ -32,6 +32,9 @@ function buildRegistryForRun() {
     githubToken: config.githubToken,
     confirmWrite: (name, args) => ui.confirmWrite(name, args),
     fetchImpl: (...a) => fetch(...a),
+    getModel:   () => config.model,
+    getApiKey:  () => config.deepseekKey,
+    getBaseUrl: () => config.baseUrl,
   });
 }
 
