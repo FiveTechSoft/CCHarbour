@@ -2,8 +2,9 @@
 // This file holds the pure logic; the console I/O (Poll, Redraw, Activate,
 // Teardown) is added on top of it.
 
-// The input box occupies the bottom THREE rows of the terminal.
-#define CCPROMPT_BOX_ROWS  3
+// The input box occupies the bottom FOUR rows: top frame, input line,
+// bottom frame, and a skills status line that lists active skills.
+#define CCPROMPT_BOX_ROWS  4
 // Below this many rows there is no room for the box -> fallback mode.
 #define CCPROMPT_MIN_ROWS  8
 
@@ -129,7 +130,8 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
       iif( CCIN_HasSuggestion( oPrompt[ "editor" ] ), ;
           CCUI_InputBoxSuggestion( hW[ "text" ] ), ;
           CCUI_InputBoxLine( hW[ "text" ] ) ) + Chr(13) + Chr(10) + ;
-      CCUI_FrameBottom() + ;
+      CCUI_FrameBottom() + Chr(13) + Chr(10) + ;
+      CCUI_SkillsStatusLine( CCSKILL_Active(), hReg[ "cols" ] ) + ;
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
               LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
    RETURN oPrompt

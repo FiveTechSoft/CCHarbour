@@ -7,7 +7,9 @@
 *.ppo
 *.hrb
 .hbmk/
-.ccharbour/
+.ccharbour/*
+!.ccharbour/skills/
+!.ccharbour/skills/**
 
 # editor / tooling
 .claude/

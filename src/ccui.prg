@@ -26,6 +26,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "save", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/load" .OR. Left( cLow, 6 ) == "/load "
       RETURN { "type" => "load", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/caveman"
+      RETURN { "type" => "skill", "text" => "caveman" }
    ENDCASE
    RETURN { "type" => "message", "text" => cTrim }
 
@@ -406,7 +408,29 @@ FUNCTION CCUI_SystemPrompt()
          "in this project. Use it, and keep it current with the memory tool:" + ;
          Chr(10) + Chr(10) + cMem
    ENDIF
+   cBase += CCUI_SkillsContext()
    RETURN cBase
+
+// Lists the skills found under .ccharbour/skills/ so the model knows what is
+// available without loading every body up front. The model picks one with
+// the use_skill tool; that call returns the full body. Returns "" when no
+// skills are present so the system prompt stays unchanged.
+FUNCTION CCUI_SkillsContext()
+   LOCAL aSkills := CCSKILL_List(), hSkill, cOut
+   IF Empty( aSkills )
+      RETURN ""
+   ENDIF
+   cOut := Chr(10) + Chr(10) + ;
+      "Project skills are available under .ccharbour/skills/. Each is a " + ;
+      "checklist or set of instructions you may activate when its " + ;
+      "description matches the task. Activate one with the use_skill tool " + ;
+      "(the body is returned to you); use it only when it clearly applies — " + ;
+      "do not invoke a skill for trivial edits or simple questions." + ;
+      Chr(10) + Chr(10) + "Available skills:" + Chr(10)
+   FOR EACH hSkill IN aSkills
+      cOut += "- " + hSkill[ "name" ] + ": " + hSkill[ "description" ] + Chr(10)
+   NEXT
+   RETURN cOut
 
 // Reads project instructions from a CC.md file in the current directory.
 // Returns "" when the file is absent or empty.
@@ -470,7 +494,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.1"
+   RETURN "0.8.2"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -681,6 +705,23 @@ FUNCTION CCUI_InputHint( nLines )
 FUNCTION CCUI_InputInnerWidth()
    RETURN 93
 
+// The status line painted just below the input box. Lists the active skills
+// as bracketed tags ("[name1] [name2]"). nCols is the terminal width, used to
+// pad the line so it overwrites any leftover text from a previous redraw.
+// Blank (just spaces) when no skill is active, so the row is visually hidden.
+FUNCTION CCUI_SkillsStatusLine( aActive, nCols )
+   LOCAL cLine := "", cName
+   IF ValType( aActive ) == "A" .AND. Len( aActive ) > 0
+      FOR EACH cName IN aActive
+         cLine += "[" + hb_CStr( cName ) + "] "
+      NEXT
+      cLine := RTrim( cLine )
+   ENDIF
+   // pad to nCols-1: filling the very last column triggers auto-wrap and
+   // scrolls the screen up one row, which would corrupt the layout
+   cLine := PadR( cLine, Max( 1, nCols - 1 ) )
+   RETURN CCUI_Color( cLine, CCUI_Pal( "accent" ) )
+
 // One framed input-box prompt line with the text rendered in the suggestion
 // (light-green) colour.
 FUNCTION CCUI_InputBoxSuggestion( cText )
@@ -726,5 +767,6 @@ FUNCTION CCUI_Help()
           "  /save [name]   save the conversation" + Chr(10) + ;
           "  /load [name]   load a saved conversation" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
+          "  /caveman       activate the caveman skill (terse replies)" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

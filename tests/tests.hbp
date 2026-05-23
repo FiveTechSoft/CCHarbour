@@ -34,6 +34,7 @@ test_diff.prg
 ../src/cctools_memory.prg
 ../src/cctools_ask.prg
 ../src/cctools_todo.prg
+../src/cctools_skill.prg
 ../src/ccdiff.prg
 ../src/ccui.prg
 ../src/ccmarkdown.prg
@@ -41,6 +42,7 @@ test_diff.prg
 ../src/ccprompt.prg
 ../src/ccselect.prg
 ../src/cctodo.prg
+../src/ccskill.prg
 ../src/ccconsole.c
 ../src/ccsettings.prg
 ../src/ccperm.prg

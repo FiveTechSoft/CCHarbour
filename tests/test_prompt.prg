@@ -31,8 +31,8 @@ FUNCTION Test_Prompt()
    // --- CCPROMPT_Region ---
    hR := CCPROMPT_Region( 30, 100 )
    T_Equal( hR[ "active" ], .T., "prompt: 30-row console is active" )
-   T_Equal( hR[ "scroll_bottom" ], 27, "prompt: scroll region ends at rows-3" )
-   T_Equal( hR[ "box_top" ], 28, "prompt: box starts at rows-2" )
+   T_Equal( hR[ "scroll_bottom" ], 26, "prompt: scroll region ends at rows-4" )
+   T_Equal( hR[ "box_top" ], 27, "prompt: box starts at rows-3" )
 
    hR := CCPROMPT_Region( 6, 100 )
    T_Equal( hR[ "active" ], .F., "prompt: a 6-row console falls back" )

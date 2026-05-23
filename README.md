@@ -102,6 +102,7 @@ via the environment.
 | `/cost`         | show token usage and estimated cost             |
 | `/save [file]`  | save the conversation to disk                   |
 | `/load [file]`  | load a saved conversation                       |
+| `/caveman`      | activate the caveman skill (ultra-compressed terse replies) |
 | `/exit`         | quit (alias `/quit`)                            |
 
 Anything else is sent to the assistant.
@@ -149,11 +150,37 @@ Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
 `web_fetch` and `github_write` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
 
+## Skills
+
+Skills are markdown files under `.ccharbour/skills/` that hold a checklist or
+set of instructions the agent can load on demand. Each file has a YAML
+frontmatter block with `name:`, `description:`, and an optional `triggers:`
+line of comma-separated regex patterns. The descriptions are listed in the
+system prompt so the model knows what is available without loading every
+body up front.
+
+Three ways a skill activates:
+
+- **Model decision** — the model calls the `use_skill` tool with the skill
+  name; the body is returned to it and the name is pinned to the status line
+  under the input box.
+- **Auto-trigger** — if the user's message matches any of a skill's
+  `triggers:` regex patterns, the skill activates automatically, its body is
+  injected as a system message, and a notice is printed in the scroll.
+- **Slash command** — `/caveman` is a shortcut for activating the caveman
+  skill; the same `CCREPL_ActivateSkill` path supports any future skill
+  shortcut.
+
+The active skills appear as bracketed tags in orange in the status line
+below the input box, so the discipline in effect is always visible. Sample
+skills shipped: `superpowers` (brainstorm → plan → execute → verify) and
+`caveman` (ultra-compressed terse replies).
+
 ## Tools
 
-The agent works through these twelve tools. Each is gated by the permission
-shown (`allow` runs without asking, `ask` prompts, `deny` blocks). Parameters
-marked ★ are required; the rest are optional.
+The agent works through these fourteen tools. Each is gated by the
+permission shown (`allow` runs without asking, `ask` prompts, `deny`
+blocks). Parameters marked ★ are required; the rest are optional.
 
 | Tool | Gate | Purpose and parameters |
 |------|------|------------------------|
@@ -169,6 +196,8 @@ marked ★ are required; the rest are optional.
 | `github_write` | ask | Write to GitHub; needs `GITHUB_TOKEN`. `operation`★ (`create_issue`/`comment`/`create_pr`), `repo`★, `number`, `title`, `body`, `head`, `base`. |
 | `memory` | allow | The agent's persistent memory across sessions, stored in `memory.md`. `operation`★ (`append`/`read`/`clear`), `text` (entry to add, for `append`). |
 | `ask_user` | allow | Ask the user a multiple-choice question and return their selected answer. Renders an interactive selector (arrow keys or number, plus an "Other" free-text option). `question`★, `options`★ (2–4 choices). Never gated — asking is inherently consented. |
+| `todo_write` | allow | Maintain a persistent todo list across turns. `operation`★ (`set`/`update`/`clear`), `items` (new list, for `set`), `id`, `status`. |
+| `use_skill` | allow | Activate a project skill from `.ccharbour/skills/`; returns the skill's body and pins its name to the status line. `name`★. |
 
 ## Disclaimer
 
@@ -259,6 +288,10 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
   clear transcript of what was asked
 - **"Suggested next" pre-filled in the input box** in translucent green;
   press Tab to accept it as-is, or start typing to replace it
+- **Project skills** — checklists under `.ccharbour/skills/`, activated by
+  the `use_skill` tool, the `/caveman` shortcut, or auto-trigger regex; the
+  active set is shown as orange bracketed tags in a status line below the
+  input box
 - `Ctrl+C` to cancel a running stream
 - Conversation persistence — `/save` and `/load` commands
 - `/cost` command showing token usage and estimated cost per turn and session
@@ -281,7 +314,14 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.1 — current.** Input box polish — every submitted prompt is echoed
+**v0.8.2 — current.** Project skills — `.md` files under
+`.ccharbour/skills/` describe a checklist or set of instructions the model
+can pull in on demand, via the new `use_skill` tool, via the `/caveman`
+slash command, or via auto-trigger regex patterns in the skill frontmatter.
+A new status line under the input box lists the currently active skills as
+orange bracketed tags. Sample skills shipped: `superpowers` and `caveman`.
+
+**v0.8.1 — previous.** Input box polish — every submitted prompt is echoed
 in bright white in the scroll above the box, so the transcript shows what
 was asked. The model's `Suggested next:` line is pre-filled into the box as
 a translucent-green suggestion; Tab accepts it, Backspace/Delete cancel it,

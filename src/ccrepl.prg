@@ -148,9 +148,12 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                                     ValType( hLoaded[ "usage" ] ) == "H", ;
                                     hLoaded[ "usage" ], {=>} )
          ENDIF
+      CASE hAction[ "type" ] == "skill"
+         CCREPL_ActivateSkill( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
          cMsg := iif( hAction[ "type" ] == "init", ;
                       CCUI_InitPrompt(), hAction[ "text" ] )
+         CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
          hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn, oPrompt )
@@ -198,6 +201,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             CCREPL_Out( CCUI_Color( "> " + cMsg, CCUI_Pal( "user" ) ) + Chr(10) )
             CCREPL_Out( CCUI_Color( "[handling: " + ;
                         CCUI_Summarize( cMsg, 60 ) + "]", "90" ) + Chr(10) )
+            CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
             aTurn := AClone( aMsgs )
             AAdd( aTurn, { "role" => "user", "content" => cMsg } )
             hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aTurn, oPrompt )
@@ -240,6 +244,64 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_Out( Chr(10) )
    ENDIF
    RETURN { "result" => hRes, "render" => oRender }
+
+// Manually activates a skill by name (used by /caveman and any future
+// /skill <name> command). Loads the body, injects it as a system note in
+// aMsgs, prints a notice, and repaints the box so the status line refreshes.
+// Reports an error in the scroll when the skill is unknown.
+STATIC FUNCTION CCREPL_ActivateSkill( cName, aMsgs, oPrompt )
+   LOCAL cBody, aActive
+   cBody := CCSKILL_Load( cName )
+   IF cBody == NIL
+      CCREPL_Out( CCUI_Color( "Skill '" + hb_CStr( cName ) + ;
+                              "' not found in .ccharbour/skills/", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   aActive := CCSKILL_Active()
+   IF AScan( aActive, {| c | c == hb_CStr( cName ) } ) > 0
+      CCREPL_Out( CCUI_Color( "[skill '" + cName + "' already active]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   CCSKILL_Activate( cName )
+   AAdd( aMsgs, { "role" => "system", ;
+                  "content" => "Skill '" + cName + "' activated by /" + ;
+                     cName + " command. Follow it as guidance:" + ;
+                     Chr(10) + Chr(10) + cBody } )
+   CCREPL_Out( CCUI_Color( "[skill '" + cName + "' activated]", ;
+                           CCUI_Pal( "accent" ) ) + Chr(10) )
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN NIL
+
+// Detects which project skills' triggers match the user message, activates
+// them, injects their body into aMsgs as a system note, prints a notice in
+// the scroll, and repaints the box so the status line shows the new tags.
+// No-op when nothing matches; cheap to call before every turn.
+STATIC FUNCTION CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
+   LOCAL aNew, cName, cBody
+   aNew := CCSKILL_AutoActivate( cMsg )
+   IF Empty( aNew )
+      RETURN NIL
+   ENDIF
+   FOR EACH cName IN aNew
+      cBody := CCSKILL_Load( cName )
+      IF cBody != NIL
+         AAdd( aMsgs, { "role" => "system", ;
+                        "content" => "Skill '" + cName + "' auto-activated " + ;
+                           "for this request — its description matched. " + ;
+                           "Follow it as guidance for the turn:" + ;
+                           Chr(10) + Chr(10) + cBody } )
+         CCREPL_Out( CCUI_Color( "[skill '" + cName + "' auto-activated]", ;
+                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+      ENDIF
+   NEXT
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN NIL
 
 // Idles on the persistent box until the user submits a line (Enter on a
 // non-empty buffer, or a /btw line). Returns the submitted text, or loops

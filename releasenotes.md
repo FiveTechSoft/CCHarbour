@@ -1,6 +1,33 @@
-CCHarbour v0.8.1 — Input box polish: white user echo and translucent-green "Suggested next".
+CCHarbour v0.8.2 — Project skills: process-discipline checklists the model can load on demand, with a status line and an auto-trigger.
 
-## New since v0.8.0
+## New since v0.8.1
+
+- **Project skills** — `.md` files under `.ccharbour/skills/` describe a
+  checklist or set of instructions the model can pull in for the turn. Each
+  skill has a name and a one-line description in YAML frontmatter; the model
+  sees the list at session start and activates one with the new `use_skill`
+  tool.
+- **Status line** — the input box gained a fourth row that lists the
+  currently active skills as bracketed orange tags (e.g. `[superpowers]`),
+  so it is always clear which discipline is in effect.
+- **Auto-trigger** — a skill can declare a `triggers:` line of
+  comma-separated regex patterns in its frontmatter; if the user's input
+  matches, the skill activates automatically, its body is injected into the
+  conversation as a system note, and a `[skill 'X' auto-activated]` line is
+  printed in the scroll. No regex match → no activation.
+- **`/caveman` command** — first-class slash command that activates the
+  caveman skill (ultra-compressed terse replies). Generalises to any skill
+  via the same `CCREPL_ActivateSkill` path.
+- **Sample skills shipped** — `.ccharbour/skills/superpowers.md`
+  (brainstorm → plan → execute → verify checklist) and
+  `.ccharbour/skills/caveman.md` (terse-mode rules).
+- **System prompt awareness** — the available skills are listed in the
+  system prompt so the model knows what is on offer without loading every
+  body up front.
+
+## v0.8.1 — Input box polish: white user echo and translucent-green "Suggested next".
+
+### New since v0.8.0
 
 - **User prompt echoed in white** — every submitted prompt is now reprinted
   in bright white in the scroll above the input box, so the transcript shows
