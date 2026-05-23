@@ -211,15 +211,16 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    ENDIF
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
    // When the box has moved DOWN since the last paint (dynamic mode),
-   // wipe the rows it vacated so the old frame chars don't linger.
+   // wipe the rows that were old-box-frame and are NOT covered by either
+   // the new content or the new box. Wiping content rows would erase
+   // the user-prompt echo or the streamed reply. Wipe range:
+   //   [ max(oldBoxTop, contentRow) .. newBoxTop - 1 ]
+   // -- rows above the new box that lost their old frame and have no new
+   // content. Rows oldBoxTop..contentRow-1 were already overwritten by
+   // content; rows newBoxTop..newBoxTop+3 are about to be repainted.
    IF nOldBoxTop > 0 .AND. nOldBoxTop < hReg[ "box_top" ]
       cWipe := ""
-      FOR i := nOldBoxTop TO hReg[ "box_top" ] - 1
-         cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
-      NEXT
-      // also clear any of the four old box rows that lie beyond the new
-      // box's bottom, in case the box shifted down further than 4 rows
-      FOR i := Max( hReg[ "box_top" ] + 4, nOldBoxTop + 4 ) TO nOldBoxTop + 3
+      FOR i := Max( nOldBoxTop, nContentRow ) TO hReg[ "box_top" ] - 1
          cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
       NEXT
       IF !Empty( cWipe )
