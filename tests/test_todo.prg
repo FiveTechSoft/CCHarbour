@@ -38,4 +38,37 @@ FUNCTION Test_Todo()
    CCTODO_Set( {} )
    T_Equal( CCTODO_HasOpen(), .F., "todo: empty list -> no open" )
 
+   // --- new fields: id, active_form, blocked_by ---
+   aNorm := CCTODO_Norm( { { "text" => "a", "status" => "in_progress", ;
+                             "id" => "t1", ;
+                             "active_form" => "Working on a", ;
+                             "blocked_by" => { "t0", "x" } } } )
+   T_Equal( aNorm[ 1 ][ "id" ], "t1", "todo: id preserved" )
+   T_Equal( aNorm[ 1 ][ "active_form" ], "Working on a", ;
+            "todo: active_form preserved" )
+   T_Equal( Len( aNorm[ 1 ][ "blocked_by" ] ), 2, ;
+            "todo: blocked_by preserved" )
+
+   aNorm := CCTODO_Norm( { { "text" => "a", "status" => "pending" } } )
+   T_Equal( aNorm[ 1 ][ "id" ], "", "todo: missing id defaults to empty" )
+   T_Equal( aNorm[ 1 ][ "active_form" ], "", ;
+            "todo: missing active_form defaults to empty" )
+   T_Equal( Len( aNorm[ 1 ][ "blocked_by" ] ), 0, ;
+            "todo: missing blocked_by defaults to empty array" )
+
+   // --- CCTODO_IsBlocked ---
+   aList := CCTODO_Norm( { ;
+      { "text" => "build", "status" => "pending", "id" => "build" }, ;
+      { "text" => "test",  "status" => "pending", "id" => "test", ;
+        "blocked_by" => { "build" } } } )
+   T_Equal( CCTODO_IsBlocked( aList[ 2 ], aList ), .T., ;
+            "todo: depends on pending blocker -> blocked" )
+   aList[ 1 ][ "status" ] := "completed"
+   T_Equal( CCTODO_IsBlocked( aList[ 2 ], aList ), .F., ;
+            "todo: depends on completed blocker -> not blocked" )
+
+   T_Equal( CCTODO_IsBlocked( ;
+      { "text" => "x", "status" => "pending" }, aList ), .F., ;
+      "todo: missing blocked_by key -> not blocked" )
+
    RETURN NIL

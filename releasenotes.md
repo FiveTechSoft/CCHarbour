@@ -1,6 +1,29 @@
-CCHarbour v0.8.4 — Plan mode, expanded skill library, wider banner and input box.
+CCHarbour v0.8.5 — Richer todo_write: ids, blockers and present-continuous active labels.
 
-## New since v0.8.3
+## New since v0.8.4
+
+- **`todo_write` got three new optional fields:**
+  - **`id`** — a string identifier for the task. Other tasks can refer to
+    it from their `blocked_by` list to declare a dependency.
+  - **`active_form`** — the present-continuous label rendered in place of
+    `text` while that task is `in_progress` (e.g. `"Running tests"` instead
+    of `"Run tests"`).
+  - **`blocked_by`** — an array of `id` strings naming the tasks this one
+    depends on. If any of those is still pending or in_progress, the
+    blocked task renders indented, dimmed, with a `↳` glyph and the
+    `(blocked)` suffix; once every blocker is completed, it returns to its
+    normal style.
+- **Renderer upgrade** — `CCUI_TodoBlock` now honours `active_form` for
+  in_progress items and visually differentiates blocked items so the
+  dependency chain is obvious at a glance.
+- **Backwards compatible** — items that omit the new fields render
+  exactly as before.
+- **Tool description** carries a concrete example call so the model
+  picks up the new shape without extra prompting.
+
+## v0.8.4 — Plan mode, expanded skill library, wider banner and input box.
+
+### New since v0.8.3
 
 - **Plan mode (`/plan`)** — a new command puts the session in "plan mode":
   the `write`, `edit`, `shell` and `github_write` tools are locked at the

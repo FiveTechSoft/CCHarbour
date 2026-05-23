@@ -506,7 +506,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.4"
+   RETURN "0.8.5"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -618,20 +618,38 @@ FUNCTION CCUI_QuestionBlock( oSel )
 // in_progress = "■" (accent), pending = "□". Each line ends in LF. Pure.
 FUNCTION CCUI_TodoBlock( aTodos )
    LOCAL cOut := CCUI_Color( "Todos:", CCUI_Pal( "bold" ) ) + Chr(10)
-   LOCAL hItem, cGlyph
+   LOCAL hItem, cGlyph, cLabel, lBlocked
    LOCAL cDone := Chr(226) + Chr(136) + Chr(154)   // U+221A √
    LOCAL cProg := Chr(226) + Chr(150) + Chr(160)   // U+25A0 ■
    LOCAL cPend := Chr(226) + Chr(150) + Chr(161)   // U+25A1 □
+   LOCAL cLink := Chr(226) + Chr(134) + Chr(179)   // U+21B3 ↳
    FOR EACH hItem IN aTodos
+      // present-continuous label takes over while an item is in_progress
+      cLabel := hItem[ "text" ]
+      IF hItem[ "status" ] == "in_progress" .AND. ;
+         hb_HHasKey( hItem, "active_form" ) .AND. ;
+         !Empty( hItem[ "active_form" ] )
+         cLabel := hItem[ "active_form" ]
+      ENDIF
+      lBlocked := CCTODO_IsBlocked( hItem, aTodos ) .AND. ;
+                  hItem[ "status" ] != "completed"
       DO CASE
       CASE hItem[ "status" ] == "completed"
          cGlyph := CCUI_Color( cDone, CCUI_Pal( "dim" ) )
       CASE hItem[ "status" ] == "in_progress"
          cGlyph := CCUI_Color( cProg, CCUI_Pal( "accent" ) )
       OTHERWISE
-         cGlyph := cPend
+         cGlyph := iif( lBlocked, CCUI_Color( cLink, CCUI_Pal( "dim" ) ), ;
+                                   cPend )
       ENDCASE
-      cOut += "  " + cGlyph + " " + hItem[ "text" ] + Chr(10)
+      IF lBlocked
+         // indent blocked items and dim them so the dependency is visible
+         cOut += "    " + cGlyph + " " + ;
+                 CCUI_Color( cLabel + " (blocked)", CCUI_Pal( "dim" ) ) + ;
+                 Chr(10)
+      ELSE
+         cOut += "  " + cGlyph + " " + cLabel + Chr(10)
+      ENDIF
    NEXT
    RETURN cOut
 

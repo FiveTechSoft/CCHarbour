@@ -209,7 +209,7 @@ blocks). Parameters marked ★ are required; the rest are optional.
 | `github_write` | ask | Write to GitHub; needs `GITHUB_TOKEN`. `operation`★ (`create_issue`/`comment`/`create_pr`), `repo`★, `number`, `title`, `body`, `head`, `base`. |
 | `memory` | allow | The agent's persistent memory across sessions, stored in `memory.md`. `operation`★ (`append`/`read`/`clear`), `text` (entry to add, for `append`). |
 | `ask_user` | allow | Ask the user a multiple-choice question and return their selected answer. Renders an interactive selector (arrow keys or number, plus an "Other" free-text option). `question`★, `options`★ (2–4 choices). Never gated — asking is inherently consented. |
-| `todo_write` | allow | Maintain a persistent todo list across turns. `operation`★ (`set`/`update`/`clear`), `items` (new list, for `set`), `id`, `status`. |
+| `todo_write` | allow | Replace the visible session task list. `todos`★ (array of items); each item has `text`★, `status`★ (`pending`/`in_progress`/`completed`), and optional `id`, `active_form` (label shown while in_progress), and `blocked_by` (array of ids this task depends on). |
 | `use_skill` | allow | Activate a project skill from `.ccharbour/skills/`; returns the skill's body and pins its name to the status line. `name`★. |
 
 ## Disclaimer
@@ -327,7 +327,14 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.4 — current.** Plan mode (`/plan`) — locks write/edit/shell at the
+**v0.8.5 — current.** Richer `todo_write` — three new optional fields:
+`id` (task identifier), `active_form` (present-continuous label shown
+while an item is `in_progress`), and `blocked_by` (array of ids this
+task depends on). Blocked items render indented, dimmed, with a `↳`
+glyph and a `(blocked)` suffix; once every blocker is `completed` they
+return to their normal style. Backwards compatible.
+
+**v0.8.4 — previous.** Plan mode (`/plan`) — locks write/edit/shell at the
 permission gate, auto-activates the `writing-plans` skill, and shows a
 `[plan-mode]` badge in the status line; `/plan <text>` also dispatches
 `<text>` as the first planning prompt. Expanded skill library:
