@@ -1,7 +1,7 @@
 <h1 align="center">CCHarbour</h1>
 
 <p align="center">
-  <strong>A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary, written in Harbour.</strong>
+  <strong>A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary that runs on Windows, macOS and Linux, written in Harbour.</strong>
 </p>
 
 <p align="center">

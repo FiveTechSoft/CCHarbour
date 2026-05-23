@@ -26,7 +26,7 @@ hide:
 
 # CCHarbour
 
-<p class="tagline">A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary, written in Harbour.</p>
+<p class="tagline">A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary that runs on Windows, macOS and Linux, written in Harbour.</p>
 
 <p class="cc-cta">
 <a class="md-button md-button--primary" href="getting-started/">Get started</a>

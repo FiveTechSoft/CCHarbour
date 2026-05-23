@@ -1,5 +1,5 @@
 site_name: CCHarbour
-site_description: A Claude Code-style terminal coding assistant, in a single ~2 MB native binary, written in Harbour. Cross-platform (Windows / Linux / macOS), with subagents, skills, plan mode and a rich terminal UI.
+site_description: A Claude Code-style terminal coding assistant — multi-platform (Windows, macOS, Linux), in a single ~2 MB native binary, written in Harbour. Subagents, skills, plan mode, and a rich terminal UI.
 site_url: https://fivetechsoft.github.io/CCHarbour/
 repo_url: https://github.com/FiveTechSoft/CCHarbour
 repo_name: FiveTechSoft/CCHarbour
