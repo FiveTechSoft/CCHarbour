@@ -1,23 +1,69 @@
-# CCHarbour
+<h1 align="center">CCHarbour</h1>
 
-A terminal coding assistant — a Claude Code-style agent — written in
-[Harbour](https://harbour.github.io/). CCHarbour talks to an LLM, streams its
-replies, and lets the model use tools to read, write and edit files, search the
-project, and run shell commands, all from a single console executable.
+<p align="center">
+  <strong>A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary, written in Harbour.</strong>
+</p>
 
-**Documentation:** <https://fivetechsoft.github.io/CCHarbour/>  
-**Web Playground:** <https://fivetechsoft.github.io/CCHarbour/playground/>
+<p align="center">
+  <a href="https://github.com/FiveTechSoft/CCHarbour/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/FiveTechSoft/CCHarbour?style=flat-square&color=blue"></a>
+  <a href="https://github.com/FiveTechSoft/CCHarbour/actions/workflows/build.yml"><img alt="Windows build" src="https://img.shields.io/github/actions/workflow/status/FiveTechSoft/CCHarbour/build.yml?branch=master&label=windows&style=flat-square"></a>
+  <a href="https://github.com/FiveTechSoft/CCHarbour/actions/workflows/build-linux.yml"><img alt="Linux build" src="https://img.shields.io/github/actions/workflow/status/FiveTechSoft/CCHarbour/build-linux.yml?branch=master&label=linux&style=flat-square"></a>
+  <a href="https://github.com/FiveTechSoft/CCHarbour/actions/workflows/build-mac.yml"><img alt="macOS build" src="https://img.shields.io/github/actions/workflow/status/FiveTechSoft/CCHarbour/build-mac.yml?branch=master&label=macos&style=flat-square"></a>
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/github/license/FiveTechSoft/CCHarbour?style=flat-square"></a>
+</p>
+
+<p align="center">
+  <a href="https://fivetechsoft.github.io/CCHarbour/">📚&nbsp;Documentation</a>
+  &nbsp;·&nbsp;
+  <a href="https://fivetechsoft.github.io/CCHarbour/playground/">🌐&nbsp;Web&nbsp;Playground</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/FiveTechSoft/CCHarbour/releases/latest">⬇&nbsp;Download</a>
+  &nbsp;·&nbsp;
+  <a href="releasenotes.md">📝&nbsp;Release&nbsp;notes</a>
+</p>
 
 ```
-╭─────────────────────────────────────────────────────────────────────────────╮
-│                                        │ Tips for getting started           │
-│      Welcome to CCHarbour, Anto!       │                                    │
-│                \  |  /                 │ Type a request to begin            │
-│              -- (CC) --                │ Run /help to list commands         │
-│                /  |  \                 │ ────────────────────────────────── │
-│        model: deepseek-v4-flash        │ What's new ...                     │
-╰─────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                   Welcome back, Anto!                    │ Tips for getting started                                     │
+│                      ██████╗ ██████╗                     │                                                              │
+│                     ██╔════╝██╔════╝                     │ Type a request to begin                                      │
+│                     ██║     ██║                          │ Run /help to list commands                                   │
+│                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
+│                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
+│                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
+│                    CCHarbour  v0.8.8                     │ v0.8.8 — propose_agents + paste collapse + dynamic box       │
+│                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ > how is the codebase organised?                                                                                        │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  [superpowers] [tdd]
 ```
+
+## Why CCHarbour
+
+- 🦾 **Real agentic loop** — multi-iteration tool calls, streaming SSE, mid-turn interrupts, subagent dispatch.
+- 📦 **One file, ~2 MB** — single console executable, no Python / Node / Docker. Drop it on a server, on a USB stick, in a CI runner.
+- 🪟 **Truly cross-platform** — Windows (MSVC or mingw-w64), Linux (gcc), macOS (clang). The same Harbour source on every platform.
+- 🧠 **Skills & Plan mode** — drop a Markdown file under `.ccharbour/skills/` to give the agent a checklist; `/plan` locks file writes until you approve.
+- 🛡 **Permission gate** — `allow` / `ask` / `deny` per tool; `shell` and `edit` always prompt by default.
+- 🎯 **Subagents with a user gate** — `propose_agents` lets you review and approve batches of subagents before any of them runs.
+- 🪶 **Lean mode** — `/lean` trims the system prompt by ~500–800 tokens per turn for marathon sessions or pricey models.
+- ✂️ **Paste detection** — multi-line paste collapses to `[pasted N lines text]` so the box stays readable.
+
+## Quick start
+
+Download a release binary (Windows / Linux / macOS) from the
+[releases page](https://github.com/FiveTechSoft/CCHarbour/releases/latest),
+then:
+
+```sh
+export DEEPSEEK_API_KEY=sk-...        # or set on Windows: set DEEPSEEK_API_KEY=...
+./cc                                  # Linux / macOS  (or cc.exe on Windows)
+```
+
+That's it. Type a request and the agent goes to work.
 
 ## How it works
 
@@ -29,69 +75,37 @@ final answer or hits the iteration cap.
 The default backend is the [DeepSeek](https://api.deepseek.com) chat API
 (OpenAI-compatible).
 
-## Requirements
+## Building from source
 
 CCHarbour builds on **Windows, Linux and macOS**. The console layer has a
 native Win32 backend (`ccconsole.c`) and a shared POSIX backend
 (`ccconsole_posix.c`, termios/select); everything else is the same Harbour
 source on every platform.
 
-- **Harbour** 3.2 — `hbmk2` on `PATH`.
-- A C compiler:
-  - Windows — Visual Studio C++ toolchain (2019/2022 Build Tools) for
-    `build.bat`, or mingw-w64 (used by CI).
-  - Linux — gcc.
-  - macOS — clang (Xcode command-line tools).
+You need **Harbour 3.2** (`hbmk2` on `PATH`) and a C compiler:
 
-## Build
+| Platform | Toolchain                                      | Command                  |
+|----------|------------------------------------------------|--------------------------|
+| Windows  | MSVC (VS 2019 / 2022 Build Tools) or mingw-w64 | `build.bat`              |
+| Linux    | gcc                                            | `./build_cc_linux.sh`    |
+| macOS    | clang (Xcode CLT)                              | `hbmk2 cc_mac.hbp`       |
 
-### Windows
+> **Hot-swap (Windows):** `update_cc.bat` replaces `cc.exe` with a freshly
+> built `cc_new.exe` without needing to stop a running REPL session.
 
-```bat
-build.bat
-```
+## Configuration in 30 seconds
 
-`build.bat` locates a Visual Studio toolchain and forces dynamic-CRT linking —
-the shipped `msvc64` Harbour libraries were built against `/MD`, so a default
-static-CRT link leaves CRT import symbols unresolved. It produces `cc.exe`.
+1. **API key** — set `DEEPSEEK_API_KEY` (or put `{"api_key": "..."}` in
+   `.ccharbour/settings.json`). `DEEPSEEK_MODEL` overrides the model.
+2. **Project context** — drop a `CC.md` in the working directory and the
+   agent picks it up on every run.
+3. **Skills** — markdown files under `.ccharbour/skills/` (ship with
+   `superpowers`, `caveman`, `brainstorming`, `writing-plans`, `tdd`,
+   `debugging`, `code-review`).
+4. **Permissions** — edit `.ccharbour/settings.json` to flip any tool
+   between `allow`, `ask` and `deny`.
 
-**Hot-swap:** `update_cc.bat` replaces `cc.exe` with a freshly-built copy
-(`cc_new.exe`) without needing to stop a running REPL session.
-
-### Linux
-
-```sh
-./build_cc_linux.sh
-```
-
-Wraps `hbmk2 cc_linux.hbp` and produces `cc`. Needs Harbour and gcc.
-
-### macOS
-
-```sh
-hbmk2 cc_mac.hbp
-```
-
-Produces `cc`. Needs Harbour and clang.
-
-## Run
-
-```bat
-REM Windows
-set DEEPSEEK_API_KEY=sk-...
-cc.exe
-```
-
-```sh
-# Linux / macOS
-export DEEPSEEK_API_KEY=sk-...
-./cc
-```
-
-Optional: `cc <model>` overrides the model; `DEEPSEEK_MODEL` does the same
-via the environment.
-
-### Commands
+## Commands
 
 | Command         | Action                                          |
 |-----------------|-------------------------------------------------|
