@@ -26,8 +26,51 @@ export function createUI(handlers) {
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
+    input.classList.remove("suggestion");
     handlers.onSubmit(text);
   });
+
+  // Suggestion handling: typing any printable key clears the pre-fill;
+  // Tab accepts (just removes the dim style and keeps the value).
+  input.addEventListener("keydown", (e) => {
+    if (!input.classList.contains("suggestion")) return;
+    if (e.key === "Tab") {
+      e.preventDefault();
+      input.classList.remove("suggestion");
+      input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
+    // Any non-modifier printable key, Backspace or Delete clears the pre-fill
+    if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") {
+      input.value = "";
+      input.classList.remove("suggestion");
+    }
+  });
+
+  // --- tip pool ---
+  const TIPS = [
+    "Type /help to see what slash commands are available.",
+    "Drop your own checklist under .ccharbour/skills/ in the native build.",
+    "Use Tab to accept the model's Suggested-next prompt.",
+    "Settings stores keys in this browser's localStorage only.",
+    "The browser playground talks straight to the provider you configured.",
+    "Reset wipes the virtual project; your conversation continues.",
+    "Open the native binary for shell, subagents, plan-mode and lean-mode.",
+    "Models with cheaper input (kimi-k2) suit short-prompt + iterative work.",
+    "GLM-4.6 is currently the strongest open-weight code model.",
+    "Press Esc twice to clear the input box.",
+  ];
+  let tipIdx = Math.floor(Math.random() * TIPS.length);
+  function nextTip() {
+    tipIdx = (tipIdx + 1) % TIPS.length;
+    return TIPS[tipIdx];
+  }
+  function tipEl(text) {
+    const el = document.createElement("div");
+    el.className = "turn tip";
+    el.textContent = "💡 Tip: " + text;
+    return el;
+  }
 
   // --- settings panel ---
   $("settings-toggle").addEventListener("click", () => {
@@ -40,6 +83,15 @@ export function createUI(handlers) {
       model: $("model").value.trim() || "deepseek-v4-flash",
     });
     $("settings").classList.add("hidden");
+  });
+  $("settings-cancel").addEventListener("click", () => {
+    // close without saving; the displayed values are not committed back
+    $("settings").classList.add("hidden");
+    // restore the inputs from the last-saved config so reopening shows
+    // the live values, not the user's abandoned edits
+    if (typeof handlers.onCancelSettings === "function") {
+      handlers.onCancelSettings();
+    }
   });
   $("reset").addEventListener("click", () => handlers.onReset());
 
@@ -137,6 +189,27 @@ export function createUI(handlers) {
       input.disabled = busy;
       sendBtn.disabled = busy;
       if (!busy) input.focus();
+    },
+
+    // Pre-fill the input box with the model's Suggested-next prompt; the
+    // visible value renders dimmed/italic until the user accepts (Tab) or
+    // starts typing (which clears it).
+    setSuggestion(text) {
+      const t = String(text || "").trim();
+      if (!t) return;
+      input.value = t;
+      input.classList.add("suggestion");
+      input.setSelectionRange(0, t.length);
+    },
+    clearSuggestion() {
+      input.value = "";
+      input.classList.remove("suggestion");
+    },
+
+    // Drops a tip line into the scrollback. Cycles through the pool.
+    showTip(text) {
+      scrollback.appendChild(tipEl(text || nextTip()));
+      scrollback.scrollTop = scrollback.scrollHeight;
     },
   };
 }

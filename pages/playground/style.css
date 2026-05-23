@@ -509,6 +509,49 @@ button:disabled {
   box-shadow: none;
 }
 
+/* ── Suggestion pre-fill in the input ───────────────────────────────────── */
+#input.suggestion {
+  color: var(--accent-bright);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+/* ── Tip line in the scrollback ─────────────────────────────────────────── */
+.turn.tip {
+  color: var(--dim);
+  background: rgba(45,212,191,0.04);
+  border-left: 3px solid var(--accent-deep);
+  padding: 8px 12px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 12.5px;
+  font-style: italic;
+  margin: 0 0 14px;
+}
+
+/* ── Settings panel actions row ─────────────────────────────────────────── */
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.settings-actions button.ghost,
+button.ghost {
+  background: transparent;
+  color: var(--fg-d);
+  border: 1px solid var(--border);
+  font-weight: 500;
+  box-shadow: none;
+}
+.settings-actions button.ghost:hover,
+button.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: rgba(45,212,191,0.05);
+  transform: none;
+  box-shadow: none;
+}
+
 /* ── ask_user modal ─────────────────────────────────────────────────────── */
 .ask-overlay {
   position: fixed;

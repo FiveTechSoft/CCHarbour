@@ -17,6 +17,7 @@ let running = false;
 const ui = createUI({
   onSubmit: handleSubmit,
   onSaveSettings: handleSaveSettings,
+  onCancelSettings: handleCancelSettings,
   onReset: handleReset,
 });
 
@@ -24,6 +25,7 @@ ui.fillSettings(config);
 ui.addNotice("Welcome to the CCHarbour playground. " +
   (config.deepseekKey ? "Type a request to begin."
     : "Open Settings and add your DeepSeek API key to begin."));
+ui.showTip();
 if (!config.deepseekKey) ui.openSettings();
 
 function buildRegistryForRun() {
@@ -93,6 +95,10 @@ async function handleSubmit(text) {
       if (result.stopReason === "max_iterations") {
         ui.addNotice("[stopped: reached the iteration limit]");
       }
+      // Pre-fill the input with the model's "Suggested next:" prompt
+      // so the user can Tab-accept or just press Enter to send it.
+      const sg = extractSuggested(result.content || "");
+      if (sg) ui.setSuggestion(sg);
     } else {
       ui.addError(result.message || "the request failed");
     }
@@ -126,10 +132,30 @@ function handleSaveSettings(next) {
   ui.addNotice("Settings saved.");
 }
 
+function handleCancelSettings() {
+  // restore the inputs so reopening the panel shows the live values
+  ui.fillSettings(config);
+}
+
 function handleReset() {
   vfs = createVfs(DEMO_PROJECT);
   conversation = [{ role: "system", content: systemPrompt(vfs) }];
+  ui.clearSuggestion();
   ui.addNotice("Project and conversation reset.");
+  ui.showTip();
+}
+
+// Extracts the "Suggested next:" prompt from the final assistant text,
+// or returns "" when none is present. Matches the native CCMD capture:
+// the marker is case-insensitive and lives on its own line.
+function extractSuggested(text) {
+  if (!text) return "";
+  const lines = String(text).split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = lines[i].match(/^\s*suggested\s+next:\s*(.+?)\s*$/i);
+    if (m) return m[1];
+  }
+  return "";
 }
 
 // Sums the numeric token counts of `usage` into the accumulator `acc`.
