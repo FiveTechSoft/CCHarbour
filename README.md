@@ -389,7 +389,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.10 — current.** Dynamic input box position — the box starts
+**v0.8.11 — current.** Stability fixes for the dynamic input box:
+scroll region spans the full band regardless of box position,
+interactive selectors force-pin the box before painting, the
+wipe never erases the just-written user echo or streamed reply,
+visual-row counting accounts for auto-wrap, and every CCREPL_Out
+write clears to the end of each line so old frame chars cannot
+leak past the new content.
+
+**v0.8.10 — previous.** Dynamic input box position — the box starts
 right below the banner and "follows" the content down a row per
 agent reply line, only pinning to the floor when it reaches the
 bottom. Native CC logo renders with a per-character truecolor

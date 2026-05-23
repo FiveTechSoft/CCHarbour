@@ -1,6 +1,31 @@
-CCHarbour v0.8.10 — Dynamic input box, native CC logo gradient, banner adapts to terminal width, clean exit, playground polish.
+CCHarbour v0.8.11 — Dynamic input box stability fixes.
 
-## New since v0.8.9
+## New since v0.8.10
+
+- **Scroll region spans the full band** regardless of where the dynamic
+  box currently sits (`scroll_bottom = nFloor - 1` always), so an early
+  write between banner and box does not scroll content out of the
+  banner.
+- **Interactive selectors force-pin the box** before painting. ask_user
+  and propose_agents now call a new `CCPROMPT_ForcePin` that drops the
+  box to the floor first, giving the selector a stable position right
+  above it and avoiding overlap with a still-travelling box.
+- **Wipe never erases the just-written content.** The old-box-frame
+  wipe in `CCPROMPT_Redraw` is now clamped to
+  `[max(oldBoxTop, contentRow) .. newBoxTop - 1]`, so the rows that
+  hold the new user echo or the streamed reply are preserved.
+- **Visual-row counting (auto-wrap).** `CCREPL_Out` now advances
+  `content_row` by the visual rows a chunk consumes (LFs + wrapped
+  printable runs + ANSI sequences skipped), not just `\n` count, so a
+  long line that wraps doesn't sit under the redrawn box.
+- **Clear-to-end-of-line on every write.** Each line break in a
+  CCREPL_Out chunk is preceded by `ESC[K`; trailing junk on a row
+  (such as the right tail of the old box top frame) is wiped, so a
+  short content line never leaves a `> hola─────────╮` artifact.
+
+## v0.8.10 — Dynamic input box, native CC logo gradient, banner adapts to terminal width, clean exit, playground polish.
+
+### New since v0.8.9
 
 - **Dynamic input box position** — the box no longer hard-pins at the
   bottom of the terminal. After the banner paints it sits right below
