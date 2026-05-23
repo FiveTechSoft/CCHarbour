@@ -72,17 +72,29 @@ FUNCTION Main( cModel )
 // The interactive loop: read a line, dispatch, run the agent, repeat.
 FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    LOCAL aMsgs, cLine, hAction, aTurn, hRes, cMsg, cSuggest, lCooked, hLoaded, hTurn, oPrompt
+   LOCAL cBanner, nHeaderRows, i
    aMsgs    := { { "role" => "system", "content" => CCUI_SystemPrompt() } }
    cSuggest := ""
-   CCREPL_Out( CCUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) ) )
+   cBanner  := CCUI_Banner( cModel, hb_cwd(), hb_GetEnv( "USERNAME" ) )
+   nHeaderRows := 0
+   FOR i := 1 TO Len( cBanner )
+      IF SubStr( cBanner, i, 1 ) == Chr(10)
+         nHeaderRows++
+      ENDIF
+   NEXT
+   CCREPL_Out( cBanner )
    IF !Empty( CCUI_ProjectContext() )
       CCREPL_Out( CCUI_Color( "[loaded CC.md project instructions]", ;
                               "90" ) + Chr(10) )
+      nHeaderRows++
    ENDIF
    oPrompt := NIL
    IF CCCON_HasConsole() .AND. CCUI_ColorOn()
       oPrompt := CCPROMPT_New()
-      CCPROMPT_Activate( oPrompt )
+      // Start the scroll region just below the banner so the logo stays
+      // pinned at the top of the screen for a while and the first agent
+      // output appears right under it instead of jumping to the bottom.
+      CCPROMPT_Activate( oPrompt, nHeaderRows + 1 )
       s_oBoxPrompt := oPrompt
    ENDIF
    DO WHILE .T.
@@ -795,6 +807,7 @@ FUNCTION CCREPL_BoxActive()
 // normalised to CRLF: bypassing the GT also loses its LF -> CRLF translation,
 // and a Windows console needs the CR to return to column 0.
 FUNCTION CCREPL_Out( cText )
+   LOCAL nNL, i
    // Test the length, not Empty(): Empty() is true for a whitespace-only
    // string, so a streamed delta of just "\n" would be dropped and the line
    // break lost.
@@ -804,10 +817,28 @@ FUNCTION CCREPL_Out( cText )
       IF s_oBoxPrompt != NIL .AND. s_oBoxPrompt[ "region" ][ "active" ]
          // box mode: jump to the saved scroll-region anchor, write there,
          // re-save the anchor, then return the cursor to the input box so
-         // the visible cursor stays where the user is typing. One atomic
-         // write -> the terminal never renders the intermediate position.
+         // the visible cursor stays where the user is typing.
          FWrite( hb_GetStdOut(), ;
             Chr(27) + "[u" + cText + Chr(27) + "[s" + CCREPL_BoxCursorSeq() )
+         // While the box is still "travelling" (not yet pinned to the
+         // floor), advance content_row by the number of LFs we emitted
+         // and redraw so the box moves down to follow the content.
+         // Once content_row + 1 reaches the floor the region becomes
+         // pinned and from then on the LF-driven scroll inside the
+         // region takes over.
+         IF !hb_HGetDef( s_oBoxPrompt[ "region" ], "pinned", .F. )
+            nNL := 0
+            FOR i := 1 TO Len( cText )
+               IF SubStr( cText, i, 1 ) == Chr(10)
+                  nNL++
+               ENDIF
+            NEXT
+            IF nNL > 0
+               s_oBoxPrompt[ "content_row" ] := ;
+                  hb_HGetDef( s_oBoxPrompt, "content_row", 1 ) + nNL
+               CCPROMPT_Redraw( s_oBoxPrompt )
+            ENDIF
+         ENDIF
       ELSE
          FWrite( hb_GetStdOut(), cText )
       ENDIF

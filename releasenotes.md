@@ -1,6 +1,43 @@
-CCHarbour v0.8.9 — Multi-provider API support, modernised docs site, premium playground theme.
+CCHarbour v0.8.10 — Dynamic input box, native CC logo gradient, banner adapts to terminal width, clean exit, playground polish.
 
-## New since v0.8.8
+## New since v0.8.9
+
+- **Dynamic input box position** — the box no longer hard-pins at the
+  bottom of the terminal. After the banner paints it sits right below
+  the logo; each agent reply pushes it down one row per line. When the
+  box reaches the floor it "pins" and the scroll region takes over so
+  later output scrolls between the banner and the box. The banner stays
+  visible for as long as content allows.
+- **Native CC logo gradient** — the six-row block-drawing logo in the
+  banner renders with a per-character magenta → violet truecolor
+  gradient (fuchsia-300 → violet-600). Falls back to plain padding
+  when colour is off.
+- **Banner adapts to terminal width** — `CCUI_Banner` reads
+  `CCREPL_Cols()` and sizes its inner frame to fit, clamped to
+  [80, 200], with the left/right panels rebalanced so the logo stays
+  centred.
+- **Clean exit cursor** — `CCPROMPT_Teardown` now wipes the four box
+  rows and parks the cursor at `box_top` before returning. The shell
+  prompt that takes over appears right under the agent's last visible
+  output instead of below an orphan box.
+- **Playground premium UX additions** — a 💡 tip line cycled from a
+  pool of 10 entries (shown at startup and after Reset), a
+  Suggested-next pre-fill in the input (teal-italic; Tab accepts, any
+  printable key replaces, Enter sends), and a Close button on the
+  Settings panel that hides it without committing the typed values.
+  System prompt now instructs the agent to emit a `Suggested next:`
+  line, which the playground strips from the visible reply once it
+  has been lifted into the input.
+- **Playground subagents** — JS ports of `dispatch_agent` (reuses
+  `runAgent` with isolated messages + filtered tool registry) and
+  `propose_agents` (glass modal with checkbox per row, A/N bulk
+  toggle, Enter/Esc shortcuts). Browser toolset is now 14 tools.
+- **CC logo cyan → violet** in the playground (matched the native
+  gradient direction).
+
+## v0.8.9 — Multi-provider API support, modernised docs site, premium playground theme.
+
+### New since v0.8.8
 
 - **Multi-provider API keys** — `CCCFG_Resolve` now tries
   `DEEPSEEK_API_KEY` → `CCHARBOUR_API_KEY` → `GLM_API_KEY` /

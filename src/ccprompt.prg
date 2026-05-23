@@ -13,8 +13,14 @@ STATIC s_nLastKeyMs := 0
 
 // Builds a fresh prompt state. hSize is an optional { rows, cols } hash; when
 // omitted the console is queried with CCCON_Size(). region/editor/queue are
-// always present so the pure helpers work without a console.
-FUNCTION CCPROMPT_New( hSize )
+// always present so the pure helpers work without a console. scroll_top is
+// the first row of the scroll region (defaults to 1 — meaning "full screen
+// scrollable above the box"); pass a larger value to keep a header (e.g.
+// the banner) pinned at the top. content_row is the row where the next
+// agent output will land; it starts at scroll_top and grows down until the
+// box reaches the bottom of the screen, at which point the box pins to the
+// bottom and output starts scrolling inside the region.
+FUNCTION CCPROMPT_New( hSize, nTopRow )
    LOCAL nRows, nCols
    IF ValType( hSize ) == "H"
       nRows := hSize[ "rows" ]
@@ -24,20 +30,39 @@ FUNCTION CCPROMPT_New( hSize )
       nRows := hSize[ "rows" ]
       nCols := hSize[ "cols" ]
    ENDIF
-   RETURN { "editor"    => CCIN_New( "" ), ;
-            "queue"     => {}, ;
-            "interrupt" => NIL, ;
-            "region"    => CCPROMPT_Region( nRows, nCols ) }
+   nTopRow := iif( ValType( nTopRow ) == "N" .AND. nTopRow >= 1, nTopRow, 1 )
+   RETURN { "editor"      => CCIN_New( "" ), ;
+            "queue"       => {}, ;
+            "interrupt"   => NIL, ;
+            "scroll_top"  => nTopRow, ;
+            "content_row" => nTopRow, ;
+            "region"      => CCPROMPT_Region( nRows, nCols, nTopRow, nTopRow ) }
 
-// Computes the screen layout for a console of nRows x nCols. The box is the
-// bottom 3 rows; the scroll region is rows 1 .. nRows-3. A console shorter
+// Computes the screen layout for a console of nRows x nCols. box_top sits
+// at max( nContentRow + 1, nTopRow + 1 ), clamped to nRows - BOX_ROWS + 1
+// (the absolute floor). scroll_bottom = box_top - 1. While box_top is
+// above the floor the box "follows" the content; once it hits the floor
+// the box is pinned to the bottom and the scroll region (scroll_top..
+// scroll_bottom) takes over scrolling on overflow. A console shorter
 // than CCPROMPT_MIN_ROWS is reported inactive (the caller falls back).
-FUNCTION CCPROMPT_Region( nRows, nCols )
+FUNCTION CCPROMPT_Region( nRows, nCols, nContentRow, nTopRow )
+   LOCAL nFloor, nBoxTop
+   nTopRow := iif( ValType( nTopRow ) == "N" .AND. nTopRow >= 1, nTopRow, 1 )
+   nFloor  := nRows - CCPROMPT_BOX_ROWS + 1
+   // default nContentRow keeps the box pinned at its floor -- preserves
+   // the original layout for callers that don't track content position
+   nContentRow := iif( ValType( nContentRow ) == "N" .AND. nContentRow >= 1, ;
+                       nContentRow, nFloor - 1 )
+   nBoxTop := nContentRow + 1
+   IF nBoxTop < nTopRow + 1  ; nBoxTop := nTopRow + 1  ; ENDIF
+   IF nBoxTop > nFloor       ; nBoxTop := nFloor       ; ENDIF
    RETURN { "rows"          => nRows, ;
             "cols"          => nCols, ;
             "active"        => ( nRows >= CCPROMPT_MIN_ROWS ), ;
-            "scroll_bottom" => nRows - CCPROMPT_BOX_ROWS, ;
-            "box_top"       => nRows - CCPROMPT_BOX_ROWS + 1 }
+            "scroll_top"    => nTopRow, ;
+            "scroll_bottom" => nBoxTop - 1, ;
+            "box_top"       => nBoxTop, ;
+            "pinned"        => ( nBoxTop == nFloor ) }
 
 // True when cText is a paste-collapse placeholder of the form
 // "[pasted N lines text]".
@@ -89,21 +114,35 @@ STATIC FUNCTION CCPROMPT_Raw( cText )
    FWrite( hb_GetStdOut(), cText )
    RETURN NIL
 
-// Activates the pinned box: sets the VT scroll region to rows 1..scroll_bottom
-// so agent output scrolls above the box, parks the cursor at the bottom of
-// that region, and draws the (empty) box. No-op when the region is inactive
-// (small console / fallback).
-FUNCTION CCPROMPT_Activate( oPrompt )
-   LOCAL hReg := oPrompt[ "region" ]
+// Activates the pinned box: sets the VT scroll region to
+// rows nTopRow..scroll_bottom so agent output scrolls only inside that
+// window. nTopRow defaults to 1 (full screen scrollable above the box);
+// pass a larger value to keep a header (e.g. the banner) pinned at the
+// top -- the cursor is then parked at nTopRow, so the first agent
+// output lands right under the header instead of at the bottom.
+// No-op when the region is inactive (small console / fallback).
+FUNCTION CCPROMPT_Activate( oPrompt, nTopRow )
+   LOCAL hSz, hReg
+   hSz := CCCON_Size()
+   nTopRow := iif( ValType( nTopRow ) == "N" .AND. nTopRow >= 1 .AND. ;
+                   nTopRow < hSz[ "rows" ] - CCPROMPT_BOX_ROWS, nTopRow, 1 )
+   oPrompt[ "scroll_top" ]  := nTopRow
+   oPrompt[ "content_row" ] := nTopRow
+   oPrompt[ "region" ] := CCPROMPT_Region( hSz[ "rows" ], hSz[ "cols" ], ;
+                                           nTopRow, nTopRow )
+   hReg := oPrompt[ "region" ]
    IF !hReg[ "active" ]
       RETURN oPrompt
    ENDIF
-   // ESC[1;<bottom>r  -> set scroll region; cursor then homes to (1,1)
-   CCPROMPT_Raw( Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" )
-   // park the cursor on the last row of the scroll region and save it as the
-   // initial output anchor (CCREPL_Out restores to it before each write)
-   CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + ";1H" )
+   // park the cursor at the top of the scroll region and save it as the
+   // initial output anchor; the box sits one row below until the content
+   // grows enough to push it down to the floor
+   CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( nTopRow ) ) + ";1H" )
    CCPROMPT_Raw( Chr(27) + "[s" )
+   // arm the scroll region too so an early burst that overshoots the
+   // dynamic box position scrolls cleanly into the box's eventual floor
+   CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( nTopRow ) ) + ";" + ;
+                 LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" )
    CCPROMPT_Redraw( oPrompt )
    RETURN oPrompt
 
@@ -137,14 +176,35 @@ FUNCTION CCPROMPT_Teardown( oPrompt )
 // cursor sits inside the box where the user types. The output anchor (the
 // ESC[s slot, owned by CCREPL_Out) is deliberately not touched here.
 FUNCTION CCPROMPT_Redraw( oPrompt )
-   LOCAL hReg, hW, hSz, aBadges
+   LOCAL hReg, hW, hSz, aBadges, nTopRow, nContentRow, nOldBoxTop, i, cWipe
    hSz := CCCON_Size()
-   oPrompt[ "region" ] := CCPROMPT_Region( hSz[ "rows" ], hSz[ "cols" ] )
+   nTopRow     := hb_HGetDef( oPrompt, "scroll_top",  1 )
+   nContentRow := hb_HGetDef( oPrompt, "content_row", nTopRow )
+   nOldBoxTop  := hb_HGetDef( oPrompt, "last_box_top", 0 )
+   oPrompt[ "region" ] := CCPROMPT_Region( hSz[ "rows" ], hSz[ "cols" ], ;
+                                           nContentRow, nTopRow )
    hReg := oPrompt[ "region" ]
    IF !hReg[ "active" ]
       RETURN oPrompt
    ENDIF
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
+   // When the box has moved DOWN since the last paint (dynamic mode),
+   // wipe the rows it vacated so the old frame chars don't linger.
+   IF nOldBoxTop > 0 .AND. nOldBoxTop < hReg[ "box_top" ]
+      cWipe := ""
+      FOR i := nOldBoxTop TO hReg[ "box_top" ] - 1
+         cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
+      NEXT
+      // also clear any of the four old box rows that lie beyond the new
+      // box's bottom, in case the box shifted down further than 4 rows
+      FOR i := Max( hReg[ "box_top" ] + 4, nOldBoxTop + 4 ) TO nOldBoxTop + 3
+         cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
+      NEXT
+      IF !Empty( cWipe )
+         CCPROMPT_Raw( cWipe )
+      ENDIF
+   ENDIF
+   oPrompt[ "last_box_top" ] := hReg[ "box_top" ]
    // combine plan-mode and active skills into one status-line badge list
    aBadges := CCSKILL_Active()
    IF CCREPL_PlanMode()
@@ -153,15 +213,24 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    IF CCREPL_LeanMode()
       hb_AIns( aBadges, 1, "lean", .T. )
    ENDIF
+   // wipe the four rows above the box's new position so the previous
+   // frame does not bleed when the box moves down a row; only needed
+   // while the box is still travelling (not yet pinned).
+   IF !hReg[ "pinned" ] .AND. hReg[ "box_top" ] >= nTopRow + 1
+      // do not wipe -- pre-existing agent output may live in those rows.
+      // The box will be painted on top by the writes below.
+   ENDIF
    CCPROMPT_Raw( ;
-      Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
-      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
-      CCUI_FrameTop() + Chr(13) + Chr(10) + ;
+      Chr(27) + "[" + LTrim( Str( hReg[ "scroll_top" ] ) ) + ";" + ;
+                     LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ;   // scroll region
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ;       // to box row 1
+      Chr(27) + "[2K" + CCUI_FrameTop() + Chr(13) + Chr(10) + ;
+      Chr(27) + "[2K" + ;
       iif( CCIN_HasSuggestion( oPrompt[ "editor" ] ), ;
           CCUI_InputBoxSuggestion( hW[ "text" ] ), ;
           CCUI_InputBoxLine( hW[ "text" ] ) ) + Chr(13) + Chr(10) + ;
-      CCUI_FrameBottom() + Chr(13) + Chr(10) + ;
-      CCUI_SkillsStatusLine( aBadges, hReg[ "cols" ] ) + ;
+      Chr(27) + "[2K" + CCUI_FrameBottom() + Chr(13) + Chr(10) + ;
+      Chr(27) + "[2K" + CCUI_SkillsStatusLine( aBadges, hReg[ "cols" ] ) + ;
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
               LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
    RETURN oPrompt

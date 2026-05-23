@@ -389,7 +389,17 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.9 — current.** Multi-provider API keys — `CCCFG_Resolve` tries
+**v0.8.10 — current.** Dynamic input box position — the box starts
+right below the banner and "follows" the content down a row per
+agent reply line, only pinning to the floor when it reaches the
+bottom. Native CC logo renders with a per-character truecolor
+gradient (magenta → violet). Banner width adapts to the terminal
+columns. Clean exit cursor (wipes the box rows and parks cursor
+at box_top before returning). Playground gains a tip line,
+Suggested-next pre-fill, Settings Close button, and JS ports of
+`dispatch_agent` + `propose_agents`.
+
+**v0.8.9 — previous.** Multi-provider API keys — `CCCFG_Resolve` tries
 `DEEPSEEK_API_KEY` → `CCHARBOUR_API_KEY` → `GLM_API_KEY` →
 `MOONSHOT_API_KEY` → `OPENAI_API_KEY` → `settings.json`. Any
 OpenAI-compatible endpoint works once `base_url` and `model` are set.
