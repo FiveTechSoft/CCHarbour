@@ -192,7 +192,7 @@ skills shipped: `superpowers` (brainstorm → plan → execute → verify) and
 
 ## Tools
 
-The agent works through these fourteen tools. Each is gated by the
+The agent works through these fifteen tools. Each is gated by the
 permission shown (`allow` runs without asking, `ask` prompts, `deny`
 blocks). Parameters marked ★ are required; the rest are optional.
 
@@ -212,6 +212,7 @@ blocks). Parameters marked ★ are required; the rest are optional.
 | `ask_user` | allow | Ask the user a multiple-choice question and return their selected answer. Renders an interactive selector (arrow keys or number, plus an "Other" free-text option). `question`★, `options`★ (2–4 choices). Never gated — asking is inherently consented. |
 | `todo_write` | allow | Replace the visible session task list. `todos`★ (array of items); each item has `text`★, `status`★ (`pending`/`in_progress`/`completed`), and optional `id`, `active_form` (label shown while in_progress), and `blocked_by` (array of ids this task depends on). |
 | `use_skill` | allow | Activate a project skill from `.ccharbour/skills/`; returns the skill's body and pins its name to the status line. `name`★. |
+| `dispatch_agent` | allow | Spawn an isolated subagent on a focused subtask; returns only its final reply. `prompt`★, `agent_type` (`explore` read-only / `general` full toolset; default `explore`). |
 
 ## Disclaimer
 
@@ -328,7 +329,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.6 — current.** `/lean` — token-saving mode. The system prompt is
+**v0.8.7 — current.** `dispatch_agent` — the agent can spawn an isolated
+subagent on a focused subtask. The subagent has its own conversation
+and a filtered tool registry; the parent only receives the final reply,
+so its context stays small. Two agent types: `explore` (read-only) and
+`general` (full toolset, no further dispatch). No recursion (the
+subagent's registry strips `dispatch_agent`). Synchronous v1; parallel
+multi-agent dispatch comes later.
+
+**v0.8.6 — previous.** `/lean` — token-saving mode. The system prompt is
 trimmed (no skills section, no `CC.md`, no `memory.md`, no narration
 block); per-turn input drops by ~500-800 tokens. A `[lean]` badge shows
 in the status line. Toggle with `/lean off`.

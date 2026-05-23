@@ -22,6 +22,30 @@ FUNCTION CCTOOLS_Registry( hKeys )
    CCTOOLS_Register( oReg, CCTool_AskUser() )
    CCTOOLS_Register( oReg, CCTool_TodoWrite() )
    CCTOOLS_Register( oReg, CCTool_UseSkill() )
+   CCTOOLS_Register( oReg, CCTool_DispatchAgent() )
+   RETURN oReg
+
+// Strips a tool registry down to the set allowed for a subagent of the
+// given type. Always removes dispatch_agent so a subagent cannot spawn its
+// own subagent (no recursion). For "explore", keeps read-only tools only.
+// For "general", keeps everything except dispatch_agent.
+FUNCTION CCTOOLS_FilterForAgent( oReg, cType )
+   LOCAL aRemove := { "dispatch_agent" }, cKey
+   LOCAL aKeepExplore := { "read", "glob", "grep", "github_read", ;
+                           "memory", "use_skill" }
+   IF cType == "explore"
+      FOR EACH cKey IN hb_HKeys( oReg )
+         IF AScan( aKeepExplore, {| c | c == cKey } ) == 0 .AND. ;
+            AScan( aRemove, {| c | c == cKey } ) == 0
+            AAdd( aRemove, cKey )
+         ENDIF
+      NEXT
+   ENDIF
+   FOR EACH cKey IN aRemove
+      IF hb_HHasKey( oReg, cKey )
+         hb_HDel( oReg, cKey )
+      ENDIF
+   NEXT
    RETURN oReg
 
 // Adds a tool record to the registry, keyed by its name.

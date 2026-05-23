@@ -1,6 +1,31 @@
-CCHarbour v0.8.6 — Lean mode (`/lean`) for token-saving sessions.
+CCHarbour v0.8.7 — Subagents: dispatch_agent tool with isolated context and filtered tool registry.
 
-## New since v0.8.5
+## New since v0.8.6
+
+- **`dispatch_agent` tool** — the agent can now spawn an isolated
+  subagent on a self-contained subtask. The subagent has its own
+  conversation, its own (filtered) tool registry, and the parent only
+  receives the subagent's final reply. The parent's context stays small
+  while exploration / multi-file searches / focused investigations run
+  in the subagent.
+- **Two agent types:**
+  - `explore` (default) — read-only toolset: `read`, `glob`, `grep`,
+    `github_read`, `memory`, `use_skill`. Cannot modify the codebase or
+    run shell commands. Ideal for "where is X used?" and survey tasks.
+  - `general` — full toolset (write, edit, shell, github_write, web_*,
+    todo_write, ask_user). Subagent can perform real work in isolation.
+- **No recursion** — `dispatch_agent` is always filtered out of a
+  subagent's registry, so a subagent cannot spawn another one (yet).
+- **Inherently consented** — `dispatch_agent`, like `use_skill`,
+  `ask_user` and `todo_write`, bypasses the permission gate; the user
+  asked for the work, the agent just delegates a piece of it.
+- **Synchronous v1** — the parent blocks until the subagent finishes.
+  Parallel multi-agent dispatch is a future enhancement once the thread
+  model is in place.
+
+## v0.8.6 — Lean mode (`/lean`) for token-saving sessions.
+
+### New since v0.8.5
 
 - **`/lean`** — toggles lean-mode. While active, `CCUI_SystemPrompt`
   returns a minimal prompt (no skills section, no `CC.md`, no `memory.md`,

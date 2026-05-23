@@ -21,8 +21,11 @@ STATIC FUNCTION CCPERM_CloneModes( hPermissions )
 // Decides allow/deny for one call; "a" upgrades the tool to allow for the session.
 STATIC FUNCTION CCPERM_Decide( hPerm, bInner, bAsk, cName, cArgsJson )
    LOCAL cMode, cAns
-   // ask_user / todo_write only drive the UI -- inherently consented, never gated
-   IF cName == "ask_user" .OR. cName == "todo_write"
+   // ask_user / todo_write only drive the UI; use_skill and dispatch_agent
+   // are dispatchers of work the user already requested -- inherently
+   // consented, never gated
+   IF cName == "ask_user" .OR. cName == "todo_write" .OR. ;
+      cName == "use_skill" .OR. cName == "dispatch_agent"
       RETURN Eval( bInner, cName, cArgsJson )
    ENDIF
    // Plan mode locks every codebase-mutating or shell-running tool until the

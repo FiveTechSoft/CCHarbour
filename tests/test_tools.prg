@@ -178,9 +178,9 @@ FUNCTION Test_Tools()
    cRes := Eval( bExec, "shell", hb_jsonEncode( { "command" => "ping -n 2 127.0.0.1" } ) )
    T_Assert( "[exit code:" $ cRes, "tools: shell auto-estimate (B) finishes ping -n 2" )
 
-   // end-to-end: the default registry exposes all fourteen builtin tools
+   // end-to-end: the default registry exposes all fifteen builtin tools
    aSchemas := CCTOOLS_Schemas( CCTOOLS_Registry() )
-   T_Equal( Len( aSchemas ), 14, "tools: registry has fourteen builtins" )
+   T_Equal( Len( aSchemas ), 15, "tools: registry has fifteen builtins" )
    T_Assert( FindSchema( aSchemas, "read" )  != NIL, "tools: builtin read" )
    T_Assert( FindSchema( aSchemas, "write" ) != NIL, "tools: builtin write" )
    T_Assert( FindSchema( aSchemas, "edit" )  != NIL, "tools: builtin edit" )

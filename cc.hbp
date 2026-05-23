@@ -16,6 +16,7 @@ src/cctools_memory.prg
 src/cctools_ask.prg
 src/cctools_todo.prg
 src/cctools_skill.prg
+src/cctools_dispatch.prg
 src/ccdiff.prg
 src/ccsettings.prg
 src/ccperm.prg
