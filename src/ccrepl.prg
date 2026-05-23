@@ -43,11 +43,15 @@ FUNCTION Main( cModel )
    IF Empty( cModel )
       cModel := hSet[ "model" ]
    ENDIF
+   // No-key path: still start the REPL so the user can use /provider to
+   // configure a backend. The actual chat call later will fail clearly
+   // if a turn is dispatched without a key.
    hCfg := CCCFG_Resolve( {=>} )
    IF !hCfg[ "ok" ]
-      CCREPL_Out( "Error: no API key. Set DEEPSEEK_API_KEY." + Chr(10) )
-      ErrorLevel( 1 )
-      RETURN NIL
+      CCREPL_Out( CCUI_Color( "[no API key configured -- type /provider to " + ;
+                              "set up a provider (deepseek/glm/moonshot/openai), " + ;
+                              "or export DEEPSEEK_API_KEY before starting]", ;
+                              "33" ) + Chr(10) )
    ENDIF
    oClient := CC_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ] } )
    oReg    := CCTOOLS_Registry( { ;
@@ -174,6 +178,17 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_ActivateSkill( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "lean"
          CCREPL_ToggleLean( hAction[ "text" ], aMsgs, oPrompt )
+      CASE hAction[ "type" ] == "provider"
+         hLoaded := CCREPL_HandleProvider( hAction[ "text" ], oPrompt )
+         IF ValType( hLoaded ) == "H"
+            IF hb_HHasKey( hLoaded, "model" ) .AND. !Empty( hLoaded[ "model" ] )
+               cModel := hLoaded[ "model" ]
+            ENDIF
+            IF hb_HGetDef( hLoaded, "rebuild_client", .F. )
+               oClient := CC_Client( { "model" => cModel, ;
+                  "base_url" => CCSETTINGS_Load()[ "base_url" ] } )
+            ENDIF
+         ENDIF
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -188,6 +203,12 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             ENDIF
          ENDIF
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
+         IF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
+            CCREPL_Out( CCUI_Color( "[no API key configured -- type " + ;
+               "/provider for the list of backends, or set a key via " + ;
+               "/provider key <secret>]", "33" ) + Chr(10) )
+            LOOP
+         ENDIF
          cMsg := iif( hAction[ "type" ] == "init", ;
                       CCUI_InitPrompt(), hAction[ "text" ] )
          CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
@@ -285,6 +306,111 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_Out( Chr(10) )
    ENDIF
    RETURN { "result" => hRes, "render" => oRender }
+
+// Implements /provider — switches the active backend / model / API key.
+// Usage:
+//   /provider                       show current state + presets
+//   /provider deepseek|glm|moonshot|openai
+//                                  apply preset base_url + default model
+//   /provider key <secret>         store the API key in settings.json
+//   /provider model <name>         switch the model
+//   /provider clear                wipe the stored API key
+// Returns NIL or a hash with optional fields: { model, rebuild_client }.
+STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
+   LOCAL cMode, cRest, hSet, hPresets, hUpd := {=>}, cMsg
+   LOCAL nSpace
+   cArg := AllTrim( hb_CStr( cArg ) )
+   nSpace := At( " ", cArg )
+   IF nSpace > 0
+      cMode := Lower( Left( cArg, nSpace - 1 ) )
+      cRest := AllTrim( SubStr( cArg, nSpace + 1 ) )
+   ELSE
+      cMode := Lower( cArg )
+      cRest := ""
+   ENDIF
+   hSet := CCSETTINGS_Load()
+   hPresets := { ;
+      "deepseek" => { "base_url" => "https://api.deepseek.com", ;
+                      "model"    => "deepseek-v4-flash", ;
+                      "env"      => "DEEPSEEK_API_KEY" }, ;
+      "glm"      => { "base_url" => "https://open.bigmodel.cn/api/paas/v4", ;
+                      "model"    => "glm-4.6", ;
+                      "env"      => "GLM_API_KEY" }, ;
+      "moonshot" => { "base_url" => "https://api.moonshot.cn/v1", ;
+                      "model"    => "kimi-k2", ;
+                      "env"      => "MOONSHOT_API_KEY" }, ;
+      "openai"   => { "base_url" => "https://api.openai.com/v1", ;
+                      "model"    => "gpt-5", ;
+                      "env"      => "OPENAI_API_KEY" } }
+   DO CASE
+   CASE Empty( cMode )
+      CCREPL_Out( CCUI_Color( "Current provider:", "1" ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( "  base_url: " + hSet[ "base_url" ], "90" ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( "  model:    " + hSet[ "model" ], "90" ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( "  api_key:  " + ;
+         iif( Empty( CCCFG_Resolve( {=>} )[ "api_key" ] ), ;
+              "(none -- run /provider key <secret>)", "(set)" ), "90" ) + Chr(10) )
+      CCREPL_Out( Chr(10) + CCUI_Color( "Presets:", "1" ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( ;
+         "  /provider deepseek   -> api.deepseek.com  / deepseek-v4-flash" + Chr(10) + ;
+         "  /provider glm        -> open.bigmodel.cn  / glm-4.6" + Chr(10) + ;
+         "  /provider moonshot   -> api.moonshot.cn   / kimi-k2" + Chr(10) + ;
+         "  /provider openai     -> api.openai.com    / gpt-5" + Chr(10) + ;
+         Chr(10) + ;
+         "  /provider key <secret>   -- save the API key in settings.json" + Chr(10) + ;
+         "  /provider model <name>   -- switch the model only" + Chr(10) + ;
+         "  /provider clear          -- wipe the stored API key", "90" ) + Chr(10) )
+   CASE hb_HHasKey( hPresets, cMode )
+      hSet[ "base_url" ] := hPresets[ cMode ][ "base_url" ]
+      hSet[ "model" ]    := hPresets[ cMode ][ "model" ]
+      CCSETTINGS_Save( hSet )
+      hUpd[ "model" ] := hSet[ "model" ]
+      hUpd[ "rebuild_client" ] := .T.
+      cMsg := "[provider -> " + cMode + "  (" + hSet[ "base_url" ] + " / " + ;
+              hSet[ "model" ] + ")]"
+      IF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
+         cMsg += " -- now set the key with /provider key <secret> or " + ;
+                 "export " + hPresets[ cMode ][ "env" ]
+      ENDIF
+      CCREPL_Out( CCUI_Color( cMsg, CCUI_Pal( "accent" ) ) + Chr(10) )
+   CASE cMode == "key"
+      IF Empty( cRest )
+         CCREPL_Out( CCUI_Color( "Usage: /provider key <secret>", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      hSet[ "api_key" ] := cRest
+      CCSETTINGS_Save( hSet )
+      CCREPL_Out( CCUI_Color( "[api key saved to settings.json]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   CASE cMode == "model"
+      IF Empty( cRest )
+         CCREPL_Out( CCUI_Color( "Usage: /provider model <name>", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      hSet[ "model" ] := cRest
+      CCSETTINGS_Save( hSet )
+      hUpd[ "model" ] := cRest
+      hUpd[ "rebuild_client" ] := .T.
+      CCREPL_Out( CCUI_Color( "[model -> " + cRest + "]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   CASE cMode == "clear" .OR. cMode == "off"
+      IF hb_HHasKey( hSet, "api_key" )
+         hb_HDel( hSet, "api_key" )
+      ENDIF
+      CCSETTINGS_Save( hSet )
+      CCREPL_Out( CCUI_Color( "[api key wiped from settings.json]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+   OTHERWISE
+      CCREPL_Out( CCUI_Color( "Unknown /provider sub-command. Type " + ;
+         "/provider for the list.", CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN NIL
+   ENDCASE
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN iif( Empty( hUpd ), NIL, hUpd )
 
 // Implements /lean — toggles lean-mode. While on, CCUI_SystemPrompt returns
 // a minimal version of the prompt (no skills section, no CC.md, no

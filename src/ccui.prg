@@ -32,6 +32,9 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "plan", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/lean" .OR. Left( cLow, 6 ) == "/lean "
       RETURN { "type" => "lean", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/provider" .OR. Left( cLow, 10 ) == "/provider "
+      RETURN { "type" => "provider", ;
+               "text" => AllTrim( SubStr( cTrim, 10 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -1009,6 +1012,8 @@ FUNCTION CCUI_Help()
           "  /plan cancel   drop the plan and exit plan mode" + Chr(10) + ;
           "  /lean          enter lean mode (trim system prompt, save tokens)" + Chr(10) + ;
           "  /lean off      restore the full system prompt" + Chr(10) + ;
+          "  /provider      show / switch backend (deepseek/glm/moonshot/openai)" + Chr(10) + ;
+          "  /provider key  store the API key for the current backend" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

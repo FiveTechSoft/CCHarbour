@@ -64,3 +64,16 @@ STATIC FUNCTION CCSETTINGS_Create( cPath, hSet )
    ENDIF
    hb_MemoWrit( cPath, hb_jsonEncode( hSet, .T. ) )
    RETURN NIL
+
+// Persists hSet to the same path CCSETTINGS_Load would read from. Public
+// wrapper around CCSETTINGS_Create for handlers that need to update the
+// file at runtime (notably the /provider command).
+FUNCTION CCSETTINGS_Save( hSet, cPath )
+   IF Empty( cPath )
+      cPath := hb_GetEnv( "CCHARBOUR_CONFIG" )
+   ENDIF
+   IF Empty( cPath )
+      cPath := ".ccharbour" + hb_ps() + "settings.json"
+   ENDIF
+   CCSETTINGS_Create( cPath, hSet )
+   RETURN NIL
