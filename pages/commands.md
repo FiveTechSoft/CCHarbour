@@ -10,6 +10,7 @@ assistant.
 | `/model [name]` | show the current model, or switch to `<name>`   |
 | `/clear`        | wipe the screen and reset the conversation      |
 | `/caveman`      | activate the caveman skill (terse replies)      |
+| `/plan [text]`  | enter plan mode (locks write/edit/shell)        |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -72,6 +73,25 @@ and skills currently active in the status line.
 terse, fragment-style replies (code and command output stay verbatim). The skill
 name shows up in the status line under the input box. Cancel by `/clear` or by
 asking the model to "stop caveman" / "normal mode".
+
+## /plan
+
+`/plan` puts the session into plan mode: the permission gate locks the
+`write`, `edit`, `shell` and `github_write` tools, the `writing-plans` skill
+is auto-activated, and the status line shows a `[plan-mode]` badge. The agent
+can still read, glob, grep, fetch, search and use memory while it plans, but
+cannot modify the codebase or run commands. Forms:
+
+- `/plan` — enter plan mode and wait for the next message.
+- `/plan <text>` — enter plan mode AND submit `<text>` as the first planning
+  prompt.
+- `/plan accept` (alias `/plan go` / `/plan approve`) — exit plan mode and
+  add a system note telling the agent to proceed step by step.
+- `/plan cancel` (alias `/plan off`) — exit plan mode and tell the agent to
+  drop the plan and wait for the next instruction.
+
+Use it for non-trivial work where you want to review the approach before any
+file is touched.
 
 ## /btw
 

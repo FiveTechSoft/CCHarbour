@@ -103,6 +103,7 @@ via the environment.
 | `/save [file]`  | save the conversation to disk                   |
 | `/load [file]`  | load a saved conversation                       |
 | `/caveman`      | activate the caveman skill (ultra-compressed terse replies) |
+| `/plan [text]`  | enter plan mode (locks write/edit/shell); `/plan accept` proceeds, `/plan cancel` drops |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -326,7 +327,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.3 — current.** Unified tool-call block (cyan-violet rule, label,
+**v0.8.4 — current.** Plan mode (`/plan`) — locks write/edit/shell at the
+permission gate, auto-activates the `writing-plans` skill, and shows a
+`[plan-mode]` badge in the status line; `/plan <text>` also dispatches
+`<text>` as the first planning prompt. Expanded skill library:
+`brainstorming`, `writing-plans`, `tdd`, `debugging`, `code-review` (each
+with EN+ES auto-triggers). Banner and input box widened from 99 to 123
+columns (117 inside the box).
+
+**v0.8.3 — previous.** Unified tool-call block (cyan-violet rule, label,
 green command, soft-white narration) for every tool. `ask_user` selector
 gets its own absolute-positioned block: wrap-around Up/Down, no scroll
 jitter, prior model output preserved. Mid-question controls: Tab amends

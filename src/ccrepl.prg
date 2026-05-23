@@ -15,6 +15,11 @@ STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "�
 // to the input box, so the visible cursor stays inside the box.
 STATIC s_oBoxPrompt := NIL
 
+// .T. while the user has put the session in plan-mode (/plan). The permission
+// gate blocks write/edit/shell so the agent can plan freely without touching
+// the codebase. Cleared by /plan accept (proceed) or /plan cancel (drop).
+STATIC s_lPlanMode := .F.
+
 // Index into the CCUI tip pool, advanced once per idle prompt so the idle
 // line cycles through the tips rather than always showing the same one.
 STATIC s_nTipIdx := 0
@@ -150,6 +155,19 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
       CASE hAction[ "type" ] == "skill"
          CCREPL_ActivateSkill( hAction[ "text" ], aMsgs, oPrompt )
+      CASE hAction[ "type" ] == "plan"
+         cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
+         IF !Empty( cMsg )
+            // /plan <text>: run the text as the first planning prompt
+            aTurn := AClone( aMsgs )
+            AAdd( aTurn, { "role" => "user", "content" => cMsg } )
+            hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, ;
+                                     nMaxIter, aTurn, oPrompt )
+            hRes := hTurn[ "result" ]
+            IF hRes[ "success" ]
+               aMsgs := hRes[ "messages" ]
+            ENDIF
+         ENDIF
       CASE hAction[ "type" ] == "message" .OR. hAction[ "type" ] == "init"
          cMsg := iif( hAction[ "type" ] == "init", ;
                       CCUI_InitPrompt(), hAction[ "text" ] )
@@ -247,6 +265,63 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_Out( Chr(10) )
    ENDIF
    RETURN { "result" => hRes, "render" => oRender }
+
+// Implements /plan, /plan accept, /plan cancel and /plan <free text>.
+// Returns the free-text prompt the caller should run as a user message
+// (empty string when no message should be dispatched).
+//
+//   /plan                 -> enter plan mode, wait for the user to type
+//                            the task as a normal message
+//   /plan <text>          -> enter plan mode AND queue <text> as the
+//                            first planning prompt
+//   /plan accept|go|approve -> exit plan mode, agent proceeds with code
+//   /plan off|cancel      -> exit plan mode, drop the plan
+STATIC FUNCTION CCREPL_HandlePlan( cArg, aMsgs, oPrompt )
+   LOCAL cMode := Lower( AllTrim( hb_CStr( cArg ) ) )
+   LOCAL cRest := AllTrim( hb_CStr( cArg ) )
+   DO CASE
+   CASE cMode == "off" .OR. cMode == "cancel"
+      s_lPlanMode := .F.
+      AAdd( aMsgs, { "role" => "system", ;
+                     "content" => "User cancelled /plan. Drop the plan and " + ;
+                        "wait for the next instruction without modifying " + ;
+                        "the codebase." } )
+      CCREPL_Out( CCUI_Color( "[plan mode cancelled]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      IF oPrompt != NIL
+         CCPROMPT_Redraw( oPrompt )
+      ENDIF
+      RETURN ""
+   CASE cMode == "accept" .OR. cMode == "go" .OR. cMode == "approve"
+      s_lPlanMode := .F.
+      AAdd( aMsgs, { "role" => "system", ;
+                     "content" => "User approved the plan with /plan accept. " + ;
+                        "Proceed with the implementation step by step, " + ;
+                        "verifying each step before moving to the next." } )
+      CCREPL_Out( CCUI_Color( "[plan accepted - proceeding with implementation]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+      IF oPrompt != NIL
+         CCPROMPT_Redraw( oPrompt )
+      ENDIF
+      RETURN ""
+   ENDCASE
+   // /plan or /plan <free text>: enter plan mode if not already in it
+   IF !s_lPlanMode
+      s_lPlanMode := .T.
+      CCREPL_ActivateSkill( "writing-plans", aMsgs, oPrompt )
+      CCREPL_Out( CCUI_Color( "[plan mode ON - write/edit/shell are " + ;
+                              "locked until /plan accept]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+      IF oPrompt != NIL
+         CCPROMPT_Redraw( oPrompt )
+      ENDIF
+   ELSE
+      CCREPL_Out( CCUI_Color( "[plan mode already active]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+   ENDIF
+   // return the free-text portion so the caller can run it as a user
+   // message in plan mode; empty means "wait for the user to type it next"
+   RETURN cRest
 
 // Manually activates a skill by name (used by /caveman and any future
 // /skill <name> command). Loads the body, injects it as a system note in
@@ -638,6 +713,12 @@ STATIC FUNCTION CCREPL_AskExtend()
 // box editor while it waits for the user to choose an option.
 FUNCTION CCREPL_BoxPrompt()
    RETURN s_oBoxPrompt
+
+// True while the session is in plan-mode (toggled by /plan). Public so the
+// permission gate can block write/edit/shell and the status line can show
+// the [plan-mode] badge.
+FUNCTION CCREPL_PlanMode()
+   RETURN s_lPlanMode
 
 // True when the persistent box prompt is mounted with an active scroll
 // region. Modules that want to paint above the box (e.g. the question

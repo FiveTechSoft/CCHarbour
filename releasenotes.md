@@ -1,6 +1,37 @@
-CCHarbour v0.8.3 — Unified tool-call block, ask_user selector polish, and richer mid-question controls.
+CCHarbour v0.8.4 — Plan mode, expanded skill library, wider banner and input box.
 
-## New since v0.8.2
+## New since v0.8.3
+
+- **Plan mode (`/plan`)** — a new command puts the session in "plan mode":
+  the `write`, `edit`, `shell` and `github_write` tools are locked at the
+  permission gate, the `writing-plans` skill is auto-activated, and the
+  status line shows a `[plan-mode]` badge. The agent can read, grep, glob,
+  fetch and reason freely but cannot modify the codebase until the user
+  approves. `/plan <text>` enters plan mode AND submits `<text>` as the
+  first planning prompt; `/plan accept` (or `/plan go`/`/plan approve`)
+  unlocks the gate and tells the agent to proceed step by step;
+  `/plan cancel` (or `/plan off`) drops the plan and unlocks.
+- **Skills library expanded** — five new process-discipline skills
+  shipped under `.ccharbour/skills/`:
+  - `brainstorming` — explore intent and design before coding (clarify
+    goal, list constraints, sketch alternatives, pick one with reason).
+  - `writing-plans` — turn an approved approach into an ordered,
+    verifiable, multi-step plan with a done criterion per step.
+  - `tdd` — red/green/refactor with CCHarbour-specific test commands.
+  - `debugging` — reproduce, isolate, hypothesise, verify; no guessing
+    patches, root cause only.
+  - `code-review` — checklist for correctness, scope creep, security,
+    test coverage, readability before commit.
+  Each has triggers (English + Spanish), so the agent auto-activates the
+  matching skill when its description fits the request.
+- **Wider banner and input box** — the welcome banner and the persistent
+  input frame grew from 99 columns wide to 123, giving the model 117
+  text columns inside the input box (was 93). The CC logo is unchanged
+  but now has more breathing room.
+
+## v0.8.3 — Unified tool-call block, ask_user selector polish, and richer mid-question controls.
+
+### New since v0.8.2
 
 - **Unified tool-call block** — every tool call now renders as a single
   block: a cyan-violet rule the full terminal width, the tool's display

@@ -115,7 +115,7 @@ FUNCTION CCPROMPT_Teardown( oPrompt )
 // cursor sits inside the box where the user types. The output anchor (the
 // ESC[s slot, owned by CCREPL_Out) is deliberately not touched here.
 FUNCTION CCPROMPT_Redraw( oPrompt )
-   LOCAL hReg, hW, hSz
+   LOCAL hReg, hW, hSz, aBadges
    hSz := CCCON_Size()
    oPrompt[ "region" ] := CCPROMPT_Region( hSz[ "rows" ], hSz[ "cols" ] )
    hReg := oPrompt[ "region" ]
@@ -123,6 +123,11 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
       RETURN oPrompt
    ENDIF
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
+   // combine plan-mode and active skills into one status-line badge list
+   aBadges := CCSKILL_Active()
+   IF CCREPL_PlanMode()
+      hb_AIns( aBadges, 1, "plan-mode", .T. )
+   ENDIF
    CCPROMPT_Raw( ;
       Chr(27) + "[1;" + LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ; // scroll region
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ; // to box row 1
@@ -131,7 +136,7 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
           CCUI_InputBoxSuggestion( hW[ "text" ] ), ;
           CCUI_InputBoxLine( hW[ "text" ] ) ) + Chr(13) + Chr(10) + ;
       CCUI_FrameBottom() + Chr(13) + Chr(10) + ;
-      CCUI_SkillsStatusLine( CCSKILL_Active(), hReg[ "cols" ] ) + ;
+      CCUI_SkillsStatusLine( aBadges, hReg[ "cols" ] ) + ;
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
               LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
    RETURN oPrompt

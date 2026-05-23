@@ -28,6 +28,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "load", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/caveman"
       RETURN { "type" => "skill", "text" => "caveman" }
+   CASE cLow == "/plan" .OR. Left( cLow, 6 ) == "/plan "
+      RETURN { "type" => "plan", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -504,7 +506,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.3"
+   RETURN "0.8.4"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -639,7 +641,7 @@ FUNCTION CCUI_TodoBlock( aTodos )
 // getting started" list and a "What's new" line from releasenotes.md. The
 // shorter panel is blank-padded to equal height. Returns the banner ending in LF.
 FUNCTION CCUI_Banner( cModel, cCwd, cUser )
-   LOCAL nInner := 95, nLeftW := 44, nRightW := 48
+   LOCAL nInner := 119, nLeftW := 56, nRightW := 60
    LOCAL cH := CCUI_Glyph( "h" ), cV, cName, aLogo, aLeft, aRight, aRows, cOut, i
 
    cModel := hb_CStr( cModel )
@@ -696,13 +698,13 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
 // The rounded top border of the input frame, 99 columns wide.
 FUNCTION CCUI_FrameTop()
    RETURN CCUI_Color( CCUI_Glyph( "tl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), 97 ) + CCUI_Glyph( "tr" ), ;
+          Replicate( CCUI_Glyph( "h" ), 121 ) + CCUI_Glyph( "tr" ), ;
           CCUI_Pal( "dim" ) )
 
-// The rounded bottom border of the input frame, 99 columns wide.
+// The rounded bottom border of the input frame, 123 columns wide.
 FUNCTION CCUI_FrameBottom()
    RETURN CCUI_Color( CCUI_Glyph( "bl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), 97 ) + CCUI_Glyph( "br" ), ;
+          Replicate( CCUI_Glyph( "h" ), 121 ) + CCUI_Glyph( "br" ), ;
           CCUI_Pal( "dim" ) )
 
 // The dim hint line shown beneath the input frame.
@@ -715,10 +717,10 @@ FUNCTION CCUI_InputHint( nLines )
    RETURN CCUI_Color( "  /help for commands" + cSuffix + ;
           "  " + Chr(226)+Chr(128)+Chr(162) + "  /exit to quit", CCUI_Pal( "dim" ) )
 
-// The text-column width available inside the input box (99 total: 2 borders,
-// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 93).
+// The text-column width available inside the input box (123 total: 2 borders,
+// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 117).
 FUNCTION CCUI_InputInnerWidth()
-   RETURN 93
+   RETURN 117
 
 // The status line painted just below the input box. Lists the active skills
 // as bracketed tags ("[name1] [name2]"). nCols is the terminal width, used to
@@ -850,6 +852,9 @@ FUNCTION CCUI_Help()
           "  /load [name]   load a saved conversation" + Chr(10) + ;
           "  /clear         reset the conversation" + Chr(10) + ;
           "  /caveman       activate the caveman skill (terse replies)" + Chr(10) + ;
+          "  /plan          enter plan mode (lock write/edit/shell)" + Chr(10) + ;
+          "  /plan accept   approve the plan, unlock and proceed" + Chr(10) + ;
+          "  /plan cancel   drop the plan and exit plan mode" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

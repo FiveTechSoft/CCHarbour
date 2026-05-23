@@ -87,8 +87,8 @@ FUNCTION Test_UI()
 
    // input frame helpers
    CCUI_SetColor( .F. )
-   T_Equal( hb_UTF8Len( CCUI_FrameTop() ), 99, "ui: frame top is 99 columns" )
-   T_Equal( hb_UTF8Len( CCUI_FrameBottom() ), 99, "ui: frame bottom is 99 columns" )
+   T_Equal( hb_UTF8Len( CCUI_FrameTop() ), 123, "ui: frame top is 123 columns" )
+   T_Equal( hb_UTF8Len( CCUI_FrameBottom() ), 123, "ui: frame bottom is 123 columns" )
    T_Assert( CCUI_Glyph( "tl" ) $ CCUI_FrameTop(), "ui: frame top rounded corner" )
    T_Assert( CCUI_Glyph( "bl" ) $ CCUI_FrameBottom(), "ui: frame bottom rounded corner" )
    T_Assert( "/help" $ CCUI_InputHint(), "ui: input hint mentions /help" )
@@ -135,15 +135,15 @@ FUNCTION Test_UI()
 
    // input box: inner width and the framed prompt line
    CCUI_SetColor( .F. )
-   T_Equal( CCUI_InputInnerWidth(), 93, "ui: input inner width" )
-   T_Equal( hb_UTF8Len( CCUI_InputBoxLine( "hi" ) ), 99, "ui: input box line is 99 columns" )
+   T_Equal( CCUI_InputInnerWidth(), 117, "ui: input inner width" )
+   T_Equal( hb_UTF8Len( CCUI_InputBoxLine( "hi" ) ), 123, "ui: input box line is 123 columns" )
    T_Assert( "> hi" $ CCUI_InputBoxLine( "hi" ), "ui: input box line has the prompt + text" )
    T_Assert( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
 
    // version + banner
-   T_Equal( CCUI_Version(), "0.8.3", "ui: version string" )
+   T_Equal( CCUI_Version(), "0.8.4", "ui: version string" )
    CCUI_SetColor( .F. )
-   T_Assert( "v0.8.3" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+   T_Assert( "v0.8.4" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the version" )
    T_Assert( "CCHarbour" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the name" )

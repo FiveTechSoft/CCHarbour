@@ -25,6 +25,16 @@ STATIC FUNCTION CCPERM_Decide( hPerm, bInner, bAsk, cName, cArgsJson )
    IF cName == "ask_user" .OR. cName == "todo_write"
       RETURN Eval( bInner, cName, cArgsJson )
    ENDIF
+   // Plan mode locks every codebase-mutating or shell-running tool until the
+   // user types /plan accept. Read-only tools (read, glob, grep, github_read,
+   // memory, web_fetch, web_search, use_skill) are unaffected so the agent
+   // can still gather context while planning.
+   IF CCREPL_PlanMode() .AND. ;
+      ( cName == "write" .OR. cName == "edit" .OR. cName == "shell" .OR. ;
+        cName == "github_write" )
+      RETURN "Error: plan mode is active. '" + cName + "' is locked until " + ;
+             "the user types '/plan accept'. Continue the plan as text only."
+   ENDIF
    cMode := iif( hb_HHasKey( hPerm, cName ), hPerm[ cName ], "ask" )
    IF !( cMode == "allow" .OR. cMode == "deny" .OR. cMode == "ask" )
       cMode := "ask"
