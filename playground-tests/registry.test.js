@@ -14,12 +14,12 @@ function reg(extra = {}) {
   });
 }
 
-test("registry: schemas cover all ten tools, no shell", () => {
+test("registry: schemas cover all twelve browser tools, no shell", () => {
   const { schemas } = reg();
   const names = schemas.map((s) => s.function.name).sort();
   assert.deepEqual(names, [
-    "edit", "github_read", "github_write", "glob", "grep",
-    "read", "web_fetch", "web_search", "write",
+    "ask_user", "edit", "github_read", "github_write", "glob", "grep",
+    "memory", "read", "todo_write", "web_fetch", "web_search", "write",
   ]);
 });
 
