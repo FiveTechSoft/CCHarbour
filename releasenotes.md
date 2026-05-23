@@ -1,6 +1,20 @@
-CCHarbour v0.8.0 — Linux and macOS support: cc now builds and runs on all three platforms.
+CCHarbour v0.8.1 — Input box polish: white user echo and translucent-green "Suggested next".
 
-## New since v0.7.0
+## New since v0.8.0
+
+- **User prompt echoed in white** — every submitted prompt is now reprinted
+  in bright white in the scroll above the input box, so the transcript shows
+  what was asked alongside the model's reply. Mid-turn queued messages are
+  echoed the same way when they get handled.
+- **"Suggested next" pre-filled in the box** — the model's `Suggested next:`
+  line is loaded into the input box as a translucent green suggestion. Press
+  Tab to accept it as the message, Backspace/Delete to clear it, or just
+  start typing to replace it. The cooked-mode fallback already had this; box
+  mode now matches.
+
+## v0.8.0 — Linux and macOS support: cc now builds and runs on all three platforms.
+
+### New since v0.7.0
 
 - **Linux & macOS builds** — new `cc_linux.hbp` / `cc_mac.hbp` project files,
   a `build_cc_linux.sh` script, and `build-linux` / `build-mac` CI workflows.

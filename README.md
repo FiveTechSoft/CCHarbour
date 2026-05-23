@@ -281,7 +281,13 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.0 — current.** Linux and macOS support — `cc` builds and runs on all
+**v0.8.1 — current.** Input box polish — every submitted prompt is echoed
+in bright white in the scroll above the box, so the transcript shows what
+was asked. The model's `Suggested next:` line is pre-filled into the box as
+a translucent-green suggestion; Tab accepts it, Backspace/Delete cancel it,
+or start typing to replace it.
+
+**v0.8.0 — previous.** Linux and macOS support — `cc` builds and runs on all
 three platforms. New `cc_linux.hbp` / `cc_mac.hbp` projects, a
 `build_cc_linux.sh` script, and `build-linux` / `build-mac` CI workflows;
 every tagged release ships a Windows, Linux and macOS binary. The console
