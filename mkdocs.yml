@@ -1,5 +1,5 @@
 site_name: CCHarbour
-site_description: A Claude Code-style terminal coding assistant written in Harbour
+site_description: A Claude Code-style terminal coding assistant, in a single ~2 MB native binary, written in Harbour. Cross-platform (Windows / Linux / macOS), with subagents, skills, plan mode and a rich terminal UI.
 site_url: https://fivetechsoft.github.io/CCHarbour/
 repo_url: https://github.com/FiveTechSoft/CCHarbour
 repo_name: FiveTechSoft/CCHarbour
@@ -10,23 +10,73 @@ theme:
   logo: logo.svg
   favicon: logo.svg
   palette:
-    - scheme: slate
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: teal
       accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
 
 nav:
   - Home: index.md
-  - Playground: playground/index.html
   - Getting started: getting-started.md
   - Commands: commands.md
   - Configuration: configuration.md
   - Roadmap: roadmap.md
+  - Playground: playground/index.html
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/FiveTechSoft/CCHarbour
+      name: CCHarbour on GitHub
 
 markdown_extensions:
+  - abbr
   - admonition
-  - pymdownx.highlight
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde

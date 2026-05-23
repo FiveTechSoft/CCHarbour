@@ -80,5 +80,63 @@ giving the agent continuity across conversations.
 
 ## API key
 
-The API key is read from the `DEEPSEEK_API_KEY` environment variable. CCHarbour
-exits with an error if it is not set.
+CCHarbour reads the API key from the first of these sources that is set,
+in order:
+
+1. `DEEPSEEK_API_KEY` env var (default DeepSeek backend)
+2. `CCHARBOUR_API_KEY` env var (generic — use for any provider)
+3. `GLM_API_KEY` or `ZHIPU_API_KEY` env var (Zhipu / GLM)
+4. `MOONSHOT_API_KEY` env var (Moonshot Kimi)
+5. `OPENAI_API_KEY` env var (OpenAI)
+6. `"api_key"` field in `settings.json`
+
+CCHarbour exits with an error if none of them is set. The same key is
+sent to the configured `base_url`, so set both to match your provider.
+
+## Providers
+
+Any OpenAI-compatible Chat Completions endpoint works. Below are the
+ones tested with CCHarbour, with sign-up links, **indicative pricing**
+(prices change — always verify on the provider's site) and a quick read
+on **coding benchmark** level (SWE-bench Verified / LiveCodeBench /
+HumanEval).
+
+| Provider     | Sign up                                                         | `base_url`                                | Example model       | Input $ / 1M tok | Output $ / 1M tok | Coding tier |
+|--------------|-----------------------------------------------------------------|-------------------------------------------|---------------------|------------------|-------------------|-------------|
+| **DeepSeek** | <https://platform.deepseek.com/>                                | `https://api.deepseek.com`                | `deepseek-v3.2`     | $0.27            | $1.10             | Strong      |
+| **DeepSeek** | (same)                                                          | (same)                                    | `deepseek-reasoner` | $0.55            | $2.19             | Top open    |
+| **GLM (Zhipu)** | <https://open.bigmodel.cn/>                                  | `https://open.bigmodel.cn/api/paas/v4`    | `glm-4.6`           | $0.60            | $2.20             | Top closed-source open-weights |
+| **Moonshot** | <https://platform.moonshot.cn/>                                 | `https://api.moonshot.cn/v1`              | `kimi-k2`           | $0.15            | $2.50             | Strong      |
+| **OpenAI**   | <https://platform.openai.com/>                                  | `https://api.openai.com/v1`               | `gpt-5`             | $1.25            | $10.00            | Top         |
+
+!!! note "Anthropic Claude"
+    Claude's API is not OpenAI-compatible (different message
+    structure), so it does not work out of the box with CCHarbour.
+    Multi-provider support is on the [roadmap](roadmap.md).
+
+### Picking a model for coding
+
+- **Cheapest strong option** — DeepSeek `deepseek-v3.2`. Quality is
+  excellent for the price; default for a reason.
+- **Best Chinese open-weight** — GLM `glm-4.6` is currently the
+  strongest open-weight coder, very close to closed-source SOTA on
+  SWE-bench Verified.
+- **Lowest input-token cost on a frontier coder** — Moonshot `kimi-k2`.
+  Output is pricier; great for short-prompt + lots-of-iteration
+  workflows.
+- **Absolute top, regardless of cost** — OpenAI `gpt-5` (or the latest
+  o-series). Best for hardest debugging and complex multi-file
+  refactors, at ~10× the price of DeepSeek.
+
+!!! tip "Switching provider in one minute"
+    Set the right env var (or put the key in `settings.json`), then
+    update `base_url` and `model` in `.ccharbour/settings.json`:
+
+    ```json
+    {
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "glm-4.6"
+    }
+    ```
+
+    Run `cc` — the banner now shows the new model. Switch back any time.

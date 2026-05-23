@@ -299,47 +299,92 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Status
 
-### Done (v0.5.0)
+### Done (v0.8.8)
+
+**Agent core**
 
 - DeepSeek / OpenAI-compatible API client with SSE streaming
-- Agent loop with tool calls, iteration cap with extend prompt; **Esc interrupts the turn**, `/btw` interrupts and queues a reply, plain mid-turn input queues for after the turn
-- **Action narration** — the agent describes what it is about to do, in one or two lines, just before a non-obvious tool call such as a shell command
-- Tools: read, write, edit, glob, grep, shell, web (search & fetch), github (read & write), memory, ask_user
-- **DuckDuckGo web search** — no API key required (replaced Tavily)
-- Permission gate — `allow` / `deny` / `ask`, with session upgrade
-- `settings.json` loading with defaults and `co_author` setting
-- `CC.md` project-instruction loading
-- Diff rendering on edit / write
-- UTF-8 console, auto-detected ANSI colour, Claude Code-style banner with
-  **Harbour ship logo**, framed prompt and tool-call rendering
-- Raw-mode line editor with input history (↑/↓), cursor keys, Home/End, Delete,
-  multi-line input with Shift+Enter and paste detection
-- **User prompt echoed in white** above the input box so the scroll keeps a
-  clear transcript of what was asked
-- **"Suggested next" pre-filled in the input box** in translucent green;
-  press Tab to accept it as-is, or start typing to replace it
-- **Project skills** — checklists under `.ccharbour/skills/`, activated by
-  the `use_skill` tool, the `/caveman` shortcut, or auto-trigger regex; the
-  active set is shown as orange bracketed tags in a status line below the
-  input box
-- `Ctrl+C` to cancel a running stream
-- Conversation persistence — `/save` and `/load` commands
-- `/cost` command showing token usage and estimated cost per turn and session
-- Animated reasoning spinner with estimated token count during model reasoning
-- Compact token-usage bar displayed after each turn
+- Multi-iteration agent loop with iteration cap + user-resume extension
+- 16 builtin tools: `read`, `write`, `edit`, `glob`, `grep`, `shell`,
+  `web_search`, `web_fetch`, `github_read`, `github_write`, `memory`,
+  `ask_user`, `todo_write`, `use_skill`, `dispatch_agent`, `propose_agents`
+- Subagents with isolated context (`dispatch_agent`), filtered tool registry
+  per type (`explore` / `general`), wall-clock `timeout_s`, Esc cancel, and
+  a per-turn second-dispatch interceptor that redirects through
+  `propose_agents`
+- Permission gate — `allow` / `ask` / `deny` per tool, session upgrade
+- `todo_write` with `id`, `active_form` (label while in_progress) and
+  `blocked_by` dependency graph
+- `memory.md` per-project memory loaded into the system prompt and
+  maintained by the agent via the `memory` tool
+- `CC.md` project-instruction file loaded into the system prompt
+- Action-narration rule in the system prompt — agent explains the *why*
+  before every non-trivial tool call
+- Tool-result UTF-8 sanitising; rich API error messages
+
+**Skills**
+
+- `.ccharbour/skills/<name>.md` markdown skills with YAML frontmatter
+  (`name`, `description`, optional `triggers` regex list)
+- Auto-trigger — a skill whose `triggers` match the user's input is
+  activated automatically; status line shows the active set
+- Manual activation via the `use_skill` tool and via shortcut commands
+- Ships 7 skills: `superpowers`, `caveman`, `brainstorming`,
+  `writing-plans`, `tdd`, `debugging`, `code-review`
+
+**Modes & commands**
+
+- `/plan` — locks `write` / `edit` / `shell` until `/plan accept`; auto-activates the `writing-plans` skill; `/plan <text>` enters and dispatches the prompt
+- `/lean` — trims the system prompt by ~500–800 tokens per turn
+- `/caveman` — activates the caveman skill (ultra-compressed terse output)
+- `/btw <text>` — interrupts the running turn, queues `<text>` as the next message
+- `/clear`, `/help`, `/init`, `/model`, `/cost`, `/save`, `/load`, `/exit`
+
+**Terminal UI**
+
+- Persistent input box pinned to the bottom; scroll region above it
+- Unified tool-call block (cyan-violet rule, label, green command,
+  soft-white narration) for every tool
+- `ask_user` interactive selector with checkbox-style toggle, wrap-around
+  Up/Down, Tab amend (edit highlighted option in the box), Esc cancel,
+  Ctrl+E "explain"
+- `propose_agents` multi-row selector for batch approval before subagents dispatch
+- Status line under the box shows active skills + plan/lean badges in coral
+- Raw-mode editor: input history (↑/↓), cursor keys, Home/End, Delete,
+  multi-line via Shift+Enter, paste detection
+- **Paste collapse** — multi-line paste becomes `[pasted N lines text]`;
+  Enter expands it, Backspace clears it
+- User prompt echoed in bright white above the box
+- "Suggested next" pre-filled in translucent green; Tab accepts
+- Dynamic input box width (adapts to terminal columns, clamped 76..200)
+- Animated reasoning spinner with token-count estimate; compact
+  token-usage bar after each turn
+- `Esc` interrupts the turn; `Ctrl+C` cancels a running stream;
+  `Ctrl+E` asks the model to explain a question
+
+**Cross-platform**
+
+- Builds on Windows (MSVC / mingw-w64), Linux (gcc), macOS (clang)
+- Shared POSIX console backend (termios/select) for Linux + macOS;
+  native Win32 backend on Windows
+- `shell` tool routes through `cmd.exe` on Windows and `/bin/sh` elsewhere
+- CI builds and publishes Windows + Linux + macOS binaries per tag
+
+**Project & infrastructure**
+
 - Web playground at <https://fivetechsoft.github.io/CCHarbour/playground/>
 - Documentation site at <https://fivetechsoft.github.io/CCHarbour/>
-- CI build with GitHub Actions; auto-publish releases on tag push
-- Commands: `/help`, `/init`, `/model`, `/clear`, `/cost`, `/save`, `/load`, `/exit`
-- `build.bat` build script (MSVC) and CI build (mingw-w64)
-- `update_cc.bat` hot-swap script to replace `cc.exe` without stopping the REPL
-- Test suite (340+ tests, 0 failures)
+- 443-test suite, GitHub Actions CI for all 3 platforms
+- `update_cc.bat` hot-swap on Windows; `build_cc_linux.sh` on Linux
 
 ### Missing / planned
 
-- Multi-provider support — DeepSeek only today
+- Parallel subagent dispatch (current `dispatch_agent` is synchronous)
+- Multi-provider support — DeepSeek by default; OpenAI-compatible only
 - `CC.md` discovery from parent and home directories
-- More tools — task list, web fetch result formatting
+- Hooks (`PreToolUse` / `PostToolUse` / `UserPromptSubmit`) configurable
+  in `settings.json`
+- Conversation auto-compaction when context fills up
 - More commands — `/tools`, user-defined commands
 
 ## Releases

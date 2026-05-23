@@ -1,8 +1,14 @@
 // Resolves API key + base URL. Precedence for the key:
-//   hOpts["api_key"]  ->  env DEEPSEEK_API_KEY  ->  config file (hOpts["config_path"])
+//   hOpts["api_key"]
+//     -> env DEEPSEEK_API_KEY    (default DeepSeek backend)
+//     -> env CCHARBOUR_API_KEY   (generic, any OpenAI-compatible provider)
+//     -> env GLM_API_KEY         (Zhipu / GLM)
+//     -> env MOONSHOT_API_KEY    (Moonshot Kimi)
+//     -> env OPENAI_API_KEY      (OpenAI)
+//     -> config file at hOpts["config_path"]
 // Returns: { ok, api_key, base_url, error_type, message }
 FUNCTION CCCFG_Resolve( hOpts )
-   LOCAL hRes, cKey := "", cEnv, cFileKey
+   LOCAL hRes, cKey := "", cFileKey, aEnvs, cEnvName, cEnv
 
    IF ValType( hOpts ) != "H"
       hOpts := {=>}
@@ -17,10 +23,19 @@ FUNCTION CCCFG_Resolve( hOpts )
    IF hb_HHasKey( hOpts, "api_key" ) .AND. !Empty( hOpts[ "api_key" ] )
       cKey := hOpts[ "api_key" ]
    ELSE
-      cEnv := hb_GetEnv( "DEEPSEEK_API_KEY" )
-      IF !Empty( cEnv )
-         cKey := cEnv
-      ELSEIF hb_HHasKey( hOpts, "config_path" ) .AND. !Empty( hOpts[ "config_path" ] )
+      aEnvs := { "DEEPSEEK_API_KEY", "CCHARBOUR_API_KEY", ;
+                 "GLM_API_KEY", "ZHIPU_API_KEY", ;
+                 "MOONSHOT_API_KEY", "OPENAI_API_KEY" }
+      FOR EACH cEnvName IN aEnvs
+         cEnv := hb_GetEnv( cEnvName )
+         IF !Empty( cEnv )
+            cKey := cEnv
+            EXIT
+         ENDIF
+      NEXT
+      IF Empty( cKey ) .AND. ;
+         hb_HHasKey( hOpts, "config_path" ) .AND. ;
+         !Empty( hOpts[ "config_path" ] )
          cFileKey := CCCFG_FromFile( hOpts[ "config_path" ] )
          IF !Empty( cFileKey )
             cKey := cFileKey
@@ -30,7 +45,11 @@ FUNCTION CCCFG_Resolve( hOpts )
 
    IF Empty( cKey )
       hRes[ "error_type" ] := "config"
-      hRes[ "message" ]    := "No API key: set hOpts api_key, env DEEPSEEK_API_KEY, or config_path"
+      hRes[ "message" ]    := "No API key. Set DEEPSEEK_API_KEY (or " + ;
+                              "CCHARBOUR_API_KEY / GLM_API_KEY / " + ;
+                              "MOONSHOT_API_KEY / OPENAI_API_KEY), put " + ;
+                              "api_key in settings.json, or pass " + ;
+                              "hOpts api_key directly."
       RETURN hRes
    ENDIF
 
