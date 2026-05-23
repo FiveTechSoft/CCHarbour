@@ -1,15 +1,21 @@
 // Assembles the tool registry: OpenAI tool schemas, an executor, and the
-// permission gate. Mirrors src/dstools.prg. The shell tool is not included.
+// permission gate. Mirrors src/cctools.prg. The shell tool is not
+// included (no browser equivalent); subagents and propose_agents are
+// terminal-only for now.
 
 import { fileTools } from "./file.js";
 import { webTools } from "./web.js";
 import { githubTools } from "./github.js";
+import { memoryTools } from "./memory.js";
+import { todoTools } from "./todo.js";
 
 export function buildRegistry({ vfs, githubToken, confirmWrite, fetchImpl }) {
   const tools = [
     ...fileTools(vfs),
     ...webTools(fetchImpl),
     ...githubTools(githubToken || "", fetchImpl),
+    ...memoryTools(),
+    ...todoTools(),
   ];
   const byName = new Map(tools.map((t) => [t.name, t]));
 

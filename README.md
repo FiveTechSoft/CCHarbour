@@ -430,12 +430,6 @@ animated reasoning spinner, conversation persistence (`/save`, `/load`),
 **v0.6 (planned).** Pluggable backends beyond DeepSeek; `CC.md` discovery
 up the directory tree and from the home directory.
 
-## Ideas
-
-A running scratch list of UI/UX ideas to explore — terminal tricks, status
-display, and ergonomics borrowed from Claude Code — is kept in
-[`todo.txt`](todo.txt).
-
 ## License
 
 CCHarbour is released under the [MIT License](LICENSE) —
