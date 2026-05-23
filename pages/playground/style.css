@@ -254,43 +254,71 @@ code, pre, .turn, .logo, #input {
 
 /* ── Footer (status + input) ────────────────────────────────────────────── */
 footer {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--accent);
   background:
-    linear-gradient(0deg, rgba(45,212,191,0.03), transparent 50%),
-    var(--bg-1);
-  padding: 12px 22px 16px;
+    linear-gradient(0deg, rgba(45,212,191,0.08) 0%, rgba(45,212,191,0.03) 30%, transparent 70%),
+    var(--bg-2);
+  padding: 16px 22px 20px;
   position: relative;
+  box-shadow:
+    0 -8px 24px rgba(0,0,0,0.35),
+    0 -1px 0 var(--accent-glow);
 }
 footer::before {
-  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--accent-glow) 20%,
+    var(--accent) 50%,
+    var(--accent-glow) 80%,
+    transparent 100%);
 }
 .status {
   display: flex; gap: 14px; align-items: center;
-  color: var(--dim);
-  font-size: 11.5px;
-  margin-bottom: 10px;
-  font-family: var(--md-code-font), monospace;
+  color: var(--fg-d);
+  font-size: 12px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
+.status #usage {
+  color: var(--accent);
+  font-weight: 500;
+}
+.status #reset { margin-left: auto; padding: 4px 10px; font-size: 11px; }
 #input-form {
   display: flex;
   gap: 10px;
   align-items: stretch;
+  padding: 4px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#input-form:focus-within {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-glow),
+    0 8px 24px rgba(45,212,191,0.10);
 }
 #input {
   flex: 1;
-  background: var(--bg-0);
+  background: transparent;
   color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
   padding: 12px 14px;
-  font-size: 13.5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-#input:focus {
+  font-size: 14px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+#input::placeholder { color: var(--dim); }
+#input-form button {
+  padding: 10px 22px;
+  font-size: 14px;
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
