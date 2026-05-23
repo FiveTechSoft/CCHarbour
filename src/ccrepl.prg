@@ -854,7 +854,16 @@ FUNCTION CCREPL_Out( cText )
    // break lost.
    IF ValType( cText ) == "C" .AND. Len( cText ) > 0
       cText := StrTran( cText, Chr(13), "" )
-      cText := StrTran( cText, Chr(10), Chr(13) + Chr(10) )
+      // Clear-to-end-of-line BEFORE each line break, so a short content
+      // line never lets the previous frame's trailing chars (a box top
+      // border, an old reply) survive to the right of the new text.
+      // Order: ESC[K, then CR LF.
+      cText := StrTran( cText, Chr(10), Chr(27) + "[K" + Chr(13) + Chr(10) )
+      // Same protection for the FINAL line of the chunk (no trailing LF)
+      // -- append ESC[K so the trailing junk on its row is wiped too.
+      IF Right( cText, 1 ) != Chr(10)
+         cText += Chr(27) + "[K"
+      ENDIF
       IF s_oBoxPrompt != NIL .AND. s_oBoxPrompt[ "region" ][ "active" ]
          // box mode: jump to the saved scroll-region anchor, write there,
          // re-save the anchor, then return the cursor to the input box so
