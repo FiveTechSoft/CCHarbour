@@ -120,16 +120,17 @@ code, pre, .turn, .logo, #input {
   font-size: 9px;
   line-height: 1.05;
   background: linear-gradient(135deg,
-    #22d3ee 0%,    /* cyan-400  */
-    #06b6d4 25%,   /* cyan-500  */
-    #8b5cf6 75%,   /* violet-500 */
-    #a78bfa 100%   /* violet-400 */
+    #f0abfc 0%,    /* fuchsia-300 (light magenta highlight) */
+    #d946ef 25%,   /* fuchsia-500 (magenta)                 */
+    #a855f7 60%,   /* purple-500                            */
+    #8b5cf6 85%,   /* violet-500                            */
+    #7c3aed 100%   /* violet-600 (deep violet)              */
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.35));
+  filter: drop-shadow(0 0 14px rgba(168, 85, 247, 0.42));
   animation: shimmer 8s ease-in-out infinite;
 }
 @keyframes shimmer {
