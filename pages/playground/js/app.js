@@ -149,14 +149,21 @@ function handleReset() {
 }
 
 // Extracts the "Suggested next:" prompt from the final assistant text,
-// or returns "" when none is present. Matches the native CCMD capture:
-// the marker is case-insensitive and lives on its own line.
+// or returns "" when none is present. Tolerates optional markdown bold
+// around the label or the prompt, optional surrounding quotes, and the
+// label appearing anywhere in the last lines of the reply.
 function extractSuggested(text) {
   if (!text) return "";
+  const re = /[*_]{0,2}\s*suggested\s+next\s*[:\-]?\s*[*_]{0,2}\s*['"]?(.+?)['"]?[*_]{0,2}\s*$/im;
   const lines = String(text).split(/\r?\n/);
+  // scan from the bottom up
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(/^\s*suggested\s+next:\s*(.+?)\s*$/i);
-    if (m) return m[1];
+    const line = lines[i].trim();
+    if (!line) continue;
+    const m = line.match(re);
+    if (m && m[1] && /suggested\s+next/i.test(line)) {
+      return m[1].replace(/[*_'"`]+$/g, "").trim();
+    }
   }
   return "";
 }
