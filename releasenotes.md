@@ -1,6 +1,30 @@
-CCHarbour v0.8.11 — Dynamic input box stability fixes.
+CCHarbour v0.8.12 — Start without an API key, configure the backend interactively with /provider.
 
-## New since v0.8.10
+## New since v0.8.11
+
+- **Starts even with no API key configured.** The session no longer
+  exits with an error when `DEEPSEEK_API_KEY` is missing; the banner
+  and the input box come up normally and a yellow warning under the
+  banner tells the user to set up a backend.
+- **`/provider` slash command** — configure the backend at runtime:
+    - `/provider` — show current `base_url` / `model` / key state and
+      list the four presets.
+    - `/provider deepseek|glm|moonshot|openai` — apply the preset's
+      `base_url` and default model, persist to `settings.json`, and
+      rebuild the API client in place.
+    - `/provider key <secret>` — store the API key in `settings.json`.
+    - `/provider model <name>` — switch the model only.
+    - `/provider clear` — wipe the stored API key.
+- **Turn skipped (not crashed) when no key.** Submitting a message
+  before a key is configured prints the warning again instead of
+  erroring out.
+- **`CCSETTINGS_Save`** is now public so `/provider` (and any future
+  runtime configuration) can persist updates without poking the file
+  directly.
+
+## v0.8.11 — Dynamic input box stability fixes.
+
+### New since v0.8.10
 
 - **Scroll region spans the full band** regardless of where the dynamic
   box currently sits (`scroll_bottom = nFloor - 1` always), so an early

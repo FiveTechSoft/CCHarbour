@@ -119,6 +119,7 @@ You need **Harbour 3.2** (`hbmk2` on `PATH`) and a C compiler:
 | `/caveman`      | activate the caveman skill (ultra-compressed terse replies) |
 | `/plan [text]`  | enter plan mode (locks write/edit/shell); `/plan accept` proceeds, `/plan cancel` drops |
 | `/lean [on\|off]` | toggle lean mode — trims system prompt to save tokens |
+| `/provider [args]` | configure the LLM backend at runtime (see below) |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -389,7 +390,14 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.11 — current.** Stability fixes for the dynamic input box:
+**v0.8.12 — current.** Starts without an API key — banner + box come
+up and a yellow warning under the banner tells the user to configure
+a backend. New `/provider` slash command sets the backend at runtime
+(presets for `deepseek`, `glm`, `moonshot`, `openai`; sub-commands
+`key <secret>`, `model <name>`, `clear`). Settings persist to
+`.ccharbour/settings.json`.
+
+**v0.8.11 — previous.** Stability fixes for the dynamic input box:
 scroll region spans the full band regardless of box position,
 interactive selectors force-pin the box before painting, the
 wipe never erases the just-written user echo or streamed reply,

@@ -12,6 +12,7 @@ assistant.
 | `/caveman`      | activate the caveman skill (terse replies)      |
 | `/plan [text]`  | enter plan mode (locks write/edit/shell)        |
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
+| `/provider [args]` | configure the LLM backend at runtime               |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -115,6 +116,27 @@ Forms:
 
 Toggling rebuilds the first system message in place, so the next turn
 immediately sees the new state without needing `/clear`.
+
+## /provider
+
+CCHarbour now starts even when no API key is configured. The banner and
+input box appear with a yellow warning under the banner; `/provider` is
+how you set the backend at runtime.
+
+| Form | What it does |
+|------|--------------|
+| `/provider` | Show current `base_url`, `model`, and whether the API key is set. Print the four presets. |
+| `/provider deepseek` | Apply the DeepSeek preset (`api.deepseek.com` + `deepseek-v4-flash`), persist to `settings.json`, rebuild the API client. |
+| `/provider glm` | Apply the GLM / Zhipu preset (`open.bigmodel.cn/api/paas/v4` + `glm-4.6`). |
+| `/provider moonshot` | Apply the Moonshot preset (`api.moonshot.cn/v1` + `kimi-k2`). |
+| `/provider openai` | Apply the OpenAI preset (`api.openai.com/v1` + `gpt-5`). |
+| `/provider key <secret>` | Save the API key to `settings.json` for the active backend. |
+| `/provider model <name>` | Switch the model only (without changing `base_url`). |
+| `/provider clear` | Remove the stored API key. |
+
+The key is stored in plain text in `.ccharbour/settings.json`, the same
+way most OpenAI-compatible CLIs handle their credentials. That folder is
+in `.gitignore` by default, so the key is not committed.
 
 ## /btw
 
