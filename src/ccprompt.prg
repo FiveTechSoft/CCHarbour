@@ -108,13 +108,25 @@ FUNCTION CCPROMPT_Activate( oPrompt )
    RETURN oPrompt
 
 // Restores the terminal: clears the scroll region (full screen scrollable
-// again) and drops the cursor below where the box was.
+// again), wipes the box rows so they do not bleed into the shell prompt,
+// then parks the cursor on the row where the box used to start. The
+// following shell prompt continues from there, right under the agent's
+// last visible output.
 FUNCTION CCPROMPT_Teardown( oPrompt )
    LOCAL hReg := oPrompt[ "region" ]
    IF !hReg[ "active" ]
       RETURN oPrompt
    ENDIF
-   CCPROMPT_Raw( Chr(27) + "[r" )   // reset scroll region to the whole screen
+   // reset scroll region to the whole screen
+   CCPROMPT_Raw( Chr(27) + "[r" )
+   // erase the rows the box occupied (top frame + input line + bottom
+   // frame + status line). ESC[<row>;1H + ESC[2K for each row.
+   CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" )
+   CCPROMPT_Raw( Chr(27) + "[2K" + Chr(10) + Chr(27) + "[2K" + Chr(10) + ;
+                 Chr(27) + "[2K" + Chr(10) + Chr(27) + "[2K" )
+   // move the cursor to the first box row so the shell prompt comes back
+   // exactly where the agent's last visible output ended
+   CCPROMPT_Raw( Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" )
    RETURN oPrompt
 
 // Redraws the box on the bottom three rows: top frame, the editor line, the

@@ -587,15 +587,62 @@ FUNCTION CCUI_WhatsNew()
 FUNCTION CCUI_Cell( cText, cAlign, cSGR )
    RETURN { "text" => hb_CStr( cText ), ;
             "align" => iif( Empty( cAlign ), "L", cAlign ), ;
-            "sgr" => hb_CStr( cSGR ) }
+            "sgr" => hb_CStr( cSGR ), ;
+            "raw" => .F. }
+
+// A cell whose text already carries its own ANSI escapes and padding;
+// the panel row renders it verbatim and skips PadCell + Color wrapping.
+FUNCTION CCUI_CellRaw( cText )
+   RETURN { "text" => hb_CStr( cText ), ;
+            "align" => "L", "sgr" => "", "raw" => .T. }
 
 // Renders one cell to nWidth display columns, padded then colour-wrapped.
+// Raw cells are emitted as-is (they carry their own colour and padding).
 STATIC FUNCTION CCUI_PanelRow( hCell, nWidth )
-   LOCAL cCell := CCUI_PadCell( hCell[ "text" ], nWidth, hCell[ "align" ] )
+   LOCAL cCell
+   IF hb_HHasKey( hCell, "raw" ) .AND. hCell[ "raw" ] == .T.
+      RETURN hCell[ "text" ]
+   ENDIF
+   cCell := CCUI_PadCell( hCell[ "text" ], nWidth, hCell[ "align" ] )
    IF !Empty( hCell[ "sgr" ] )
       cCell := CCUI_Color( cCell, hCell[ "sgr" ] )
    ENDIF
    RETURN cCell
+
+// Renders one logo row with a per-character magenta -> violet gradient
+// (24-bit true colour). Spaces are emitted unchanged; the line is padded
+// to nPanelW with normal spaces so the row sits centred in the banner
+// panel. When colour is off the gradient is skipped -- only padding.
+FUNCTION CCUI_LogoGradientRow( cLine, nPanelW )
+   LOCAL i, n, c, t, r, g, b
+   LOCAL nLogo := hb_UTF8Len( cLine )
+   LOCAL nLeftPad, nRightPad, cOut
+   IF nPanelW < nLogo  ; nPanelW := nLogo  ; ENDIF
+   nLeftPad  := Int( ( nPanelW - nLogo ) / 2 )
+   nRightPad := nPanelW - nLogo - nLeftPad
+   cOut := Space( nLeftPad )
+   IF !CCUI_ColorOn()
+      RETURN cOut + cLine + Space( nRightPad )
+   ENDIF
+   n := nLogo
+   FOR i := 1 TO n
+      c := hb_UTF8SubStr( cLine, i, 1 )
+      IF c == " "
+         cOut += c
+      ELSE
+         // linear interpolation: column 0 -> (240,171,252) fuchsia-300;
+         // last column -> (124,58,237) violet-600
+         t := iif( n > 1, ( i - 1 ) / ( n - 1.0 ), 0 )
+         r := 240 - Round( 116 * t, 0 )
+         g := 171 - Round( 113 * t, 0 )
+         b := 252 - Round(  15 * t, 0 )
+         cOut += Chr(27) + "[38;2;" + LTrim( Str( r ) ) + ";" + ;
+                                       LTrim( Str( g ) ) + ";" + ;
+                                       LTrim( Str( b ) ) + "m" + c
+      ENDIF
+   NEXT
+   cOut += Chr(27) + "[0m" + Space( nRightPad )
+   RETURN cOut
 
 // Joins a left and a right column of cells row-for-row into finished banner
 // lines: left cell, a dim vertical divider with a space each side, right cell.
@@ -715,12 +762,13 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
       " ╚██████╗╚██████╗ ", ;
       "  ╚═════╝ ╚═════╝ " }
 
-   // left panel: welcome, logo (6), name+version, model
+   // left panel: welcome, logo (6, per-char magenta->violet gradient),
+   // name+version, model
    aLeft := {}
    AAdd( aLeft, CCUI_Cell( iif( Empty( cName ), "Welcome back!", ;
                                 "Welcome back, " + cName + "!" ), "C", "" ) )
    FOR i := 1 TO 6
-      AAdd( aLeft, CCUI_Cell( aLogo[ i ], "C", "" ) )
+      AAdd( aLeft, CCUI_CellRaw( CCUI_LogoGradientRow( aLogo[ i ], nLeftW ) ) )
    NEXT
    AAdd( aLeft, CCUI_Cell( "CCHarbour  v" + CCUI_Version(), "C", CCUI_Pal( "accent" ) ) )
    AAdd( aLeft, CCUI_Cell( "model: " + cModel, "C", "" ) )
