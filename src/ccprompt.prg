@@ -56,11 +56,17 @@ FUNCTION CCPROMPT_Region( nRows, nCols, nContentRow, nTopRow )
    nBoxTop := nContentRow + 1
    IF nBoxTop < nTopRow + 1  ; nBoxTop := nTopRow + 1  ; ENDIF
    IF nBoxTop > nFloor       ; nBoxTop := nFloor       ; ENDIF
+   // The scroll region is the FULL band between the pinned header and
+   // the floor, regardless of where the box currently sits. The box is
+   // painted absolutely on top of that band at box_top. This keeps the
+   // scroll geometry stable (no narrow one-row region while the box is
+   // still travelling) so an early write does not scroll content out of
+   // the banner.
    RETURN { "rows"          => nRows, ;
             "cols"          => nCols, ;
             "active"        => ( nRows >= CCPROMPT_MIN_ROWS ), ;
             "scroll_top"    => nTopRow, ;
-            "scroll_bottom" => nBoxTop - 1, ;
+            "scroll_bottom" => nFloor - 1, ;
             "box_top"       => nBoxTop, ;
             "pinned"        => ( nBoxTop == nFloor ) }
 
