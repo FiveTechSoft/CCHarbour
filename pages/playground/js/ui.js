@@ -9,6 +9,7 @@ export function createUI(handlers) {
   const sendBtn = $("send");
 
   let assistantEl = null;       // current streaming assistant turn
+  let lastAssistantEl = null;   // last completed assistant turn (for post-hoc strip)
   const toolEls = new Map();    // tool call id -> details element
 
   function add(cls, text) {
@@ -117,7 +118,22 @@ export function createUI(handlers) {
       assistantEl.textContent += text;
       scrollback.scrollTop = scrollback.scrollHeight;
     },
-    endAssistant() { assistantEl = null; },
+    endAssistant() {
+      if (assistantEl) lastAssistantEl = assistantEl;
+      assistantEl = null;
+    },
+
+    // Removes the trailing "Suggested next: <text>" line from the last
+    // assistant turn after the suggestion has been lifted into the input
+    // box, so it does not also clutter the scrollback.
+    stripSuggestedLine() {
+      if (!lastAssistantEl) return;
+      const cleaned = lastAssistantEl.textContent.replace(
+        /\s*\n?\s*suggested\s+next:[^\n]*\s*$/i, "");
+      if (cleaned !== lastAssistantEl.textContent) {
+        lastAssistantEl.textContent = cleaned.replace(/\s+$/, "");
+      }
+    },
 
     // Render a tool call as a collapsible block; fill its result later.
     addToolCall(id, name, args) {

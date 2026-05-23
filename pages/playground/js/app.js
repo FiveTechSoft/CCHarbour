@@ -98,7 +98,10 @@ async function handleSubmit(text) {
       // Pre-fill the input with the model's "Suggested next:" prompt
       // so the user can Tab-accept or just press Enter to send it.
       const sg = extractSuggested(result.content || "");
-      if (sg) ui.setSuggestion(sg);
+      if (sg) {
+        ui.setSuggestion(sg);
+        ui.stripSuggestedLine();
+      }
     } else {
       ui.addError(result.message || "the request failed");
     }
