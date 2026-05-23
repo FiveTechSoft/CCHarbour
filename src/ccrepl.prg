@@ -606,6 +606,47 @@ STATIC FUNCTION CCREPL_FlushPending( oRender )
    oRender[ "pendingText" ] := ""
    RETURN NIL
 
+// Counts the visual rows a chunk would consume when written at col 1 of
+// an nCols-wide terminal: every LF adds a row, ANSI CSI sequences are
+// skipped, and a run of printable bytes that exceeds nCols wraps to the
+// next row. The byte count is a rough display-cell count -- UTF-8 multi-
+// byte sequences over-count, but for the dynamic-box layout we only need
+// "at least this many rows" so over-counting is safe (the box drops one
+// or two rows further than the true content, never overlaps it).
+FUNCTION CCREPL_VisualRows( cText, nCols )
+   LOCAL nRows := 0, nCol := 1, i := 1, n, c
+   IF ValType( cText ) != "C" .OR. Len( cText ) == 0 ; RETURN 0 ; ENDIF
+   IF nCols < 20 ; nCols := 20 ; ENDIF
+   n := Len( cText )
+   DO WHILE i <= n
+      c := SubStr( cText, i, 1 )
+      DO CASE
+      CASE c == Chr(27) .AND. SubStr( cText, i + 1, 1 ) == "["
+         // CSI sequence ESC[...<final byte 0x40..0x7E>
+         i += 2
+         DO WHILE i <= n
+            c := SubStr( cText, i, 1 )
+            i++
+            IF c >= "@" .AND. c <= "~" ; EXIT ; ENDIF
+         ENDDO
+      CASE c == Chr(10)
+         nRows++
+         nCol := 1
+         i++
+      CASE c == Chr(13)
+         nCol := 1
+         i++
+      OTHERWISE
+         nCol++
+         IF nCol > nCols
+            nRows++
+            nCol := 2
+         ENDIF
+         i++
+      ENDCASE
+   ENDDO
+   RETURN nRows
+
 // Returns the current terminal column count, falling back to 100 when no
 // console is available (piped input, tests). Public so tools (notably
 // dispatch_agent) can render full-width rules.
@@ -821,18 +862,14 @@ FUNCTION CCREPL_Out( cText )
          FWrite( hb_GetStdOut(), ;
             Chr(27) + "[u" + cText + Chr(27) + "[s" + CCREPL_BoxCursorSeq() )
          // While the box is still "travelling" (not yet pinned to the
-         // floor), advance content_row by the number of LFs we emitted
-         // and redraw so the box moves down to follow the content.
-         // Once content_row + 1 reaches the floor the region becomes
-         // pinned and from then on the LF-driven scroll inside the
-         // region takes over.
+         // floor), advance content_row by the number of VISUAL rows the
+         // chunk consumed -- not just LFs. A long line that auto-wraps
+         // occupies several physical rows even with a single \n; missing
+         // those rows in the count leaves the box overlapping the
+         // wrapped content. Once content_row + 1 reaches the floor the
+         // region becomes pinned and the LF-driven scroll takes over.
          IF !hb_HGetDef( s_oBoxPrompt[ "region" ], "pinned", .F. )
-            nNL := 0
-            FOR i := 1 TO Len( cText )
-               IF SubStr( cText, i, 1 ) == Chr(10)
-                  nNL++
-               ENDIF
-            NEXT
+            nNL := CCREPL_VisualRows( cText, CCREPL_Cols() )
             IF nNL > 0
                s_oBoxPrompt[ "content_row" ] := ;
                   hb_HGetDef( s_oBoxPrompt, "content_row", 1 ) + nNL
