@@ -683,8 +683,20 @@ FUNCTION CCUI_TodoBlock( aTodos )
 // getting started" list and a "What's new" line from releasenotes.md. The
 // shorter panel is blank-padded to equal height. Returns the banner ending in LF.
 FUNCTION CCUI_Banner( cModel, cCwd, cUser )
-   LOCAL nInner := 119, nLeftW := 56, nRightW := 60
+   // Adapts to the current terminal width: nInner is the inside width of
+   // the rounded frame (so total banner = nInner + 4). Clamped to keep
+   // the logo readable on narrow terminals and contained on wide ones.
+   LOCAL nCols := CCREPL_Cols() - 2   // leave 1 col margin per side
+   LOCAL nInner, nLeftW, nRightW
    LOCAL cH := CCUI_Glyph( "h" ), cV, cName, aLogo, aLeft, aRight, aRows, cOut, i
+   IF nCols < 80   ; nCols := 80    ; ENDIF
+   IF nCols > 200  ; nCols := 200   ; ENDIF
+   nInner  := nCols - 4
+   // Split: left ~48% / divider 3 cols / right takes the rest.
+   nLeftW  := Int( ( nInner - 3 ) * 0.48 )
+   IF nLeftW < 32   ; nLeftW := 32  ; ENDIF
+   nRightW := nInner - 3 - nLeftW
+   IF nRightW < 32  ; nRightW := 32 ; nLeftW := nInner - 3 - nRightW ; ENDIF
 
    cModel := hb_CStr( cModel )
    cCwd   := hb_CStr( cCwd )
