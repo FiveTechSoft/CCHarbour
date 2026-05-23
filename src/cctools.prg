@@ -23,6 +23,7 @@ FUNCTION CCTOOLS_Registry( hKeys )
    CCTOOLS_Register( oReg, CCTool_TodoWrite() )
    CCTOOLS_Register( oReg, CCTool_UseSkill() )
    CCTOOLS_Register( oReg, CCTool_DispatchAgent() )
+   CCTOOLS_Register( oReg, CCTool_ProposeAgents() )
    RETURN oReg
 
 // Strips a tool registry down to the set allowed for a subagent of the

@@ -19,6 +19,7 @@ src/cctools_ask.prg
 src/cctools_todo.prg
 src/cctools_skill.prg
 src/cctools_dispatch.prg
+src/cctools_propose.prg
 src/ccdiff.prg
 src/ccsettings.prg
 src/ccperm.prg
@@ -29,5 +30,6 @@ src/ccprompt.prg
 src/ccselect.prg
 src/cctodo.prg
 src/ccskill.prg
+src/ccpropose.prg
 src/ccconsole_posix.c
 src/ccrepl.prg

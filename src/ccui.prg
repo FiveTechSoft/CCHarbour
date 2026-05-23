@@ -403,6 +403,22 @@ FUNCTION CCUI_SystemPrompt()
             "End every reply with a final line in the exact form " + ;
             "'Suggested next: <a short prompt the user might send next>'." + ;
             Chr(10) + Chr(10) + ;
+            "Formatting rules: when you list more than 3 items, put each " + ;
+            "item on its own line with a leading '- ' bullet (real " + ;
+            "newlines, not commas). When emphasising a number or " + ;
+            "identifier with **, leave a space before and after the " + ;
+            "delimiter (write 'all **57** files' not 'all**57**files') so " + ;
+            "the surrounding spaces survive. Never collapse a list of " + ;
+            "paths or names into a single comma-less line." + Chr(10) + Chr(10) + ;
+            "Subagent dispatch rules: think first about whether delegation " + ;
+            "actually helps. For a one-line answer, a single file edit, or " + ;
+            "a conversational reply, do the work in the main thread. For a " + ;
+            "single self-contained subtask too heavy to inline, call " + ;
+            "dispatch_agent directly. For two or more independent subtasks, " + ;
+            "ALWAYS call propose_agents FIRST and wait for the user's " + ;
+            "approval -- the user reviews the list, may drop items, and " + ;
+            "confirms; only then iterate over the returned JSON and call " + ;
+            "dispatch_agent once per approved item." + Chr(10) + Chr(10) + ;
             "IMPORTANT — narrate your actions. Immediately before EVERY tool " + ;
             "call that runs a shell command, or that otherwise does something " + ;
             "non-obvious, you MUST first write one or two short sentences. " + ;
@@ -514,7 +530,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.7"
+   RETURN "0.8.8"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -723,14 +739,16 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
 
 // The rounded top border of the input frame, 99 columns wide.
 FUNCTION CCUI_FrameTop()
+   LOCAL nFill := CCUI_InputInnerWidth() + 4
    RETURN CCUI_Color( CCUI_Glyph( "tl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), 121 ) + CCUI_Glyph( "tr" ), ;
+          Replicate( CCUI_Glyph( "h" ), nFill ) + CCUI_Glyph( "tr" ), ;
           CCUI_Pal( "dim" ) )
 
-// The rounded bottom border of the input frame, 123 columns wide.
+// The rounded bottom border of the input frame. Same width as the top.
 FUNCTION CCUI_FrameBottom()
+   LOCAL nFill := CCUI_InputInnerWidth() + 4
    RETURN CCUI_Color( CCUI_Glyph( "bl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), 121 ) + CCUI_Glyph( "br" ), ;
+          Replicate( CCUI_Glyph( "h" ), nFill ) + CCUI_Glyph( "br" ), ;
           CCUI_Pal( "dim" ) )
 
 // The dim hint line shown beneath the input frame.
@@ -743,10 +761,58 @@ FUNCTION CCUI_InputHint( nLines )
    RETURN CCUI_Color( "  /help for commands" + cSuffix + ;
           "  " + Chr(226)+Chr(128)+Chr(162) + "  /exit to quit", CCUI_Pal( "dim" ) )
 
-// The text-column width available inside the input box (123 total: 2 borders,
-// 2 inside spaces, the "> " prompt = 6 of overhead, leaving 117).
+// The text-column width available inside the input box. Adapts to the
+// current terminal width (CCREPL_Cols) minus a one-column safety margin
+// (to avoid auto-wrap on the right edge) minus 6 cols of overhead
+// (2 borders + 2 inside spaces + the "> " prompt). Clamped to [70, 200].
 FUNCTION CCUI_InputInnerWidth()
-   RETURN 117
+   LOCAL nCols := CCREPL_Cols() - 1
+   IF nCols < 76 ; nCols := 76 ; ENDIF
+   IF nCols > 200 ; nCols := 200 ; ENDIF
+   RETURN nCols - 6
+
+// Renders the propose_agents selector body: a short intro line, one row per
+// proposal with a checkbox / index / type / truncated prompt, and a hint
+// tail. The caller (CCPROPOSE_Paint) wraps it with the rule + header band.
+FUNCTION CCUI_ProposeBlock( oSel )
+   LOCAL cOut := "", i, aItems := oSel[ "items" ], cRow, cBox, cType, cPrompt
+   LOCAL cCheck := Chr(226) + Chr(156) + Chr(147)   // U+2713 ✓ check
+   LOCAL cPend  := Chr(194) + Chr(183)              // U+00B7 · middle dot
+   LOCAL cArrow := Chr(226) + Chr(157) + Chr(175)   // U+276F ❯
+   LOCAL nMax
+   // dynamic max prompt length: terminal width minus the row prefix
+   // ("❯ [✓] NN. <type   > ") and a 3-char ellipsis budget
+   nMax := CCREPL_Cols() - 22
+   IF nMax < 30
+      nMax := 30
+   ENDIF
+   cOut += "  " + CCUI_Color( ;
+      "The agent suggests these subagents. Toggle with Space, " + ;
+      "confirm with Enter.", CCUI_Pal( "dim" ) ) + Chr(10)
+   cOut += Chr(10)
+   FOR i := 1 TO Len( aItems )
+      cBox := iif( aItems[ i ][ "accepted" ], ;
+                   CCUI_Color( "[" + cCheck + "]", CCUI_Pal( "accent" ) ), ;
+                   CCUI_Color( "[" + cPend + "]", CCUI_Pal( "dim" ) ) )
+      cType := PadR( aItems[ i ][ "type" ], 8 )
+      cPrompt := aItems[ i ][ "prompt" ]
+      IF hb_UTF8Len( cPrompt ) > nMax
+         cPrompt := hb_UTF8SubStr( cPrompt, 1, nMax - 3 ) + "..."
+      ENDIF
+      cRow := iif( i == oSel[ "cursor" ], cArrow + " ", "  " ) + cBox + " " + ;
+              LTrim( Str( i ) ) + ". " + cType + " " + cPrompt
+      IF i == oSel[ "cursor" ]
+         cRow := CCUI_Color( cRow, CCUI_Pal( "invert" ) )
+      ENDIF
+      cOut += cRow + Chr(10)
+   NEXT
+   cOut += Chr(10)
+   cOut += CCUI_Color( "  Space toggle " + Chr(194)+Chr(183) + ;
+                       " A accept all " + Chr(194)+Chr(183) + ;
+                       " N reject all " + Chr(194)+Chr(183) + ;
+                       " Enter confirm " + Chr(194)+Chr(183) + ;
+                       " Esc cancel", CCUI_Pal( "dim" ) ) + Chr(10)
+   RETURN cOut
 
 // The status line painted just below the input box. Lists the active skills
 // as bracketed tags ("[name1] [name2]"). nCols is the terminal width, used to

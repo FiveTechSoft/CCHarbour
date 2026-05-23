@@ -10,23 +10,75 @@ FUNCTION CCMD_New()
    RETURN { "buf" => "", "fence" => .F., "suggestion" => "" }
 
 // Appends a chunk; renders every line completed by a newline. Returns the
-// rendered ANSI text for those lines ("" when only a partial line is buffered).
+// rendered ANSI text for those lines ("" when only a partial line is
+// buffered). Defensive against models that emit a list as a single line
+// with "- " markers joining items but no real newlines: such a line is
+// detected and split into one bullet per virtual line before rendering.
 FUNCTION CCMD_Feed( oSt, cChunk )
-   LOCAL cOut := "", nNL, cLine
+   LOCAL cOut := "", nNL, cLine, cSplit, aParts, cPart
    oSt[ "buf" ] += hb_CStr( cChunk )
    DO WHILE ( nNL := At( Chr(10), oSt[ "buf" ] ) ) > 0
       cLine := Left( oSt[ "buf" ], nNL - 1 )
       oSt[ "buf" ] := SubStr( oSt[ "buf" ], nNL + 1 )
-      cOut += CCMD_RenderLine( oSt, cLine )
+      cSplit := CCMD_SplitBulletRun( cLine )
+      IF Chr(10) $ cSplit
+         aParts := hb_ATokens( cSplit, Chr(10) )
+         FOR EACH cPart IN aParts
+            cOut += CCMD_RenderLine( oSt, cPart )
+         NEXT
+      ELSE
+         cOut += CCMD_RenderLine( oSt, cLine )
+      ENDIF
    ENDDO
    RETURN cOut
 
-// Renders any buffered partial line (call at end of stream).
+// When a line starts with a bullet marker AND contains 3+ further inline
+// marker occurrences (with or without a leading space), the model
+// concatenated a list into one line without newlines. Split it so each
+// item becomes its own virtual line, preserving the marker on every
+// line. Returns the original cLine when no split is needed.
+STATIC FUNCTION CCMD_SplitBulletRun( cLine )
+   LOCAL cMark := "", aParts, i, cResult, nStart
+   IF Left( cLine, 2 ) == "- "
+      cMark := "- "
+   ELSEIF Left( cLine, 2 ) == "* "
+      cMark := "* "
+   ELSEIF Left( cLine, 2 ) == "+ "
+      cMark := "+ "
+   ENDIF
+   IF Empty( cMark )
+      RETURN cLine
+   ENDIF
+   // hb_ATokens("- a- b- c", "- ") returns { "", "a", "b", "c" }; require
+   // 4+ tokens (so at least 3 inline items) to avoid splitting a regular
+   // single bullet that happens to contain "- " inside its text
+   aParts := hb_ATokens( cLine, cMark )
+   IF Len( aParts ) < 4
+      RETURN cLine
+   ENDIF
+   nStart := iif( Empty( aParts[ 1 ] ), 2, 1 )
+   cResult := cMark + aParts[ nStart ]
+   FOR i := nStart + 1 TO Len( aParts )
+      cResult += Chr(10) + cMark + aParts[ i ]
+   NEXT
+   RETURN cResult
+
+// Renders any buffered partial line (call at end of stream). Applies the
+// same bullet-run split as CCMD_Feed so a list that arrived without any
+// terminating newline still renders one item per line.
 FUNCTION CCMD_Flush( oSt )
-   LOCAL cOut := ""
+   LOCAL cOut := "", cSplit, aParts, cPart
    IF Len( oSt[ "buf" ] ) > 0
-      cOut := CCMD_RenderLine( oSt, oSt[ "buf" ] )
+      cSplit := CCMD_SplitBulletRun( oSt[ "buf" ] )
       oSt[ "buf" ] := ""
+      IF Chr(10) $ cSplit
+         aParts := hb_ATokens( cSplit, Chr(10) )
+         FOR EACH cPart IN aParts
+            cOut += CCMD_RenderLine( oSt, cPart )
+         NEXT
+      ELSE
+         cOut := CCMD_RenderLine( oSt, cSplit )
+      ENDIF
    ENDIF
    RETURN cOut
 

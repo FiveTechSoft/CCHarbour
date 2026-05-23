@@ -246,3 +246,52 @@ decisions and context across sessions. Defaults to `allow`.
 |-------------|--------|----------|------------------------------------------|
 | `operation` | string | yes      | one of: `append`, `read`, `clear`        |
 | `text`      | string | no       | text to append (required for `append`)   |
+
+### use_skill
+
+Activate a project skill from `.ccharbour/skills/`. The skill body is
+returned to the model and its name pinned to the status line.
+
+| Parameter | Type   | Required | Description                |
+|-----------|--------|----------|----------------------------|
+| `name`    | string | yes      | the skill name to activate |
+
+### dispatch_agent
+
+Spawn an isolated subagent on a focused subtask. The subagent has its own
+conversation and a filtered tool registry; the parent receives only the
+final reply. Cancellable mid-run with Esc on the parent's input box.
+
+| Parameter    | Type    | Required | Description                                                       |
+|--------------|---------|----------|-------------------------------------------------------------------|
+| `prompt`     | string  | yes      | the task for the subagent                                         |
+| `agent_type` | string  | no       | `explore` (read-only, default) or `general` (full toolset)        |
+| `timeout_s`  | number  | no       | wall-clock seconds before auto-cancel (default 120, max 600)      |
+
+The second consecutive `dispatch_agent` call without going through
+`propose_agents` is rejected with a redirect; an approved `propose_agents`
+batch tops up an allowance equal to the approved count, so a sanctioned
+multi-dispatch goes through.
+
+### propose_agents
+
+Batch two or more proposed subagents past a user-review selector before
+any dispatch happens. Each row is toggleable (Space), the user can accept
+all (A) or reject all (N), confirm (Enter) or cancel (Esc). The tool
+returns a JSON array of the approved items; the agent then iterates over
+it and calls `dispatch_agent` once per item.
+
+| Parameter | Type  | Required | Description                                                                                  |
+|-----------|-------|----------|----------------------------------------------------------------------------------------------|
+| `agents`  | array | yes      | the proposed subagents, each an object with `agent_type` (string) and `prompt` (string)      |
+
+### todo_write
+
+Replace the visible session task list. Each item supports `id`,
+`active_form` (label shown while in_progress) and `blocked_by` (ids this
+item depends on; while any blocker is pending the item renders indented,
+dimmed, with a `↳` glyph).
+
+| Parameter | Type  | Required | Description                                                                                                            |
+|-----------|-------|----------|------------------------------------------------------------------------------------------------------------------------|
+| `todos`   | array | yes      | the full task list. Each item: `text` (string, required), `status` (`pending`/`in_progress`/`completed`, required), and optional `id`, `active_form`, `blocked_by`. |

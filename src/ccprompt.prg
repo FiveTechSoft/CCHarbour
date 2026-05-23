@@ -5,6 +5,9 @@
 // The input box occupies the bottom FOUR rows: top frame, input line,
 // bottom frame, and a skills status line that lists active skills.
 #define CCPROMPT_BOX_ROWS  4
+
+// Wall-clock of the previously processed key, used by paste detection.
+STATIC s_nLastKeyMs := 0
 // Below this many rows there is no room for the box -> fallback mode.
 #define CCPROMPT_MIN_ROWS  8
 
@@ -35,6 +38,13 @@ FUNCTION CCPROMPT_Region( nRows, nCols )
             "active"        => ( nRows >= CCPROMPT_MIN_ROWS ), ;
             "scroll_bottom" => nRows - CCPROMPT_BOX_ROWS, ;
             "box_top"       => nRows - CCPROMPT_BOX_ROWS + 1 }
+
+// True when cText is a paste-collapse placeholder of the form
+// "[pasted N lines text]".
+FUNCTION CCPROMPT_IsPlaceholder( cText )
+   LOCAL cTrim := AllTrim( hb_CStr( cText ) )
+   RETURN Left( cTrim, 8 ) == "[pasted " .AND. ;
+          Right( cTrim, 12 ) == " lines text]"
 
 // Classifies a submitted line. Returns { action, text }:
 //   action "empty" -> blank line, ignore
@@ -147,12 +157,30 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
 // Non-blocking: drains every pending key into the editor, then redraws the
 // box. On Enter the buffer is classified; on Esc an interrupt is recorded.
 // Returns an action string: "none", "queued", or "interrupt".
+//
+// Paste detection: keystrokes arriving < 50ms apart are treated as a paste
+// burst. Enter inside a paste burst inserts a newline instead of submitting.
+// After the burst, if the buffer ended up multi-line and the burst flagged
+// itself, the buffer is collapsed to a "[pasted N lines text]" placeholder
+// and the real content is stashed in oPrompt[ "paste" ]; submitting the
+// placeholder swaps the real content back in transparently.
 FUNCTION CCPROMPT_Poll( oPrompt )
    LOCAL oEd := oPrompt[ "editor" ], nKey, hC, cAction := "none", lDrained := .F.
-   LOCAL cHist
+   LOCAL cHist, nNow, lBurst := .F., nLines, cSubmit, cPlaceholder
    DO WHILE CCCON_KeyPending()
       lDrained := .T.
       nKey := CCCON_ReadKey()
+      nNow := hb_milliseconds()
+      IF s_nLastKeyMs > 0 .AND. ( nNow - s_nLastKeyMs ) < 50
+         lBurst := .T.
+      ENDIF
+      s_nLastKeyMs := nNow
+      // Enter inside a paste burst becomes a newline: many editors send LF
+      // mid-paste and the user does not want to submit half a paste
+      IF lBurst .AND. nKey == -1
+         CCIN_Insert( oEd, Chr(10) )
+         LOOP
+      ENDIF
       // when a suggestion is active, the next key either accepts it (Tab/Enter)
       // or cancels it (any edit). Tab/Backspace/Delete are handled here in full;
       // Enter and printable keys clear the suggestion flag (and buffer for
@@ -183,7 +211,15 @@ FUNCTION CCPROMPT_Poll( oPrompt )
          oPrompt[ "interrupt" ] := { "kind" => "esc", "text" => "" }
          cAction := "interrupt"
       CASE nKey == -1                        // Enter -> classify the buffer
-         hC := CCPROMPT_Classify( oEd[ "buf" ] )
+         // expand a paste placeholder back to its real content before
+         // classifying, so /btw or commands inside the paste still work
+         cSubmit := oEd[ "buf" ]
+         IF hb_HHasKey( oPrompt, "paste" ) .AND. ;
+            !Empty( oPrompt[ "paste" ] ) .AND. ;
+            CCPROMPT_IsPlaceholder( cSubmit )
+            cSubmit := oPrompt[ "paste" ]
+         ENDIF
+         hC := CCPROMPT_Classify( cSubmit )
          DO CASE
          CASE hC[ "action" ] == "empty"
             // ignore
@@ -197,9 +233,21 @@ FUNCTION CCPROMPT_Poll( oPrompt )
             CCIN_HistoryAdd( hC[ "text" ] )
          ENDCASE
          CCIN_HistoryReset()
+         IF hb_HHasKey( oPrompt, "paste" )
+            hb_HDel( oPrompt, "paste" )
+         ENDIF
          oPrompt[ "editor" ] := CCIN_New( "" )
          oEd := oPrompt[ "editor" ]
-      CASE nKey == -2 ; CCIN_Backspace( oEd )
+      CASE nKey == -2                          // Backspace
+         // Backspace on a paste placeholder clears the paste entirely
+         IF hb_HHasKey( oPrompt, "paste" ) .AND. ;
+            CCPROMPT_IsPlaceholder( oEd[ "buf" ] )
+            hb_HDel( oPrompt, "paste" )
+            oEd[ "buf" ] := ""
+            oEd[ "cursor" ] := 0
+         ELSE
+            CCIN_Backspace( oEd )
+         ENDIF
       CASE nKey == -3 ; CCIN_Left( oEd )
       CASE nKey == -4 ; CCIN_Right( oEd )
       CASE nKey == -5 ; CCIN_Home( oEd )
@@ -225,6 +273,18 @@ FUNCTION CCPROMPT_Poll( oPrompt )
          EXIT   // stop draining once an interrupt is seen
       ENDIF
    ENDDO
+   // post-burst paste collapse: after the burst ends, if the editor buffer
+   // has newlines AND the burst flagged itself as a paste, stash the real
+   // content and show a tidy "[pasted N lines text]" placeholder instead.
+   IF lDrained .AND. lBurst .AND. ;
+      !hb_HHasKey( oPrompt, "paste" ) .AND. ;
+      Chr(10) $ oEd[ "buf" ] .AND. !CCPROMPT_IsPlaceholder( oEd[ "buf" ] )
+      nLines := Len( hb_ATokens( oEd[ "buf" ], Chr(10) ) )
+      oPrompt[ "paste" ] := oEd[ "buf" ]
+      cPlaceholder := "[pasted " + LTrim( Str( nLines ) ) + " lines text]"
+      oEd[ "buf" ] := cPlaceholder
+      oEd[ "cursor" ] := hb_UTF8Len( cPlaceholder )
+   ENDIF
    // only redraw when a key actually changed something -- an idle poll loop
    // must not repaint 50x/second
    IF lDrained

@@ -1,35 +1,71 @@
 // dispatch_agent: spawns a subagent with its own conversation and a
 // filtered tool registry on a self-contained subtask. The parent's main
-// loop blocks until the subagent finishes and only the subagent's final
-// reply text comes back. Used to delegate exploration / multi-file
-// searches / focused subtasks so the parent's context stays small.
+// loop blocks until the subagent finishes; only the subagent's final
+// reply text comes back. A visible Agent block bounds the run, the
+// timeout caps wall-clock time, and Esc on the parent box cancels the
+// subagent.
+//
+// Per-turn invocation counter -- reset by CCTool_DispatchResetCount at
+// the start of every CCREPL_RunTurn. The second consecutive dispatch
+// inside the same turn is rejected with a redirect to propose_agents,
+// forcing the model to batch its plan and route through the user gate
+// instead of dispatching a flurry of subagents without confirmation.
+//
+// Allowance: when propose_agents is approved by the user, it tops up an
+// allowance equal to the number of approved proposals. Each subsequent
+// dispatch_agent decrements that allowance before incrementing the
+// counter, so a fully-approved batch dispatches without the gate firing.
+STATIC s_nDispatchInTurn := 0
+STATIC s_nDispatchAllowance := 0
+
+FUNCTION CCTool_DispatchResetCount()
+   s_nDispatchInTurn := 0
+   s_nDispatchAllowance := 0
+   RETURN NIL
+
+// Called by propose_agents when the user approves a batch. Adds N to the
+// allowance so the next N dispatch_agent calls go through.
+FUNCTION CCTool_DispatchGrantAllowance( nN )
+   s_nDispatchAllowance += Max( 0, Int( nN ) )
+   RETURN NIL
 
 FUNCTION CCTool_DispatchAgent()
    RETURN { "name" => "dispatch_agent", ;
             "description" => "Launch an isolated subagent on a specific " + ;
                "task. The subagent has its own conversation and its own " + ;
                "(filtered) tool registry; it returns only its final " + ;
-               "answer. Useful for delegating exploration, multi-file " + ;
-               "searches, or any self-contained subtask so the parent " + ;
-               "agent's context stays focused. agent_type: " + ;
+               "answer. IMPORTANT: if you plan to call this tool 2 or more " + ;
+               "times in succession, STOP and call propose_agents instead, " + ;
+               "with all the planned proposals batched into one call; the " + ;
+               "user reviews the list and approves before any dispatch " + ;
+               "runs. Use dispatch_agent directly only when exactly one " + ;
+               "subagent is needed. agent_type: " + ;
                "'explore' (read-only tools: read, glob, grep, " + ;
                "github_read, memory, use_skill) or " + ;
                "'general' (full toolset, no further dispatch). " + ;
+               "timeout_s caps the wall-clock seconds the subagent may run " + ;
+               "(default 120, max 600). The user can cancel mid-run with Esc. " + ;
                "Example: { prompt: 'List every cctools_*.prg file and " + ;
-               "summarise each in one line', agent_type: 'explore' }", ;
+               "summarise each in one line', agent_type: 'explore', " + ;
+               "timeout_s: 60 }", ;
             "parameters" => { "type" => "object", ;
                "properties" => { ;
                   "prompt" => { "type" => "string", ;
                                 "description" => "The task for the subagent" }, ;
                   "agent_type" => { "type" => "string", ;
                                     "description" => "explore | general " + ;
-                                       "(default: explore)" } }, ;
+                                       "(default: explore)" }, ;
+                  "timeout_s" => { "type" => "number", ;
+                                   "description" => "Max wall-clock seconds " + ;
+                                      "(default 120, max 600)" } }, ;
                "required" => { "prompt" } }, ;
             "handler" => {| hArgs | CCTool_DispatchRun( hArgs ) } }
 
 STATIC FUNCTION CCTool_DispatchRun( hArgs )
    LOCAL cPrompt, cType, hSet, hCfg, oClient, oReg, aMsgs, hRes
    LOCAL cReply, hMsg, hKeys
+   LOCAL nTimeout, nStartMs, oPrompt, bInterrupt, cStopReason
+   LOCAL nElapsedMs, cSummary, nCols
    cPrompt := hb_CStr( hArgs[ "prompt" ] )
    IF Empty( cPrompt )
       RETURN "Error: dispatch_agent requires 'prompt'"
@@ -40,6 +76,30 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
    IF !( cType == "explore" .OR. cType == "general" )
       RETURN "Error: dispatch_agent agent_type must be 'explore' or 'general'"
    ENDIF
+   // Allowance from a recent propose_agents approval bypasses the gate.
+   // Otherwise reject the 2nd dispatch in the same turn and redirect to
+   // propose_agents.
+   IF s_nDispatchAllowance > 0
+      s_nDispatchAllowance--
+   ELSE
+      s_nDispatchInTurn++
+      IF s_nDispatchInTurn > 1
+         s_nDispatchInTurn := 1
+         RETURN "Error: this is your second dispatch_agent call in this " + ;
+                "turn (and no propose_agents allowance is left). STOP " + ;
+                "dispatching individually. Use propose_agents instead, " + ;
+                "passing ALL the remaining subagents you planned (and " + ;
+                "this one) as one batch -- the user reviews the full " + ;
+                "list and approves before any dispatch runs. Then " + ;
+                "iterate over the returned JSON and call dispatch_agent " + ;
+                "once per approved item."
+      ENDIF
+   ENDIF
+   nTimeout := iif( hb_HHasKey( hArgs, "timeout_s" ) .AND. ;
+                    ValType( hArgs[ "timeout_s" ] ) == "N", ;
+                    hArgs[ "timeout_s" ], 120 )
+   IF nTimeout < 5  ; nTimeout := 5    ; ENDIF
+   IF nTimeout > 600 ; nTimeout := 600 ; ENDIF
    hSet := CCSETTINGS_Load()
    hCfg := CCCFG_Resolve( {=>} )
    IF !hCfg[ "ok" ]
@@ -56,22 +116,84 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
    aMsgs := { ;
       { "role" => "system", ;
         "content" => "You are a CCHarbour subagent of type '" + cType + "'. " + ;
-           "Complete the task succinctly using the tools you have. The " + ;
-           "parent agent will receive ONLY your final reply, so put your " + ;
-           "answer in plain text -- no preamble, no 'Suggested next' line, " + ;
-           "no chit-chat. Keep it focused and short." }, ;
+           "Complete the task using the tools you have, then return a SHORT " + ;
+           "synthesis -- at most 10-15 lines, ideally fewer." + Chr(10) + ;
+           Chr(10) + ;
+           "Critical rules (every one is non-negotiable):" + Chr(10) + ;
+           "  1. NEVER dump raw tool output to the parent. Process it, " + ;
+           "count it, summarise it, then report just the conclusion." + Chr(10) + ;
+           "  2. When asked to 'list' or 'find' items, return COUNTS and at " + ;
+           "most 5 representative examples -- not every match. The parent " + ;
+           "agent wants the answer, not the working." + Chr(10) + ;
+           "  3. No preamble, no 'Suggested next' line, no chit-chat. " + ;
+           "Start with the answer." + Chr(10) + ;
+           "  4. Plain text or a tight bullet list. A reply over 15 lines " + ;
+           "is a failure unless the user explicitly asked for the full " + ;
+           "list." + Chr(10) + ;
+           "  5. If the user explicitly asked for a complete list, return " + ;
+           "it -- but say so explicitly so the parent knows why the reply " + ;
+           "is long." + Chr(10) + ;
+           "  6. List formatting: ALWAYS put each list item on its own " + ;
+           "physical line with real newlines (Chr 10). Never join items " + ;
+           "with commas, spaces or empty separators. Prefer a leading " + ;
+           "'- ' or '1. ' marker per line." }, ;
       { "role" => "user", "content" => cPrompt } }
+   // Render the opening Agent block above the input box so the user sees
+   // which subagent is running and on what
+   nCols := CCREPL_Cols()
+   cSummary := iif( hb_UTF8Len( cPrompt ) > 80, ;
+                    hb_UTF8SubStr( cPrompt, 1, 77 ) + "...", cPrompt )
+   CCREPL_Out( Chr(10) + ;
+      CCUI_Color( Replicate( Chr(226)+Chr(148)+Chr(128), nCols - 1 ), ;
+                  CCUI_Pal( "bash_header" ) ) + Chr(10) + ;
+      CCUI_Color( " Agent " + cType + " working", ;
+                  CCUI_Pal( "bash_header" ) ) + Chr(10) + Chr(10) + ;
+      CCUI_Color( "   " + cSummary, CCUI_Pal( "bash_command" ) ) + Chr(10) + ;
+      CCUI_Color( "   timeout " + LTrim( Str( nTimeout ) ) + "s " + ;
+                  Chr(194)+Chr(183) + " press Esc on the input box to cancel", ;
+                  CCUI_Pal( "bash_explain" ) ) + Chr(10) )
+   // Interrupt when either the parent's Esc fires or the timeout elapses
+   nStartMs  := hb_milliseconds()
+   oPrompt   := CCREPL_BoxPrompt()
+   bInterrupt := {|| ;
+      ( oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt ) ) .OR. ;
+      ( ( hb_milliseconds() - nStartMs ) / 1000.0 > nTimeout ) }
    hRes := CC_AgentRun( oClient, aMsgs, ;
-      { "model"          => hSet[ "model" ], ;
-        "tools"          => CCTOOLS_Schemas( oReg ), ;
-        "tool_executor"  => CCTOOLS_Executor( oReg ), ;
-        "max_iterations" => 10 }, ;
+      { "model"           => hSet[ "model" ], ;
+        "tools"           => CCTOOLS_Schemas( oReg ), ;
+        "tool_executor"   => CCTOOLS_Executor( oReg ), ;
+        "max_iterations"  => 10, ;
+        "interrupt_check" => bInterrupt }, ;
       {| hEv | HB_SYMBOL_UNUSED( hEv ) } )
+   nElapsedMs := hb_milliseconds() - nStartMs
+   // Drain the parent's Esc interrupt if we caused it so the parent loop
+   // does not see a stale interrupt after the tool returns
+   IF oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt )
+      oPrompt[ "interrupt" ] := NIL
+   ENDIF
+   cStopReason := hb_HGetDef( hRes, "stop_reason", "" )
+   IF cStopReason == "interrupted"
+      IF ( nElapsedMs / 1000.0 ) >= nTimeout - 0.5
+         CCREPL_Out( CCUI_Color( " Agent timed out after " + ;
+            LTrim( Str( nTimeout ) ) + "s", CCUI_Pal( "warn" ) ) + Chr(10) )
+         RETURN "[subagent timed out after " + LTrim( Str( nTimeout ) ) + "s]"
+      ENDIF
+      CCREPL_Out( CCUI_Color( " Agent cancelled by user", ;
+                              CCUI_Pal( "warn" ) ) + Chr(10) )
+      RETURN "[subagent cancelled by user]"
+   ENDIF
    IF !hRes[ "success" ]
+      CCREPL_Out( CCUI_Color( " Agent failed: " + ;
+         hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ), ;
+         CCUI_Pal( "error" ) ) + Chr(10) )
       RETURN "Subagent failed: " + ;
              hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ) + ": " + ;
              hb_CStr( hb_HGetDef( hRes, "message", "" ) )
    ENDIF
+   CCREPL_Out( CCUI_Color( " Agent done in " + ;
+      Str( nElapsedMs / 1000.0, 6, 1 ) + "s (" + ;
+      LTrim( Str( hb_HGetDef( hRes, "iterations", 0 ) ) ) + " iterations)", ;
+      CCUI_Pal( "bash_header" ) ) + Chr(10) )
    cReply := ""
    FOR EACH hMsg IN hRes[ "messages" ]
       IF hMsg[ "role" ] == "assistant" .AND. ;

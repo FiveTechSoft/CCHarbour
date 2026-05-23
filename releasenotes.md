@@ -1,6 +1,56 @@
-CCHarbour v0.8.7 — Subagents: dispatch_agent tool with isolated context and filtered tool registry.
+CCHarbour v0.8.8 — propose_agents gate, paste collapse, dynamic input box, bullet split, broader list of skills, and other UX polish.
 
-## New since v0.8.6
+## New since v0.8.7
+
+- **`propose_agents` tool** — the agent batches 2+ planned subagents and
+  the user reviews them in an interactive multi-row selector. Space
+  toggles each row, A / N flip all on/off, Enter approves the filtered
+  list, Esc cancels the batch. The returned JSON is iterated by the
+  agent to call `dispatch_agent` once per approved item. Inherently
+  consented (the user is the gate).
+- **Second-dispatch interceptor** — if the agent calls `dispatch_agent`
+  twice in a row without going through `propose_agents`, the second call
+  is rejected with a redirect message asking it to batch via
+  `propose_agents`. Approved batches top up an allowance equal to the
+  number of approved items, so a sanctioned batch dispatches without
+  the gate firing again. Both counters reset at the start of each
+  REPL turn.
+- **Agent block** — every `dispatch_agent` call now renders an
+  absolute-positioned block (rule, " Agent <type> working ", short
+  prompt summary, timeout + Esc hint). When the subagent finishes the
+  block closes with "Agent done in X.Xs (N iterations)" so wall-clock
+  and effort are visible.
+- **Subagent timeout + Esc cancel** — every `dispatch_agent` accepts a
+  `timeout_s` (default 120, max 600); the subagent is interrupted at
+  the boundary and returns `[subagent timed out after Ns]`. The user
+  can also press Esc on the input box mid-run; the subagent returns
+  `[subagent cancelled by user]`.
+- **Paste collapse** — pasting multi-line text into the box now stashes
+  the real content in a sidecar and shows a tidy
+  `[pasted N lines text]` placeholder. Enter expands the placeholder
+  back transparently; Backspace clears the paste entirely.
+- **Dynamic input box width** — `CCUI_InputInnerWidth` and the frame
+  borders read the terminal column count and adapt (clamped to
+  [76, 200] inner). Wider terminals get a wider box without rebuilding.
+  Fixed sizes only kick in below 76 cols or above 200.
+- **Bullet-run split (CCMD)** — when a model emits an entire list on a
+  single line joined by `- ` markers (no newlines), `CCMD_SplitBulletRun`
+  splits it into one virtual line per item before rendering. The split
+  applies both mid-stream (CCMD_Feed) and at end-of-turn (CCMD_Flush).
+- **Stricter list formatting in the system prompt** — both the parent
+  agent and subagents are told to put each list item on its own line
+  with `- ` and to leave a space around `**bold**` so the surrounding
+  whitespace survives.
+- **5 new skills shipped under `.ccharbour/skills/`** — `brainstorming`,
+  `writing-plans`, `tdd`, `debugging`, `code-review` (each with EN+ES
+  auto-trigger patterns).
+- **`/lean`** — toggles a minimal system prompt (no skills section, no
+  CC.md, no memory.md, no narration block) to save ~500-800 tokens
+  per turn. `[lean]` badge in the status line.
+
+## v0.8.7 — Subagents: dispatch_agent tool with isolated context and filtered tool registry.
+
+### New since v0.8.6
 
 - **`dispatch_agent` tool** — the agent can now spawn an isolated
   subagent on a self-contained subtask. The subagent has its own

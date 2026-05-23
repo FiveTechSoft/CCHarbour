@@ -258,6 +258,7 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    IF oPrompt != NIL
       hOpts[ "interrupt_check" ] := {|| CCPROMPT_Interrupted( oPrompt ) }
    ENDIF
+   CCTool_DispatchResetCount()   // reset per-turn dispatch_agent counter
    hRes := CC_AgentRun( oClient, aMessages, hOpts, ;
       {| hEv | CCREPL_RenderEv( hEv, oRender ), ;
                iif( oPrompt != NIL, CCPROMPT_Poll( oPrompt ), NIL ) } )
@@ -594,8 +595,9 @@ STATIC FUNCTION CCREPL_FlushPending( oRender )
    RETURN NIL
 
 // Returns the current terminal column count, falling back to 100 when no
-// console is available (piped input, tests).
-STATIC FUNCTION CCREPL_Cols()
+// console is available (piped input, tests). Public so tools (notably
+// dispatch_agent) can render full-width rules.
+FUNCTION CCREPL_Cols()
    LOCAL hSz
    IF !CCCON_HasConsole()
       RETURN 100
@@ -654,11 +656,12 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
-      // ask_user owns its own rendering: CCSEL_Paint paints separator,
-      // header, question, options and hint as one absolute-positioned
-      // block so a Up/Down keystroke does not scroll the scroll region.
-      // Nothing to print from here; just drain the markdown buffer.
-      IF Lower( hb_CStr( hEv[ "name" ] ) ) == "ask_user"
+      // ask_user and propose_agents own their own rendering (CCSEL_Paint /
+      // CCPROPOSE_Paint paint separator, header and body as one
+      // absolute-positioned block). Nothing to print from here; just
+      // drain the markdown buffer.
+      IF Lower( hb_CStr( hEv[ "name" ] ) ) == "ask_user" .OR. ;
+         Lower( hb_CStr( hEv[ "name" ] ) ) == "propose_agents"
          CCMD_Flush( oRender[ "md" ] )
       ELSE
          CCREPL_Out( CCUI_ToolBlock( ;

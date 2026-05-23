@@ -192,7 +192,7 @@ skills shipped: `superpowers` (brainstorm → plan → execute → verify) and
 
 ## Tools
 
-The agent works through these fifteen tools. Each is gated by the
+The agent works through these sixteen tools. Each is gated by the
 permission shown (`allow` runs without asking, `ask` prompts, `deny`
 blocks). Parameters marked ★ are required; the rest are optional.
 
@@ -212,7 +212,8 @@ blocks). Parameters marked ★ are required; the rest are optional.
 | `ask_user` | allow | Ask the user a multiple-choice question and return their selected answer. Renders an interactive selector (arrow keys or number, plus an "Other" free-text option). `question`★, `options`★ (2–4 choices). Never gated — asking is inherently consented. |
 | `todo_write` | allow | Replace the visible session task list. `todos`★ (array of items); each item has `text`★, `status`★ (`pending`/`in_progress`/`completed`), and optional `id`, `active_form` (label shown while in_progress), and `blocked_by` (array of ids this task depends on). |
 | `use_skill` | allow | Activate a project skill from `.ccharbour/skills/`; returns the skill's body and pins its name to the status line. `name`★. |
-| `dispatch_agent` | allow | Spawn an isolated subagent on a focused subtask; returns only its final reply. `prompt`★, `agent_type` (`explore` read-only / `general` full toolset; default `explore`). |
+| `dispatch_agent` | allow | Spawn an isolated subagent on a focused subtask; returns only its final reply. `prompt`★, `agent_type` (`explore` read-only / `general` full toolset; default `explore`), `timeout_s` (default 120, max 600). Cancellable mid-run with Esc. |
+| `propose_agents` | allow | Batch 2+ proposed subagents past a user-review selector before any dispatch. `agents`★ (array of `{ agent_type, prompt }`). Returns approved JSON list; the agent then iterates and dispatches each. The second consecutive `dispatch_agent` without going through this gate is rejected. |
 
 ## Disclaimer
 
@@ -329,7 +330,16 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.7 — current.** `dispatch_agent` — the agent can spawn an isolated
+**v0.8.8 — current.** `propose_agents` gate (review batch of subagents in
+an interactive selector before dispatch), second-dispatch interceptor
+(redirects single-shot multi-dispatch through the gate), Agent block
+visualisation, subagent `timeout_s` + Esc cancel, paste collapse
+(`[pasted N lines text]`), dynamic input-box width, defensive
+bullet-run split in `CCMD`, and stricter list-formatting rules in the
+system prompt. Adds skills `brainstorming`, `writing-plans`, `tdd`,
+`debugging`, `code-review`, plus the `/lean` token-saving command.
+
+**v0.8.7 — previous.** `dispatch_agent` — the agent can spawn an isolated
 subagent on a focused subtask. The subagent has its own conversation
 and a filtered tool registry; the parent only receives the final reply,
 so its context stays small. Two agent types: `explore` (read-only) and
