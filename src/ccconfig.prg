@@ -41,6 +41,20 @@ FUNCTION CCCFG_Resolve( hOpts )
             cKey := cFileKey
          ENDIF
       ENDIF
+      // Fall back to settings.json so a key saved via /provider key
+      // <secret> is picked up on the next turn without rebuilding the
+      // client. Honour CCHARBOUR_CONFIG first (same precedence as
+      // CCSETTINGS_Load), then the default .ccharbour/settings.json.
+      IF Empty( cKey )
+         cFileKey := hb_GetEnv( "CCHARBOUR_CONFIG" )
+         IF Empty( cFileKey )
+            cFileKey := ".ccharbour" + hb_ps() + "settings.json"
+         ENDIF
+         cFileKey := CCCFG_FromFile( cFileKey )
+         IF !Empty( cFileKey )
+            cKey := cFileKey
+         ENDIF
+      ENDIF
    ENDIF
 
    IF Empty( cKey )

@@ -1,6 +1,54 @@
-CCHarbour v0.8.12 — Start without an API key, configure the backend interactively with /provider.
+CCHarbour v0.8.13 — Dynamic-box paint hardening, live timing in the spinner / token bar, /provider key picked up on the next turn.
 
-## New since v0.8.11
+## New since v0.8.12
+
+- **Banner anchored at row 1.** `CCREPL_Run` emits `ESC[H ESC[2J`
+  before printing the banner so it is always at rows 1..N and the
+  `CCPROMPT_Activate( nHeaderRows + 1 )` anchor lands exactly below it.
+  Previously the banner started at the cursor's row (often row 2 after
+  the shell `cc` line), so subsequent writes overwrote the banner's
+  bottom border.
+- **Box paint uses absolute cursor jumps.** `CCPROMPT_Redraw` now
+  positions every row of the four-row box with an absolute `ESC[<row>;1H`
+  instead of chaining CRLFs. The CRLF chain scrolled the screen up by
+  one row each time the box sat near the terminal bottom, which is how
+  pressing Esc at the idle prompt could stack 10+ leftover `╭` frames
+  above the box.
+- **Wipe rule rewritten.** The old-box-frame wipe in `CCPROMPT_Redraw`
+  is now `[oldBoxTop .. min(oldBoxTop+3, newBoxTop-1)] minus the rows
+  just written`. `CCREPL_Out` stashes `last_write_start` and a trailing
+  -LF flag so Redraw knows where the chunk actually wrote. Fixes the
+  FlushPending bullet (`"\n + glyph + 2sp"`, no trailing LF) being
+  wiped right after it was painted, and the stale top-frame left
+  behind by multi-line writes (paragraph breaks in the streamed reply).
+- **Banner scrolls when the box pins.** `CCPROMPT_Region` sets
+  `scroll_top` to 1 once `box_top == nFloor`, so the VT scroll region
+  expands up to the top of the screen and the banner finally rolls off
+  the top edge as new content arrives. While the box is still
+  travelling the banner is still pinned (current behaviour).
+- **Spinner shows elapsed seconds.** `iteration_start` stamps a wall-
+  clock in `oRender[ "spinnerStartMs" ]`; `CCREPL_SpinnerShow` appends
+  ` Ns` to the spinner line (e.g. `⠦ Thinking... [32 tok] 7s`).
+- **Token bar shows turn / session seconds.** `CCREPL_RunTurn` times
+  each turn with `hb_MilliSeconds()`, accumulates into a session-wide
+  static, and passes the per-turn ms to `CCREPL_ShowTokenBar`. The bar
+  now reads `▒ tokens in: 3670  out: 83  total: 3753  turn: 1.4s
+  session: 7.2s`. `/clear` resets the session counter.
+- **dispatch_agent timer ticks down.** The opening Agent block prints
+  the separator / header / prompt and then drops a live elapsed-time
+  line via the new `CCREPL_OverwriteAtAnchor` helper. The
+  `interrupt_check` callback refreshes the line at ~2 Hz so the user
+  sees `Ns elapsed / Ms timeout · press Esc on the input box to cancel`
+  tick in place. A final `CCREPL_Out` bakes the value in and lets the
+  "Agent done in X.Xs" line land below.
+- **/provider key picked up on the next turn.** `CCCFG_Resolve` now
+  falls back to `$CCHARBOUR_CONFIG` (or `.ccharbour/settings.json`)
+  when the env vars are empty, so a freshly-saved api_key reaches the
+  next chat call without rebuilding the client.
+
+## v0.8.12 — Start without an API key, configure the backend interactively with /provider.
+
+### New since v0.8.11
 
 - **Starts even with no API key configured.** The session no longer
   exits with an error when `DEEPSEEK_API_KEY` is missing; the banner

@@ -6,6 +6,10 @@ STATIC s_lSkipLF := .F.
 
 // Accumulated usage across the entire session (prompt_tokens, completion_tokens, ...).
 STATIC s_hSessionUsage := {=>}
+// Cumulative wall-clock milliseconds spent inside agent turns (sum of every
+// RunTurn). Surfaces beside the token bar so the user can track how much of
+// the session has been spent waiting on the model.
+STATIC s_nSessionTurnMs := 0
 
 // Braille-pattern spinner frames for the animated "thinking" indicator.
 STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
@@ -82,6 +86,16 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          nHeaderRows++
       ENDIF
    NEXT
+   // Anchor the banner at absolute row 1 so nHeaderRows + 1 deterministically
+   // points to the first row BELOW the banner. Without this, the banner is
+   // printed at whatever row the cursor sat on (e.g. row 2 after the shell's
+   // "cc" line), so row nHeaderRows + 1 lands on the banner's bottom border
+   // -- and every subsequent CCREPL_Out (the no-key warning, the tip line)
+   // overwrites the banner. Only do it in box mode; the cooked path streams
+   // to a non-VT terminal where ESC[H/ESC[2J would print as literal junk.
+   IF CCCON_HasConsole() .AND. CCUI_ColorOn()
+      CCREPL_Out( Chr(27) + "[H" + Chr(27) + "[2J" )
+   ENDIF
    CCREPL_Out( cBanner )
    IF !Empty( CCUI_ProjectContext() )
       CCREPL_Out( CCUI_Color( "[loaded CC.md project instructions]", ;
@@ -158,6 +172,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_ClearScreen( oPrompt )
          aMsgs := { { "role" => "system", "content" => CCUI_SystemPrompt() } }
          s_hSessionUsage := {=>}
+         s_nSessionTurnMs := 0
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -287,7 +302,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
 // Runs one agent turn: calls CC_AgentRun, renders output, shows token bar,
 // accumulates usage, and returns { result, render }.
 STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessages, oPrompt )
-   LOCAL hRes, oRender, hOpts
+   LOCAL hRes, oRender, hOpts, nTurnStartMs, nTurnMs
    oRender := CCREPL_RenderNew()
    hOpts := { "model" => cModel, ;
               "tools" => CCTOOLS_Schemas( oReg ), ;
@@ -297,6 +312,7 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       hOpts[ "interrupt_check" ] := {|| CCPROMPT_Interrupted( oPrompt ) }
    ENDIF
    CCTool_DispatchResetCount()   // reset per-turn dispatch_agent counter
+   nTurnStartMs := hb_MilliSeconds()
    hRes := CC_AgentRun( oClient, aMessages, hOpts, ;
       {| hEv | CCREPL_RenderEv( hEv, oRender ), ;
                iif( oPrompt != NIL, CCPROMPT_Poll( oPrompt ), NIL ) } )
@@ -304,8 +320,10 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    // followed) -- print it now with the assistant bullet
    oRender[ "pendingText" ] += CCMD_Flush( oRender[ "md" ] )
    CCREPL_FlushPending( oRender )
+   nTurnMs := hb_MilliSeconds() - nTurnStartMs
+   s_nSessionTurnMs += nTurnMs
    IF hRes[ "success" ]
-      CCREPL_ShowTokenBar( hRes[ "usage" ] )
+      CCREPL_ShowTokenBar( hRes[ "usage" ], nTurnMs )
       CCREPL_AccumUsage( hRes[ "usage" ] )
    ELSE
       CCREPL_Out( Chr(10) )
@@ -797,7 +815,7 @@ STATIC FUNCTION CCREPL_RenderNew()
    RETURN { "md" => CCMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
             "reasoningChars" => 0, "lastUsage" => {=>}, ;
-            "lastFrameTime" => 0, ;
+            "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
 
 // Renders one agent event into the terminal, using the render state oRender.
@@ -814,6 +832,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "spinner" ] := .T.
       oRender[ "spinnerFrame" ] := 1
       oRender[ "reasoningChars" ] := 0
+      oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
       CCREPL_SpinnerShow( oRender, "" )
 
    CASE cType == "reasoning_delta"
@@ -883,7 +902,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 // optional label like "Thinking...". The frame advances at most every
 // 100ms so the spinner turns at a relaxed pace regardless of token speed.
 STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
-   LOCAL cFrame, cMsg, nEst, nNow
+   LOCAL cFrame, cMsg, nEst, nNow, nElapsed
    // throttle: only advance the frame if at least 100ms have passed
    nNow := hb_MilliSeconds()
    IF nNow - oRender[ "lastFrameTime" ] >= 100
@@ -899,6 +918,12 @@ STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
       nEst := Int( oRender[ "reasoningChars" ] / 4 )
       cMsg += CCUI_Color( "[" + LTrim( Str( nEst ) ) + " tok]", "90" )
    ENDIF
+   // append elapsed time since the turn began so the user can see the
+   // wall-clock cost growing in real time
+   IF oRender[ "spinnerStartMs" ] > 0
+      nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+      cMsg += CCUI_Color( " " + LTrim( Str( nElapsed ) ) + "s", "90" )
+   ENDIF
    // overwrite the current line with the spinner
    CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
                CCUI_Color( cMsg, CCUI_Pal( "dim" ) ) )
@@ -910,8 +935,10 @@ STATIC FUNCTION CCREPL_SpinnerClear()
    RETURN NIL
 
 // After a turn completes, optionally prints a compact token-usage bar when
-// usage data was collected from the stream.
-STATIC FUNCTION CCREPL_ShowTokenBar( hUsage )
+// usage data was collected from the stream. nTurnMs is the wall-clock time
+// the turn just spent inside CC_AgentRun; appended to the bar along with the
+// session-cumulative time so the user can track latency without /cost.
+STATIC FUNCTION CCREPL_ShowTokenBar( hUsage, nTurnMs )
    LOCAL nPrompt, nComp, nTotal, cBar
    IF ValType( hUsage ) != "H" .OR. Len( hb_HKeys( hUsage ) ) == 0
       RETURN NIL
@@ -922,14 +949,21 @@ STATIC FUNCTION CCREPL_ShowTokenBar( hUsage )
    IF nTotal == 0
       RETURN NIL
    ENDIF
+   IF ValType( nTurnMs ) != "N"
+      nTurnMs := 0
+   ENDIF
    cBar := CCUI_Color( "  ", "90" ) + ;
            CCUI_Color( Chr(226)+Chr(150)+Chr(146) + " ", "90" ) + ;   // ┒
-           CCUI_Color( "in: ", "90" ) + ;
+           CCUI_Color( "tokens in: ", "90" ) + ;
            CCUI_Color( LTrim( Str( nPrompt ) ), "1;36" ) + ;
            CCUI_Color( "  out: ", "90" ) + ;
            CCUI_Color( LTrim( Str( nComp ) ), "1;36" ) + ;
            CCUI_Color( "  total: ", "90" ) + ;
-           CCUI_Color( LTrim( Str( nTotal ) ), "1" )
+           CCUI_Color( LTrim( Str( nTotal ) ), "1" ) + ;
+           CCUI_Color( "  turn: ", "90" ) + ;
+           CCUI_Color( LTrim( Str( nTurnMs / 1000.0, 10, 1 ) ) + "s", "1;36" ) + ;
+           CCUI_Color( "  session: ", "90" ) + ;
+           CCUI_Color( LTrim( Str( s_nSessionTurnMs / 1000.0, 10, 1 ) ) + "s", "1" )
    CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + cBar + Chr(10) )
    RETURN NIL
 
@@ -973,18 +1007,43 @@ FUNCTION CCREPL_BoxActive()
           ValType( s_oBoxPrompt[ "region" ] ) == "H" .AND. ;
           s_oBoxPrompt[ "region" ][ "active" ] == .T.
 
+// Overwrites the saved-anchor row in place with cText: jumps to the anchor,
+// resets to col 1, wipes the row, writes the text, then returns the visible
+// cursor to the input box. Does NOT advance content_row and does NOT re-save
+// the anchor -- the NEXT call lands on the same row, so a tool can animate
+// one row (e.g. dispatch_agent's elapsed-time line) without pushing the box
+// down. To bake the final value in and let subsequent output land below it,
+// follow the last overwrite with a CCREPL_Out call ending in Chr(10) -- that
+// repaints the row and advances content_row in the same write.
+FUNCTION CCREPL_OverwriteAtAnchor( cText )
+   IF s_oBoxPrompt != NIL .AND. s_oBoxPrompt[ "region" ][ "active" ]
+      FWrite( hb_GetStdOut(), ;
+         Chr(27) + "[u" + Chr(27) + "[1G" + Chr(27) + "[K" + ;
+         hb_CStr( cText ) + CCREPL_BoxCursorSeq() )
+   ELSE
+      FWrite( hb_GetStdOut(), Chr(13) + Chr(27) + "[K" + hb_CStr( cText ) )
+   ENDIF
+   RETURN NIL
+
 // Writes raw bytes straight to the OS stdout handle, bypassing the GT layer
 // so UTF-8 output is not re-encoded. The console code page is set to UTF-8
 // by CCREPL_InitConsole, so these bytes render correctly. Line feeds are
 // normalised to CRLF: bypassing the GT also loses its LF -> CRLF translation,
 // and a Windows console needs the CR to return to column 0.
 FUNCTION CCREPL_Out( cText )
-   LOCAL nNL, i
+   LOCAL nNL, i, lTrailingLF
    // Test the length, not Empty(): Empty() is true for a whitespace-only
    // string, so a streamed delta of just "\n" would be dropped and the line
    // break lost.
    IF ValType( cText ) == "C" .AND. Len( cText ) > 0
       cText := StrTran( cText, Chr(13), "" )
+      // Capture the trailing-LF status BEFORE the LF substitution below so
+      // CCPROMPT_Redraw's wipe can tell whether the cursor lands on a new
+      // empty row (trailing LF) or on the last written content row (no
+      // trailing LF). Without this, a chunk like the FlushPending bullet
+      // "\n + glyph + 2sp" -- no trailing LF -- has its just-written content
+      // wiped by the wipe range Max(oldBoxTop, contentRow) ... newBoxTop-1.
+      lTrailingLF := Right( cText, 1 ) == Chr(10)
       // Clear-to-end-of-line BEFORE each line break, so a short content
       // line never lets the previous frame's trailing chars (a box top
       // border, an old reply) survive to the right of the new text.
@@ -992,7 +1051,7 @@ FUNCTION CCREPL_Out( cText )
       cText := StrTran( cText, Chr(10), Chr(27) + "[K" + Chr(13) + Chr(10) )
       // Same protection for the FINAL line of the chunk (no trailing LF)
       // -- append ESC[K so the trailing junk on its row is wiped too.
-      IF Right( cText, 1 ) != Chr(10)
+      IF !lTrailingLF
          cText += Chr(27) + "[K"
       ENDIF
       IF s_oBoxPrompt != NIL .AND. s_oBoxPrompt[ "region" ][ "active" ]
@@ -1011,6 +1070,14 @@ FUNCTION CCREPL_Out( cText )
          IF !hb_HGetDef( s_oBoxPrompt[ "region" ], "pinned", .F. )
             nNL := CCREPL_VisualRows( cText, CCREPL_Cols() )
             IF nNL > 0
+               // Stash the write-row range so Redraw's wipe can avoid
+               // erasing rows that just received content. write_start is
+               // the anchor row (= old content_row); write_trailing_lf
+               // distinguishes "cursor landed on a blank new row" from
+               // "cursor landed on the last written text row".
+               s_oBoxPrompt[ "last_write_start" ] := ;
+                  hb_HGetDef( s_oBoxPrompt, "content_row", 1 )
+               s_oBoxPrompt[ "last_write_trailing_lf" ] := lTrailingLF
                s_oBoxPrompt[ "content_row" ] := ;
                   hb_HGetDef( s_oBoxPrompt, "content_row", 1 ) + nNL
                CCPROMPT_Redraw( s_oBoxPrompt )

@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.8                     │ v0.8.8 — propose_agents + paste collapse + dynamic box       │
+│                    CCHarbour  v0.8.13                    │ v0.8.13 — dynamic-box paint hardening + live timing          │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,21 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.12 — current.** Starts without an API key — banner + box come
+**v0.8.13 — current.** Dynamic-box paint hardening and live timing.
+Banner anchored at row 1 (clear-screen before paint). Box paint uses
+absolute cursor jumps per row instead of CRLF chains, so pressing
+Esc near the terminal bottom no longer stacks leftover `╭` frames.
+Wipe rule rewritten around the actual write-row range, so the
+FlushPending bullet survives and stale tops from multi-line writes
+are caught. When the box pins to its floor the VT scroll region
+expands up to row 1 so the banner finally rolls off the top. Spinner
+appends elapsed seconds (`⠦ Thinking... [32 tok] 7s`). Token bar
+shows per-turn and per-session seconds. `dispatch_agent` repaints
+the elapsed-time line at ~2 Hz via the new `CCREPL_OverwriteAtAnchor`
+helper. `/provider key` is now picked up on the next turn without
+restarting (`CCCFG_Resolve` falls back to `settings.json`).
+
+**v0.8.12 — previous.** Starts without an API key — banner + box come
 up and a yellow warning under the banner tells the user to configure
 a backend. New `/provider` slash command sets the backend at runtime
 (presets for `deepseek`, `glm`, `moonshot`, `openai`; sub-commands

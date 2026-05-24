@@ -65,7 +65,7 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
    LOCAL cPrompt, cType, hSet, hCfg, oClient, oReg, aMsgs, hRes
    LOCAL cReply, hMsg, hKeys
    LOCAL nTimeout, nStartMs, oPrompt, bInterrupt, cStopReason
-   LOCAL nElapsedMs, cSummary, nCols
+   LOCAL nElapsedMs, cSummary, nCols, nLastTick
    cPrompt := hb_CStr( hArgs[ "prompt" ] )
    IF Empty( cPrompt )
       RETURN "Error: dispatch_agent requires 'prompt'"
@@ -138,8 +138,10 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
            "with commas, spaces or empty separators. Prefer a leading " + ;
            "'- ' or '1. ' marker per line." }, ;
       { "role" => "user", "content" => cPrompt } }
-   // Render the opening Agent block above the input box so the user sees
-   // which subagent is running and on what
+   // Render the opening Agent block above the input box: separator, header,
+   // and the prompt summary. The timeout/elapsed line is printed in-place
+   // below via CCREPL_OverwriteAtAnchor so it can tick down without
+   // pushing the box down on every update.
    nCols := CCREPL_Cols()
    cSummary := iif( hb_UTF8Len( cPrompt ) > 80, ;
                     hb_UTF8SubStr( cPrompt, 1, 77 ) + "...", cPrompt )
@@ -148,14 +150,26 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
                   CCUI_Pal( "bash_header" ) ) + Chr(10) + ;
       CCUI_Color( " Agent " + cType + " working", ;
                   CCUI_Pal( "bash_header" ) ) + Chr(10) + Chr(10) + ;
-      CCUI_Color( "   " + cSummary, CCUI_Pal( "bash_command" ) ) + Chr(10) + ;
-      CCUI_Color( "   timeout " + LTrim( Str( nTimeout ) ) + "s " + ;
-                  Chr(194)+Chr(183) + " press Esc on the input box to cancel", ;
-                  CCUI_Pal( "bash_explain" ) ) + Chr(10) )
-   // Interrupt when either the parent's Esc fires or the timeout elapses
-   nStartMs  := hb_milliseconds()
-   oPrompt   := CCREPL_BoxPrompt()
+      CCUI_Color( "   " + cSummary, CCUI_Pal( "bash_command" ) ) + Chr(10) )
+   nStartMs := hb_milliseconds()
+   nLastTick := nStartMs
+   CCREPL_OverwriteAtAnchor( CCUI_Color( ;
+      "   0s elapsed / " + LTrim( Str( nTimeout ) ) + "s timeout " + ;
+      Chr(194)+Chr(183) + " press Esc on the input box to cancel", ;
+      CCUI_Pal( "bash_explain" ) ) )
+   // Interrupt check fires from inside CC_AgentRun's polling loop. We
+   // piggy-back on it to refresh the elapsed-time line at ~2 Hz: too slow
+   // and the counter looks frozen; too fast and we burn cycles repainting.
+   oPrompt := CCREPL_BoxPrompt()
    bInterrupt := {|| ;
+      iif( hb_milliseconds() - nLastTick >= 500, ;
+           ( nLastTick := hb_milliseconds(), ;
+             CCREPL_OverwriteAtAnchor( CCUI_Color( ;
+                "   " + LTrim( Str( Int( ( hb_milliseconds() - nStartMs ) / 1000 ) ) ) + ;
+                "s elapsed / " + LTrim( Str( nTimeout ) ) + "s timeout " + ;
+                Chr(194)+Chr(183) + " press Esc on the input box to cancel", ;
+                CCUI_Pal( "bash_explain" ) ) ) ), ;
+           NIL ), ;
       ( oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt ) ) .OR. ;
       ( ( hb_milliseconds() - nStartMs ) / 1000.0 > nTimeout ) }
    hRes := CC_AgentRun( oClient, aMsgs, ;
@@ -166,6 +180,14 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
         "interrupt_check" => bInterrupt }, ;
       {| hEv | HB_SYMBOL_UNUSED( hEv ) } )
    nElapsedMs := hb_milliseconds() - nStartMs
+   // Replace the in-place timer with a final-elapsed line via CCREPL_Out so
+   // the row is baked in and content_row advances past it -- the subsequent
+   // "Agent done / failed / cancelled" message lands on the next row instead
+   // of overwriting the timer.
+   CCREPL_Out( CCUI_Color( ;
+      "   " + LTrim( Str( nElapsedMs / 1000.0, 10, 1 ) ) + "s elapsed / " + ;
+      LTrim( Str( nTimeout ) ) + "s timeout", ;
+      CCUI_Pal( "bash_explain" ) ) + Chr(10) )
    // Drain the parent's Esc interrupt if we caused it so the parent loop
    // does not see a stale interrupt after the tool returns
    IF oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt )
@@ -191,7 +213,7 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
              hb_CStr( hb_HGetDef( hRes, "message", "" ) )
    ENDIF
    CCREPL_Out( CCUI_Color( " Agent done in " + ;
-      Str( nElapsedMs / 1000.0, 6, 1 ) + "s (" + ;
+      LTrim( Str( nElapsedMs / 1000.0, 10, 1 ) ) + "s (" + ;
       LTrim( Str( hb_HGetDef( hRes, "iterations", 0 ) ) ) + " iterations)", ;
       CCUI_Pal( "bash_header" ) ) + Chr(10) )
    cReply := ""

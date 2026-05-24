@@ -57,15 +57,16 @@ FUNCTION CCPROMPT_Region( nRows, nCols, nContentRow, nTopRow )
    IF nBoxTop < nTopRow + 1  ; nBoxTop := nTopRow + 1  ; ENDIF
    IF nBoxTop > nFloor       ; nBoxTop := nFloor       ; ENDIF
    // The scroll region is the FULL band between the pinned header and
-   // the floor, regardless of where the box currently sits. The box is
-   // painted absolutely on top of that band at box_top. This keeps the
-   // scroll geometry stable (no narrow one-row region while the box is
-   // still travelling) so an early write does not scroll content out of
-   // the banner.
+   // the floor while the box is still travelling -- output lands below
+   // the banner without touching it. Once the box pins to its floor the
+   // banner has done its job (the user has seen it) and the region
+   // expands UP to row 1 so further content scrolls the banner off the
+   // top edge. Without this expansion the banner sits frozen at the top
+   // forever, wasting screen rows even after the box is pinned.
    RETURN { "rows"          => nRows, ;
             "cols"          => nCols, ;
             "active"        => ( nRows >= CCPROMPT_MIN_ROWS ), ;
-            "scroll_top"    => nTopRow, ;
+            "scroll_top"    => iif( nBoxTop == nFloor, 1, nTopRow ), ;
             "scroll_bottom" => nFloor - 1, ;
             "box_top"       => nBoxTop, ;
             "pinned"        => ( nBoxTop == nFloor ) }
@@ -199,6 +200,7 @@ FUNCTION CCPROMPT_Teardown( oPrompt )
 // ESC[s slot, owned by CCREPL_Out) is deliberately not touched here.
 FUNCTION CCPROMPT_Redraw( oPrompt )
    LOCAL hReg, hW, hSz, aBadges, nTopRow, nContentRow, nOldBoxTop, i, cWipe
+   LOCAL nWriteStart, nWriteEnd, nWipeEnd, lTrailingLF
    hSz := CCCON_Size()
    nTopRow     := hb_HGetDef( oPrompt, "scroll_top",  1 )
    nContentRow := hb_HGetDef( oPrompt, "content_row", nTopRow )
@@ -211,17 +213,27 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    ENDIF
    hW := CCIN_Window( oPrompt[ "editor" ], CCUI_InputInnerWidth() )
    // When the box has moved DOWN since the last paint (dynamic mode),
-   // wipe the rows that were old-box-frame and are NOT covered by either
-   // the new content or the new box. Wiping content rows would erase
-   // the user-prompt echo or the streamed reply. Wipe range:
-   //   [ max(oldBoxTop, contentRow) .. newBoxTop - 1 ]
-   // -- rows above the new box that lost their old frame and have no new
-   // content. Rows oldBoxTop..contentRow-1 were already overwritten by
-   // content; rows newBoxTop..newBoxTop+3 are about to be repainted.
+   // wipe every row that was OLD box frame and is NOT (a) about to be
+   // overwritten by the new box paint and (b) NOT a row that just
+   // received content from the last CCREPL_Out write. Rule of thumb:
+   //   wipe = [ oldBoxTop .. min(oldBoxTop+3, newBoxTop-1) ]
+   //          minus the just-written rows.
+   // The just-written rows are [ write_start .. content_row ] for chunks
+   // that do NOT end in LF (cursor lands on the last written text row),
+   // and [ write_start .. content_row - 1 ] for chunks that DO end in LF
+   // (the final CRLF advances cursor onto a blank row). Skipping that
+   // single trailing row is what lets the wipe catch a stale old-box top
+   // frame when multiple LF-bearing writes pile up between paints.
    IF nOldBoxTop > 0 .AND. nOldBoxTop < hReg[ "box_top" ]
+      nWriteStart := hb_HGetDef( oPrompt, "last_write_start", nContentRow )
+      lTrailingLF := hb_HGetDef( oPrompt, "last_write_trailing_lf", .T. )
+      nWriteEnd   := iif( lTrailingLF, nContentRow - 1, nContentRow )
+      nWipeEnd    := Min( nOldBoxTop + 3, hReg[ "box_top" ] - 1 )
       cWipe := ""
-      FOR i := Max( nOldBoxTop, nContentRow ) TO hReg[ "box_top" ] - 1
-         cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
+      FOR i := nOldBoxTop TO nWipeEnd
+         IF i < nWriteStart .OR. i > nWriteEnd
+            cWipe += Chr(27) + "[" + LTrim( Str( i ) ) + ";1H" + Chr(27) + "[2K"
+         ENDIF
       NEXT
       IF !Empty( cWipe )
          CCPROMPT_Raw( cWipe )
@@ -243,19 +255,30 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
       // do not wipe -- pre-existing agent output may live in those rows.
       // The box will be painted on top by the writes below.
    ENDIF
+   // Position each box row with an absolute CUP (ESC[<row>;1H) instead of
+   // chaining CRLFs between rows. CRLFs at the bottom of the terminal
+   // scroll the screen up -- which is how a single Esc-triggered Redraw
+   // ends up stacking 10 leftover top frames when the box sits near the
+   // last row: the box paint itself rolls the screen up by one row, the
+   // old top frame survives at the row just above the new one, and the
+   // next Redraw repeats. Absolute jumps never advance past the last
+   // visible row, so no scroll fires.
    CCPROMPT_Raw( ;
       Chr(27) + "[" + LTrim( Str( hReg[ "scroll_top" ] ) ) + ";" + ;
-                     LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ;   // scroll region
-      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ;       // to box row 1
-      Chr(27) + "[2K" + CCUI_FrameTop() + Chr(13) + Chr(10) + ;
+                     LTrim( Str( hReg[ "scroll_bottom" ] ) ) + "r" + ;
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] ) ) + ";1H" + ;
+      Chr(27) + "[2K" + CCUI_FrameTop() + ;
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";1H" + ;
       Chr(27) + "[2K" + ;
       iif( CCIN_HasSuggestion( oPrompt[ "editor" ] ), ;
           CCUI_InputBoxSuggestion( hW[ "text" ] ), ;
-          CCUI_InputBoxLine( hW[ "text" ] ) ) + Chr(13) + Chr(10) + ;
-      Chr(27) + "[2K" + CCUI_FrameBottom() + Chr(13) + Chr(10) + ;
+          CCUI_InputBoxLine( hW[ "text" ] ) ) + ;
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 2 ) ) + ";1H" + ;
+      Chr(27) + "[2K" + CCUI_FrameBottom() + ;
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 3 ) ) + ";1H" + ;
       Chr(27) + "[2K" + CCUI_SkillsStatusLine( aBadges, hReg[ "cols" ] ) + ;
-      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ; // onto the
-              LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )                 // input line
+      Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ;
+              LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )
    RETURN oPrompt
 
 // Non-blocking: drains every pending key into the editor, then redraws the
