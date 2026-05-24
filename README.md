@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.13                    │ v0.8.13 — dynamic-box paint hardening + live timing          │
+│                    CCHarbour  v0.8.14                    │ v0.8.14 — shell countdown above box + diff polish            │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,14 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.13 — current.** Dynamic-box paint hardening and live timing.
+**v0.8.14 — current.** Shell command countdown (`timeout 300s · 252s
+left`) lands on the scroll-region anchor above the box instead of
+overwriting the input row. Diff bars all pad to the same width
+(longest added/removed line, floor 110) so red and green bars line
+up cleanly. Both diff line markers now render text in bright white
+(SGR 97) for matching contrast.
+
+**v0.8.13 — previous.** Dynamic-box paint hardening and live timing.
 Banner anchored at row 1 (clear-screen before paint). Box paint uses
 absolute cursor jumps per row instead of CRLF chains, so pressing
 Esc near the terminal bottom no longer stacks leftover `╭` frames.

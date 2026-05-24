@@ -1,6 +1,25 @@
-CCHarbour v0.8.13 — Dynamic-box paint hardening, live timing in the spinner / token bar, /provider key picked up on the next turn.
+CCHarbour v0.8.14 — Shell countdown lands above the box, diff bars equal width + bright-white text.
 
-## New since v0.8.12
+## New since v0.8.13
+
+- **Shell command countdown no longer painted inside the input box.**
+  `CCTool_ShowCountdown` / `CCTool_ClearCountdown` route through the
+  `CCREPL_OverwriteAtAnchor` helper when the persistent box is
+  mounted, so `timeout 300s · 252s left` lands on the scroll-region
+  anchor above the box and a trailing `CCREPL_Out( Chr(10) )` bakes
+  the final value in for the result summary. The plain-CR fallback
+  is kept for cooked / non-VT terminals.
+- **Diff bars are all the same width.** `CCUI_ResultBlock` scans the
+  diff once for the widest added/removed line (floor 110), then pads
+  every coloured bar to that width via `CCUI_DiffPad( cLine, nWidth )`
+  -- no more ragged edges when one line is longer than the rest.
+- **Diff text rendered in bright white.** Added lines go from SGR
+  `37;42` to `97;42`, removed from `48;5;52` to `97;48;5;52` -- the
+  red bar now matches the green bar's contrast.
+
+## v0.8.13 — Dynamic-box paint hardening, live timing in the spinner / token bar, /provider key picked up on the next turn.
+
+### New since v0.8.12
 
 - **Banner anchored at row 1.** `CCREPL_Run` emits `ESC[H ESC[2J`
   before printing the banner so it is always at rows 1..N and the
