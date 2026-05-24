@@ -160,20 +160,34 @@ STATIC FUNCTION CCTool_ShellRun( hArgs, cCoAuthor, nTimeout )
    cResult += "[exit code: " + LTrim( Str( nExit ) ) + "]"
    RETURN cResult
 
-// Renders the shell countdown line in place (carriage return + clear-to-EOL):
-// the configured timeout and the seconds still left before it fires.
+// Renders the shell countdown line in place. In box mode it routes through
+// CCREPL_OverwriteAtAnchor so the line lands on the saved scroll-region
+// anchor (right under the tool block) instead of on the input box. The
+// plain-CR path is kept for the cooked / non-VT fallback.
 STATIC FUNCTION CCTool_ShowCountdown( nTotal, nLeft )
    LOCAL cBr := Chr(226)+Chr(142)+Chr(191)   // the ⎿ result glyph
-   FWrite( hb_GetStdOut(), ;
-      Chr(13) + "  " + cBr + " " + Chr(27) + "[90m" + ;
+   LOCAL cLine := "  " + cBr + " " + Chr(27) + "[90m" + ;
       "timeout " + LTrim( Str( Int( nTotal ) ) ) + "s · " + ;
-      LTrim( Str( Int( nLeft ) ) ) + "s left" + ;
-      Chr(27) + "[0m" + Chr(27) + "[K" )
+      LTrim( Str( Int( nLeft ) ) ) + "s left" + Chr(27) + "[0m"
+   IF CCREPL_BoxActive()
+      CCREPL_OverwriteAtAnchor( cLine )
+   ELSE
+      FWrite( hb_GetStdOut(), Chr(13) + cLine + Chr(27) + "[K" )
+   ENDIF
    RETURN NIL
 
-// Erases the in-place countdown line so the result summary prints cleanly.
+// Bakes the final countdown state into the scroll above the box (in box
+// mode) or erases the in-place line (cooked mode) so the result summary
+// prints on a fresh row.
 STATIC FUNCTION CCTool_ClearCountdown()
-   FWrite( hb_GetStdOut(), Chr(13) + Chr(27) + "[K" )
+   IF CCREPL_BoxActive()
+      // Advance content_row past the in-place countdown row by writing a
+      // single LF through CCREPL_Out -- the last OverwriteAtAnchor value
+      // stays visible and the next CCREPL_Out lands below it.
+      CCREPL_Out( Chr(10) )
+   ELSE
+      FWrite( hb_GetStdOut(), Chr(13) + Chr(27) + "[K" )
+   ENDIF
    RETURN NIL
 
 // Writes cBody to a temporary shell script and returns its path.  Used on

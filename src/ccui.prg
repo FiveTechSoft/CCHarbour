@@ -209,12 +209,23 @@ STATIC FUNCTION CCUI_ToolLabel( cName, cArgsJson )
 // Builds a Claude Code-style result block: the first line prefixed with the
 // corner glyph, continuation lines aligned under it, capped at 8 lines.
 STATIC FUNCTION CCUI_ResultBlock( cText )
-   LOCAL aLines, cOut := "", i, nShow, cLine, cMark, nMax := 50
+   LOCAL aLines, cOut := "", i, nShow, cLine, cMark, nMax := 50, nWidth
    aLines := hb_ATokens( StrTran( cText, Chr(13), "" ), Chr(10) )
    DO WHILE Len( aLines ) > 1 .AND. Empty( ATail( aLines ) )
       hb_ADel( aLines, Len( aLines ), .T. )
    ENDDO
    nShow := Min( Len( aLines ), nMax )
+   // Compute the widest added/removed line so every coloured bar gets
+   // padded to the same length; bars of mismatched widths look ragged
+   // when stacked. Floor at 110 to keep the default look on small diffs.
+   nWidth := 110
+   FOR i := 1 TO nShow
+      cLine := aLines[ i ]
+      cMark := CCUI_DiffMark( cLine )
+      IF cMark == "+" .OR. cMark == "-"
+         nWidth := Max( nWidth, hb_UTF8Len( cLine ) )
+      ENDIF
+   NEXT
    FOR i := 1 TO nShow
       cLine := aLines[ i ]
       // colour diff lines: added on a green background, removed on dark red.
@@ -223,9 +234,9 @@ STATIC FUNCTION CCUI_ResultBlock( cText )
       cMark := CCUI_DiffMark( cLine )
       DO CASE
       CASE cMark == "+"
-         cLine := CCUI_Color( CCUI_DiffPad( cLine ), "37;42" )
+         cLine := CCUI_Color( CCUI_DiffPad( cLine, nWidth ), "97;42" )
       CASE cMark == "-"
-         cLine := CCUI_Color( CCUI_DiffPad( cLine ), "48;5;52" )
+         cLine := CCUI_Color( CCUI_DiffPad( cLine, nWidth ), "97;48;5;52" )
       ENDCASE
       cOut += iif( i == 1, "  " + Chr(226)+Chr(142)+Chr(191) + "  ", "     " ) + cLine
       IF i < nShow
@@ -240,10 +251,14 @@ STATIC FUNCTION CCUI_ResultBlock( cText )
 
 // Pads a diff line with trailing spaces so its background colour fills the
 // row (a coloured diff bar spans the line rather than stopping at the text).
-// A line already at or over the width is returned unchanged.
-FUNCTION CCUI_DiffPad( cLine )
+// nWidth is the target visual width; a line already at or over it is
+// returned unchanged. nWidth defaults to 110 (the original fixed width).
+FUNCTION CCUI_DiffPad( cLine, nWidth )
    LOCAL nLen := hb_UTF8Len( hb_CStr( cLine ) )
-   RETURN iif( nLen < 110, cLine + Space( 110 - nLen ), cLine )
+   IF ValType( nWidth ) != "N" .OR. nWidth < 1
+      nWidth := 110
+   ENDIF
+   RETURN iif( nLen < nWidth, cLine + Space( nWidth - nLen ), cLine )
 
 // The Claude Code-style tool-call line: an accent dot, then Tool(args). The
 // dot is accent-coloured; the label is left in the default foreground.
