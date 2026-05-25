@@ -11,11 +11,17 @@ STATIC s_hSessionUsage := {=>}
 // the session has been spent waiting on the model.
 STATIC s_nSessionTurnMs := 0
 
-// Optional session-wide goal, set via /goal <text>. When non-empty, a
-// "[goal]" badge appears in the status line. The text is injected into
-// aMsgs as a system note at set-time so every subsequent turn carries
-// the intent without re-sending it on every request.
+// Optional session-wide goal, set via /goal <text>. The intent is
+// "keep working until the condition is met": the goal text is injected
+// into aMsgs as a system note when set, the model emits a sentinel
+// (GOAL COMPLETE) when the condition is met, and the main loop auto-
+// continues with "Continue toward the goal." until the sentinel
+// appears, the user hits Esc, or s_nGoalAutoCap iterations run.
+// /goal stop pauses the auto-loop without dropping the goal text.
 STATIC s_cGoal := ""
+STATIC s_lGoalLooping := .F.
+#define CC_GOAL_SENTINEL "GOAL COMPLETE"
+#define CC_GOAL_AUTO_CAP 25
 
 // Braille-pattern spinner frames for the animated "thinking" indicator.
 STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
@@ -180,6 +186,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_hSessionUsage := {=>}
          s_nSessionTurnMs := 0
          s_cGoal := ""
+         s_lGoalLooping := .F.
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -268,6 +275,15 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                CCREPL_Out( CCUI_Color( "!! error: " + hb_CStr( hRes[ "error_type" ] ) + ": " + ;
                        hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
             ENDIF
+         ENDIF
+         // Goal auto-continue: while a goal is active and the model has
+         // not emitted the GOAL COMPLETE sentinel, keep feeding "Continue
+         // toward the goal." between turns. Esc on the box pauses the
+         // loop (CCPROMPT_Interrupted drained below); CC_GOAL_AUTO_CAP
+         // is the safety cap on auto-iterations per user turn.
+         IF hRes[ "success" ] .AND. CCREPL_GoalLooping()
+            CCREPL_RunGoalLoop( @aMsgs, oClient, oReg, cModel, bGate, ;
+                                nMaxIter, oPrompt )
          ENDIF
          // a /btw interrupt carries the next message; an Esc interrupt just
          // returns to idle. Then drain any messages queued during the turn.
@@ -444,44 +460,150 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
    ENDIF
    RETURN iif( Empty( hUpd ), NIL, hUpd )
 
-// Implements /goal — sets, shows or clears the session-wide goal.
+// Auto-continue loop driven by /goal. Called from the main loop after a
+// user-initiated turn returns, while a goal is active and the auto-
+// continue flag is on. Each iteration:
+//   1. scans the last assistant reply for the GOAL COMPLETE sentinel.
+//      Found -> announce, clear s_lGoalLooping, return.
+//   2. checks for an Esc interrupt on the box. Pressed -> pause the
+//      loop (keeps the goal text), drain the interrupt, return.
+//   3. runs one more turn with a synthetic "Continue toward the goal."
+//      user message and the same RunTurn machinery.
+// CC_GOAL_AUTO_CAP caps the iterations per user turn so a runaway
+// model cannot loop forever.
+STATIC FUNCTION CCREPL_RunGoalLoop( aMsgs, oClient, oReg, cModel, bGate, nMaxIter, oPrompt )
+   LOCAL nIter := 0, cLast, aTurn, hTurn, hRes
+   DO WHILE s_lGoalLooping .AND. nIter < CC_GOAL_AUTO_CAP
+      cLast := CCREPL_LastAssistantText( aMsgs )
+      IF CCREPL_GoalDone( cLast )
+         CCREPL_Out( CCUI_Color( "[" + CC_GOAL_SENTINEL + " -- goal " + ;
+                                 "reached, auto-continue off]", ;
+                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+         s_lGoalLooping := .F.
+         EXIT
+      ENDIF
+      IF oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt )
+         oPrompt[ "interrupt" ] := NIL
+         s_lGoalLooping := .F.
+         CCREPL_Out( CCUI_Color( "[goal auto-continue paused by Esc -- " + ;
+                                 "/goal <text> or a new message to restart]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         EXIT
+      ENDIF
+      nIter++
+      CCREPL_Out( CCUI_Color( "[goal auto-continue " + LTrim( Str( nIter ) ) + ;
+                              "/" + LTrim( Str( CC_GOAL_AUTO_CAP ) ) + "]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      aTurn := AClone( aMsgs )
+      AAdd( aTurn, { "role" => "user", ;
+                     "content" => "Continue toward the goal. When it is " + ;
+                        "fully met, reply with ONLY the literal sentinel " + ;
+                        "on its own line: " + CC_GOAL_SENTINEL } )
+      hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, ;
+                               aTurn, oPrompt )
+      hRes := hTurn[ "result" ]
+      IF !hRes[ "success" ]
+         CCREPL_Out( CCUI_Color( "[goal auto-continue stopped: " + ;
+                                 hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ) + ;
+                                 "]", "33" ) + Chr(10) )
+         s_lGoalLooping := .F.
+         EXIT
+      ENDIF
+      aMsgs := hRes[ "messages" ]
+   ENDDO
+   IF nIter >= CC_GOAL_AUTO_CAP .AND. s_lGoalLooping
+      CCREPL_Out( CCUI_Color( "[goal auto-continue cap (" + ;
+                              LTrim( Str( CC_GOAL_AUTO_CAP ) ) + ;
+                              ") hit -- send a message to keep going, " + ;
+                              "or /goal stop / /goal clear]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+   ENDIF
+   RETURN NIL
+
+// Walks aMsgs back-to-front and returns the content of the most recent
+// assistant message (or "" when none). Used by the goal auto-loop to
+// inspect the model's reply for the GOAL COMPLETE sentinel.
+STATIC FUNCTION CCREPL_LastAssistantText( aMsgs )
+   LOCAL i, hMsg
+   IF ValType( aMsgs ) != "A"
+      RETURN ""
+   ENDIF
+   FOR i := Len( aMsgs ) TO 1 STEP -1
+      hMsg := aMsgs[ i ]
+      IF ValType( hMsg ) == "H" .AND. ;
+         hb_HGetDef( hMsg, "role", "" ) == "assistant" .AND. ;
+         ValType( hb_HGetDef( hMsg, "content", NIL ) ) == "C"
+         RETURN hMsg[ "content" ]
+      ENDIF
+   NEXT
+   RETURN ""
+
+// Implements /goal — set / show / clear a "keep working until the
+// condition is met" goal.
 //   /goal              -> print the current goal (or "(none)")
-//   /goal <text>       -> store the goal AND inject it into aMsgs as a
-//                         system note so every subsequent turn carries it
-//   /goal clear|off    -> drop the goal
-// The goal lives in s_cGoal; CCREPL_Goal() exposes it so the status line
-// shows a [goal] badge. /clear resets it together with the conversation.
+//   /goal <text>       -> store the goal, inject the keep-working
+//                         system note into aMsgs, and arm the auto-
+//                         continue loop in the main REPL loop
+//   /goal stop         -> pause the auto-continue loop without
+//                         dropping the goal (next /goal <text> or a
+//                         normal message restarts the behaviour)
+//   /goal clear|off    -> drop the goal entirely
+// The injected system note teaches the model the sentinel
+// "GOAL COMPLETE": when the condition is met it should reply ONLY
+// with that line. The main loop watches for the sentinel and
+// auto-issues "Continue toward the goal." until it appears, the
+// user hits Esc, or CC_GOAL_AUTO_CAP iterations have run.
 STATIC FUNCTION CCREPL_HandleGoal( cArg, aMsgs, oPrompt )
    LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
    LOCAL cLow  := Lower( cTrim )
    DO CASE
    CASE Empty( cTrim )
       IF Empty( s_cGoal )
-         CCREPL_Out( CCUI_Color( "[no session goal -- /goal <text> to set]", ;
+         CCREPL_Out( CCUI_Color( "[no goal -- /goal <text> to set]", ;
                                  CCUI_Pal( "dim" ) ) + Chr(10) )
       ELSE
-         CCREPL_Out( CCUI_Color( "[goal: " + s_cGoal + "]", ;
-                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+         CCREPL_Out( CCUI_Color( "[goal: " + s_cGoal + ;
+                                 iif( s_lGoalLooping, "  (auto-continue ON)", ;
+                                                      "  (auto-continue paused)" ) + ;
+                                 "]", CCUI_Pal( "accent" ) ) + Chr(10) )
+      ENDIF
+   CASE cLow == "stop"
+      IF !s_lGoalLooping
+         CCREPL_Out( CCUI_Color( "[auto-continue already off]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         s_lGoalLooping := .F.
+         CCREPL_Out( CCUI_Color( "[goal auto-continue stopped]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
       ENDIF
    CASE cLow == "clear" .OR. cLow == "off"
       IF Empty( s_cGoal )
-         CCREPL_Out( CCUI_Color( "[no session goal to clear]", ;
+         CCREPL_Out( CCUI_Color( "[no goal to clear]", ;
                                  CCUI_Pal( "dim" ) ) + Chr(10) )
       ELSE
          s_cGoal := ""
+         s_lGoalLooping := .F.
          AAdd( aMsgs, { "role" => "system", ;
-                        "content" => "User cleared the session goal. " + ;
-                           "Do not treat the previous goal as a constraint." } )
+                        "content" => "User cleared the session goal. Do not " + ;
+                           "treat the previous goal as a constraint, and do " + ;
+                           "not emit the GOAL COMPLETE sentinel any more." } )
          CCREPL_Out( CCUI_Color( "[goal cleared]", CCUI_Pal( "dim" ) ) + Chr(10) )
       ENDIF
    OTHERWISE
       s_cGoal := cTrim
+      s_lGoalLooping := .T.
       AAdd( aMsgs, { "role" => "system", ;
-                     "content" => "Session goal set by /goal. Keep this " + ;
-                        "objective in mind for every subsequent turn until " + ;
-                        "it is changed or cleared:" + Chr(10) + Chr(10) + ;
-                        s_cGoal } )
-      CCREPL_Out( CCUI_Color( "[goal set: " + s_cGoal + "]", ;
+                     "content" => "Goal set by /goal -- keep working until " + ;
+                        "the condition is met. After every turn ask yourself " + ;
+                        "whether the goal is fully achieved. If it IS, reply " + ;
+                        "with ONLY the literal sentinel on its own line:" + Chr(10) + Chr(10) + ;
+                        "    " + CC_GOAL_SENTINEL + Chr(10) + Chr(10) + ;
+                        "If it is NOT, continue with the next concrete step. " + ;
+                        "The REPL will auto-feed 'Continue toward the goal.' " + ;
+                        "between turns, so do not wait for the user." + Chr(10) + Chr(10) + ;
+                        "Goal:" + Chr(10) + Chr(10) + s_cGoal } )
+      CCREPL_Out( CCUI_Color( "[goal set -- agent will loop until " + ;
+                              CC_GOAL_SENTINEL + "]: " + s_cGoal, ;
                               CCUI_Pal( "accent" ) ) + Chr(10) )
    ENDCASE
    IF oPrompt != NIL
@@ -489,10 +611,34 @@ STATIC FUNCTION CCREPL_HandleGoal( cArg, aMsgs, oPrompt )
    ENDIF
    RETURN NIL
 
-// True when a session-wide goal is set. Public so the status line in
-// CCPROMPT_Redraw can show a [goal] badge alongside [plan-mode] / [lean].
+// True when a goal is set. Public so the status line in CCPROMPT_Redraw
+// can show a [goal] badge alongside [plan-mode] / [lean].
 FUNCTION CCREPL_HasGoal()
    RETURN !Empty( s_cGoal )
+
+// True when the agent should auto-continue after a turn (goal active AND
+// not paused). Public so the main loop can inspect it without poking the
+// static directly.
+FUNCTION CCREPL_GoalLooping()
+   RETURN s_lGoalLooping
+
+// Stops the auto-continue loop. Called by the main loop when it detects
+// the GOAL COMPLETE sentinel or when the user hits Esc mid-loop.
+FUNCTION CCREPL_StopGoalLoop()
+   s_lGoalLooping := .F.
+   RETURN NIL
+
+// True when cReply ends with (or contains, on its own line) the GOAL
+// COMPLETE sentinel emitted by the model when it believes the condition
+// is met. The check is case-sensitive on the sentinel itself and
+// tolerates surrounding whitespace / punctuation.
+FUNCTION CCREPL_GoalDone( cReply )
+   LOCAL cTrim
+   IF ValType( cReply ) != "C" .OR. Empty( cReply )
+      RETURN .F.
+   ENDIF
+   cTrim := AllTrim( hb_CStr( cReply ) )
+   RETURN ( CC_GOAL_SENTINEL $ cTrim )
 
 // Implements /lean — toggles lean-mode. While on, CCUI_SystemPrompt returns
 // a minimal version of the prompt (no skills section, no CC.md, no

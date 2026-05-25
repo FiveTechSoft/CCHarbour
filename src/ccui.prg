@@ -550,7 +550,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.15"
+   RETURN "0.8.16"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -1031,8 +1031,9 @@ FUNCTION CCUI_Help()
           "  /lean off      restore the full system prompt" + Chr(10) + ;
           "  /provider      show / switch backend (deepseek/glm/moonshot/openai)" + Chr(10) + ;
           "  /provider key  store the API key for the current backend" + Chr(10) + ;
-          "  /goal          show the current session goal" + Chr(10) + ;
-          "  /goal <text>   set the session goal (injected as a system note)" + Chr(10) + ;
+          "  /goal          show the current goal" + Chr(10) + ;
+          "  /goal <text>   set a goal -- keep working until the condition is met" + Chr(10) + ;
+          "  /goal stop     stop the auto-continue loop without dropping the goal" + Chr(10) + ;
           "  /goal clear    drop the goal" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;

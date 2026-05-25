@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.15                    │ v0.8.15 — /goal session-wide objective                       │
+│                    CCHarbour  v0.8.16                    │ v0.8.16 — /goal auto-continue loop until GOAL COMPLETE       │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.15 — current.** New `/goal` slash command — pin a session-wide
+**v0.8.16 — current.** `/goal` becomes "keep working until the
+condition is met": the injected system note teaches the model to
+emit a literal `GOAL COMPLETE` sentinel when done, and the main REPL
+loop auto-feeds `Continue toward the goal.` between turns until the
+sentinel appears, the user hits Esc, or 25 auto-iterations have run.
+New `/goal stop` pauses the loop without dropping the goal text.
+A per-iteration `[goal auto-continue N/25]` line shows progress.
+
+**v0.8.15 — previous.** New `/goal` slash command — pin a session-wide
 objective the agent carries through every turn until it is changed or
 cleared (`/goal <text>` to set, `/goal` to show, `/goal clear` to
 drop). A `[goal]` badge shows in the status line whenever one is set.

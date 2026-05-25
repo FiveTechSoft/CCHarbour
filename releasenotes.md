@@ -1,6 +1,32 @@
-CCHarbour v0.8.15 — /goal slash command: pin a session-wide objective the agent carries through every turn.
+CCHarbour v0.8.16 — /goal turns into "keep working until the condition is met": auto-continue loop + GOAL COMPLETE sentinel.
 
-## New since v0.8.14
+## New since v0.8.15
+
+- **/goal redesigned around "keep working until the condition is met".**
+  Setting a goal now arms an auto-continue loop in the main REPL:
+  after every user-initiated turn the loop scans the last assistant
+  reply for a literal `GOAL COMPLETE` sentinel. If absent it auto-
+  feeds `Continue toward the goal. ...reply with ONLY the literal
+  sentinel...` as the next user message and runs another turn.
+- **GOAL COMPLETE sentinel.** The injected system note teaches the
+  model to emit `GOAL COMPLETE` on its own line when the condition
+  is met. `CCREPL_GoalDone( cReply )` checks the substring.
+- **CC_GOAL_AUTO_CAP = 25.** Hard cap on auto-iterations per user
+  turn so a stubborn model cannot loop forever; the REPL prints
+  `[goal auto-continue cap (25) hit ...]` when it trips.
+- **Esc pauses the loop.** `CCREPL_RunGoalLoop` drains the
+  `CCPROMPT_Interrupted` flag and disarms `s_lGoalLooping` without
+  dropping the goal text -- `[goal auto-continue paused by Esc --
+  /goal <text> or a new message to restart]`.
+- **`/goal stop`.** New sub-command that pauses the auto-continue
+  loop without clearing the goal text (so the badge stays on).
+  `/goal clear` still drops the goal entirely and disarms the loop.
+- **Per-iteration progress line.** `[goal auto-continue N/25]` prints
+  before each automatic turn so the user can see the loop ticking.
+
+## v0.8.15 — /goal slash command: pin a session-wide objective the agent carries through every turn.
+
+### New since v0.8.14
 
 - **`/goal` slash command.** Pins a session-wide objective the agent
   carries through every subsequent turn until it is changed or
