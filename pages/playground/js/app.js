@@ -13,6 +13,9 @@ let config = loadConfig();
 let vfs = createVfs(DEMO_PROJECT);
 let conversation = [{ role: "system", content: systemPrompt(vfs) }];
 let running = false;
+// Cumulative usage for this browser session. /cost reads it; /clear and
+// /reset zero it. Each successful turn merges its usage hash here.
+let lastUsageTotals = {};
 
 const ui = createUI({
   onSubmit: handleSubmit,
@@ -42,6 +45,12 @@ function buildRegistryForRun() {
 
 async function handleSubmit(text) {
   if (running) return;
+  // Slash-command short-circuit: parse before checking the API key so /help
+  // works even when no provider is configured. Anything not recognised
+  // falls through to the model.
+  if (text.startsWith("/")) {
+    if (handleSlashCommand(text)) return;
+  }
   if (!config.apiKey) {
     ui.addError("No API key. Open Settings, pick a provider, and add one.");
     ui.openSettings();
@@ -91,6 +100,7 @@ async function handleSubmit(text) {
 
     if (result.success) {
       conversation = result.messages;
+      mergeUsage(lastUsageTotals, totalUsage);
       ui.setUsage(totalUsage);
       if (result.stopReason === "max_iterations") {
         ui.addNotice("[stopped: reached the iteration limit]");
@@ -129,6 +139,67 @@ function onEvent(ev) {
   }
 }
 
+// Browser-side slash commands. Returns .T. when the input was consumed
+// (so the caller skips the model dispatch). Anything unrecognised returns
+// .F. and the message is sent to the agent as usual.
+function handleSlashCommand(line) {
+  const t = line.trim();
+  const sp = t.indexOf(" ");
+  const cmd = (sp === -1 ? t : t.slice(0, sp)).toLowerCase();
+  const arg = (sp === -1 ? "" : t.slice(sp + 1)).trim();
+  switch (cmd) {
+    case "/help":
+      ui.addNotice(
+        "Commands available in this browser playground:\n" +
+        "  /help            show this list\n" +
+        "  /clear           reset the conversation and the virtual project\n" +
+        "  /cost            show token usage for this session\n" +
+        "  /model [name]    show or switch the active model\n" +
+        "  /provider        open the Settings panel (provider + API key)\n" +
+        "  /reset           alias of /clear\n" +
+        "\n" +
+        "Native binary only (download from Releases): /init, /save, /load,\n" +
+        "/caveman, /plan, /lean, /goal, /tasks, /btw, /exit, plus the\n" +
+        "shell, dispatch_agent, dispatch_agent_background, propose_agents\n" +
+        "and use_skill tools."
+      );
+      return true;
+    case "/clear":
+    case "/reset":
+      handleReset();
+      return true;
+    case "/cost": {
+      const totals = lastUsageTotals || {};
+      const ti = totals.prompt_tokens || 0;
+      const to = totals.completion_tokens || 0;
+      ui.addNotice(
+        ti + to === 0
+          ? "No usage yet this session."
+          : `tokens in: ${ti}  out: ${to}  total: ${ti + to}`
+      );
+      return true;
+    }
+    case "/model":
+      if (!arg) {
+        ui.addNotice("model: " + (config.model || "(unset)"));
+      } else {
+        config.model = arg;
+        saveConfig(config);
+        ui.fillSettings(config);
+        ui.addNotice("[model -> " + arg + "]");
+      }
+      return true;
+    case "/provider":
+      ui.openSettings();
+      return true;
+    case "/exit":
+    case "/quit":
+      ui.addNotice("/exit only works in the native binary -- close the browser tab instead.");
+      return true;
+  }
+  return false;
+}
+
 function handleSaveSettings(next) {
   config = next;
   saveConfig(config);
@@ -143,8 +214,10 @@ function handleCancelSettings() {
 function handleReset() {
   vfs = createVfs(DEMO_PROJECT);
   conversation = [{ role: "system", content: systemPrompt(vfs) }];
+  lastUsageTotals = {};
   ui.clearSuggestion();
-  ui.addNotice("Project and conversation reset.");
+  ui.setUsage({});
+  ui.addNotice("Project, conversation and usage counter reset.");
   ui.showTip();
 }
 
