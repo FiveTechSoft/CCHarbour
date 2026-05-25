@@ -35,6 +35,8 @@ FUNCTION CCUI_ParseCommand( cLine )
    CASE cLow == "/provider" .OR. Left( cLow, 10 ) == "/provider "
       RETURN { "type" => "provider", ;
                "text" => AllTrim( SubStr( cTrim, 10 ) ) }
+   CASE cLow == "/goal" .OR. Left( cLow, 6 ) == "/goal "
+      RETURN { "type" => "goal", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -548,7 +550,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.14"
+   RETURN "0.8.15"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -1029,6 +1031,9 @@ FUNCTION CCUI_Help()
           "  /lean off      restore the full system prompt" + Chr(10) + ;
           "  /provider      show / switch backend (deepseek/glm/moonshot/openai)" + Chr(10) + ;
           "  /provider key  store the API key for the current backend" + Chr(10) + ;
+          "  /goal          show the current session goal" + Chr(10) + ;
+          "  /goal <text>   set the session goal (injected as a system note)" + Chr(10) + ;
+          "  /goal clear    drop the goal" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

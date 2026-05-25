@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.14                    │ v0.8.14 — shell countdown above box + diff polish            │
+│                    CCHarbour  v0.8.15                    │ v0.8.15 — /goal session-wide objective                       │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,13 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.14 — current.** Shell command countdown (`timeout 300s · 252s
+**v0.8.15 — current.** New `/goal` slash command — pin a session-wide
+objective the agent carries through every turn until it is changed or
+cleared (`/goal <text>` to set, `/goal` to show, `/goal clear` to
+drop). A `[goal]` badge shows in the status line whenever one is set.
+`/clear` resets the goal alongside the conversation and session timer.
+
+**v0.8.14 — previous.** Shell command countdown (`timeout 300s · 252s
 left`) lands on the scroll-region anchor above the box instead of
 overwriting the input row. Diff bars all pad to the same width
 (longest added/removed line, floor 110) so red and green bars line

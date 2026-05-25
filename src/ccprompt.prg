@@ -248,6 +248,9 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
    IF CCREPL_LeanMode()
       hb_AIns( aBadges, 1, "lean", .T. )
    ENDIF
+   IF CCREPL_HasGoal()
+      hb_AIns( aBadges, 1, "goal", .T. )
+   ENDIF
    // wipe the four rows above the box's new position so the previous
    // frame does not bleed when the box moves down a row; only needed
    // while the box is still travelling (not yet pinned).

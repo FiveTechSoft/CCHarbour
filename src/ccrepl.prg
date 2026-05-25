@@ -11,6 +11,12 @@ STATIC s_hSessionUsage := {=>}
 // the session has been spent waiting on the model.
 STATIC s_nSessionTurnMs := 0
 
+// Optional session-wide goal, set via /goal <text>. When non-empty, a
+// "[goal]" badge appears in the status line. The text is injected into
+// aMsgs as a system note at set-time so every subsequent turn carries
+// the intent without re-sending it on every request.
+STATIC s_cGoal := ""
+
 // Braille-pattern spinner frames for the animated "thinking" indicator.
 STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 
@@ -173,6 +179,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          aMsgs := { { "role" => "system", "content" => CCUI_SystemPrompt() } }
          s_hSessionUsage := {=>}
          s_nSessionTurnMs := 0
+         s_cGoal := ""
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -209,6 +216,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
                   "base_url" => CCSETTINGS_Load()[ "base_url" ] } )
             ENDIF
          ENDIF
+      CASE hAction[ "type" ] == "goal"
+         CCREPL_HandleGoal( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -434,6 +443,56 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       CCPROMPT_Redraw( oPrompt )
    ENDIF
    RETURN iif( Empty( hUpd ), NIL, hUpd )
+
+// Implements /goal — sets, shows or clears the session-wide goal.
+//   /goal              -> print the current goal (or "(none)")
+//   /goal <text>       -> store the goal AND inject it into aMsgs as a
+//                         system note so every subsequent turn carries it
+//   /goal clear|off    -> drop the goal
+// The goal lives in s_cGoal; CCREPL_Goal() exposes it so the status line
+// shows a [goal] badge. /clear resets it together with the conversation.
+STATIC FUNCTION CCREPL_HandleGoal( cArg, aMsgs, oPrompt )
+   LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
+   LOCAL cLow  := Lower( cTrim )
+   DO CASE
+   CASE Empty( cTrim )
+      IF Empty( s_cGoal )
+         CCREPL_Out( CCUI_Color( "[no session goal -- /goal <text> to set]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         CCREPL_Out( CCUI_Color( "[goal: " + s_cGoal + "]", ;
+                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+      ENDIF
+   CASE cLow == "clear" .OR. cLow == "off"
+      IF Empty( s_cGoal )
+         CCREPL_Out( CCUI_Color( "[no session goal to clear]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         s_cGoal := ""
+         AAdd( aMsgs, { "role" => "system", ;
+                        "content" => "User cleared the session goal. " + ;
+                           "Do not treat the previous goal as a constraint." } )
+         CCREPL_Out( CCUI_Color( "[goal cleared]", CCUI_Pal( "dim" ) ) + Chr(10) )
+      ENDIF
+   OTHERWISE
+      s_cGoal := cTrim
+      AAdd( aMsgs, { "role" => "system", ;
+                     "content" => "Session goal set by /goal. Keep this " + ;
+                        "objective in mind for every subsequent turn until " + ;
+                        "it is changed or cleared:" + Chr(10) + Chr(10) + ;
+                        s_cGoal } )
+      CCREPL_Out( CCUI_Color( "[goal set: " + s_cGoal + "]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   ENDCASE
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN NIL
+
+// True when a session-wide goal is set. Public so the status line in
+// CCPROMPT_Redraw can show a [goal] badge alongside [plan-mode] / [lean].
+FUNCTION CCREPL_HasGoal()
+   RETURN !Empty( s_cGoal )
 
 // Implements /lean — toggles lean-mode. While on, CCUI_SystemPrompt returns
 // a minimal version of the prompt (no skills section, no CC.md, no

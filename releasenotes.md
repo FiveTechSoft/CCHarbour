@@ -1,6 +1,26 @@
-CCHarbour v0.8.14 — Shell countdown lands above the box, diff bars equal width + bright-white text.
+CCHarbour v0.8.15 — /goal slash command: pin a session-wide objective the agent carries through every turn.
 
-## New since v0.8.13
+## New since v0.8.14
+
+- **`/goal` slash command.** Pins a session-wide objective the agent
+  carries through every subsequent turn until it is changed or
+  cleared:
+    - `/goal` — show the current goal (or `(none)`).
+    - `/goal <text>` — store the goal AND inject it into the
+      conversation as a system note, so the model sees the intent on
+      the very next request without re-sending the goal on every
+      turn.
+    - `/goal clear` (alias `/goal off`) — drop the goal and tell the
+      model to stop treating it as a constraint.
+- **`[goal]` badge.** When a goal is set, the status line under the
+  input box shows a `[goal]` tag alongside `[plan-mode]` / `[lean]`.
+- **`/clear` resets the goal too.** Resetting the conversation also
+  clears the session goal and the session-turn timer accumulator, so
+  the next session starts blank.
+
+## v0.8.14 — Shell countdown lands above the box, diff bars equal width + bright-white text.
+
+### New since v0.8.13
 
 - **Shell command countdown no longer painted inside the input box.**
   `CCTool_ShowCountdown` / `CCTool_ClearCountdown` route through the
