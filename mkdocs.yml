@@ -53,6 +53,9 @@ extra:
       link: https://github.com/FiveTechSoft/CCHarbour
       name: CCHarbour on GitHub
 
+extra_javascript:
+  - assets/js/random-hue.js
+
 markdown_extensions:
   - abbr
   - admonition
