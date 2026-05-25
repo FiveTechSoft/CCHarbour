@@ -52,7 +52,7 @@ hide:
 <span class="dim">│</span>           <span class="accent">██║     ██║     </span>             <span class="dim">│</span> /caveman for terse replies         <span class="dim">│</span>
 <span class="dim">│</span>           <span class="accent">╚██████╗╚██████╗</span>             <span class="dim">│</span> ────────────────────────────────── <span class="dim">│</span>
 <span class="dim">│</span>            <span class="accent">╚═════╝ ╚═════╝</span>              <span class="dim">│</span> What's new                         <span class="dim">│</span>
-<span class="dim">│</span>           CCHarbour  <span class="accent">v0.8.8</span>              <span class="dim">│</span> propose_agents + paste collapse    <span class="dim">│</span>
+<span class="dim">│</span>           CCHarbour  <span class="accent">v0.8.18</span>             <span class="dim">│</span> background subagents + /tasks       <span class="dim">│</span>
 <span class="dim">╰─────────────────────────────────────────────────────────────────────────────╯</span>
 
 <span class="dim">╭─────────────────────────────────────────────────────────────────────────────╮</span>
@@ -103,6 +103,21 @@ Every tool is `allow`, `ask` or `deny`. `shell` and `edit` prompt by default; yo
 <div class="cc-card" markdown>
 ### ✂️ Paste-aware input
 Multi-line paste collapses to a tidy `[pasted N lines text]` placeholder. The full content is restored transparently on submit.
+</div>
+
+<div class="cc-card" markdown>
+### 🧵 Background subagents
+`dispatch_agent_background` spawns a subagent on a worker thread and returns a task-id (`bg1`, `bg2`, ...) immediately. Inspect with `/tasks`, `/tasks view <id>`, kill with `/tasks kill <id>`.
+</div>
+
+<div class="cc-card" markdown>
+### 🎯 /goal — keep working until done
+`/goal <text>` pins an objective and arms an auto-continue loop: the agent emits a `GOAL COMPLETE` sentinel when done, otherwise the REPL auto-feeds `Continue toward the goal.` between turns (cap 25).
+</div>
+
+<div class="cc-card" markdown>
+### 💾 Full-state /save & /load
+`/save [name]` snapshots messages **plus** goal, modes, skills, timer and the pending suggestion to JSON. `/load` round-trips the whole session, not just the chat.
 </div>
 
 </div>

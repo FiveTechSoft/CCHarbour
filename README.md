@@ -49,6 +49,8 @@
 - 🧠 **Skills & Plan mode** — drop a Markdown file under `.ccharbour/skills/` to give the agent a checklist; `/plan` locks file writes until you approve.
 - 🛡 **Permission gate** — `allow` / `ask` / `deny` per tool; `shell` and `edit` always prompt by default.
 - 🎯 **Subagents with a user gate** — `propose_agents` lets you review and approve batches of subagents before any of them runs.
+- 🧵 **Background subagents** — `dispatch_agent_background` spawns a subagent on a worker thread and returns a task-id immediately; inspect with `/tasks`, view with `/tasks view <id>`, cancel with `/tasks kill <id>`.
+- 🎯 **/goal** — pin an objective and the agent keeps working until it emits `GOAL COMPLETE` (auto-continue capped at 25 turns).
 - 🪶 **Lean mode** — `/lean` trims the system prompt by ~500–800 tokens per turn for marathon sessions or pricey models.
 - ✂️ **Paste detection** — multi-line paste collapses to `[pasted N lines text]` so the box stays readable.
 
@@ -228,6 +230,7 @@ blocks). Parameters marked ★ are required; the rest are optional.
 | `todo_write` | allow | Replace the visible session task list. `todos`★ (array of items); each item has `text`★, `status`★ (`pending`/`in_progress`/`completed`), and optional `id`, `active_form` (label shown while in_progress), and `blocked_by` (array of ids this task depends on). |
 | `use_skill` | allow | Activate a project skill from `.ccharbour/skills/`; returns the skill's body and pins its name to the status line. `name`★. |
 | `dispatch_agent` | allow | Spawn an isolated subagent on a focused subtask; returns only its final reply. `prompt`★, `agent_type` (`explore` read-only / `general` full toolset; default `explore`), `timeout_s` (default 120, max 600). Cancellable mid-run with Esc. |
+| `dispatch_agent_background` | allow | Fire-and-forget variant — spawns a subagent on an `hb_threadStart` worker and returns a task-id (`bg1`, `bg2`, ...) IMMEDIATELY without blocking. Inspect with `/tasks`, view with `/tasks view <id>`, cancel with `/tasks kill <id>`. Same parameters as `dispatch_agent`. |
 | `propose_agents` | allow | Batch 2+ proposed subagents past a user-review selector before any dispatch. `agents`★ (array of `{ agent_type, prompt }`). Returns approved JSON list; the agent then iterates and dispatches each. The second consecutive `dispatch_agent` without going through this gate is rejected. |
 
 ## Disclaimer

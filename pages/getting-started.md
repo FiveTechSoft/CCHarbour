@@ -84,8 +84,19 @@ Try this in order — each command exercises a different feature.
 - **Pin a discipline.** `/caveman` for ultra-terse replies. `/plan`
   before a refactor — the agent describes the plan, you approve, only
   then can it `write`/`edit`/`shell`.
+- **Pin a goal.** `/goal <text>` arms a "keep working until the
+  condition is met" loop: the agent emits `GOAL COMPLETE` when done,
+  otherwise the REPL auto-feeds `Continue toward the goal.` between
+  turns (capped at 25 auto-iterations).
 - **Save tokens.** `/lean` trims the system prompt for long sessions.
 - **Watch the spend.** `/cost` shows token usage and estimated price.
+- **Snapshot the session.** `/save [name]` writes the full state to
+  JSON — messages, model, usage, goal, modes, skills, timer and the
+  pending suggestion. `/load [name]` round-trips the whole thing.
+- **Background subagents.** When the model calls
+  `dispatch_agent_background`, the subagent runs on a worker thread
+  and the parent keeps going. Inspect with `/tasks`, view with
+  `/tasks view bg1`, cancel with `/tasks kill bg1`.
 - **Skills.** Drop your own checklists under `.ccharbour/skills/` —
   see the seven that ship by default.
 
