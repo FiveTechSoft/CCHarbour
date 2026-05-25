@@ -1,4 +1,32 @@
-CCHarbour v0.8.19 — /compact slash command + auto context-fill warning.
+CCHarbour v0.8.20 — Ask-prompt deadlock fix: non-TTY auto-deny + `CCHARBOUR_ASK_TIMEOUT`.
+
+## New since v0.8.19
+
+- **Non-TTY auto-deny on `ask` prompts.** When a tool gated `ask`
+  fires and `stdin` is not a TTY (piped input, `script -c`, a
+  background SSH `exec_command`, a CI runner), `CCREPL_AskPerm`
+  used to call the line reader anyway and block forever — no human
+  was at the keyboard to type `y`. Now the path is short-circuited
+  with a one-line `[non-interactive stdin -- '<tool>' denied]`
+  notice and the call is denied immediately, so the agent loop
+  surfaces an `Error: tool ... denied by user` result and keeps
+  moving instead of hanging.
+- **`CCHARBOUR_ASK_TIMEOUT` env var.** Bounds the wait even on a
+  real TTY. Set to a positive integer number of seconds; if no
+  answer is typed before the deadline, the REPL prints
+  `[no response in Ns -- denied]` and the call is denied. Default
+  (unset or `0`) keeps the original blocking behaviour. Both safety
+  nets fall back to *deny* — a missing human can never silently
+  approve.
+- **New `CCREPL_ReadLineTimeout(nSecs)` helper.** Poll-based stdin
+  reader that wakes every 500 ms via the new
+  `CCCON_StdInWait( nMs )` C primitive (POSIX `select()` on
+  `STDIN_FILENO` in `src/ccconsole_posix.c`; `WaitForSingleObject`
+  on the Win32 input handle in `src/ccconsole.c`). Same paste/echo
+  conventions as `CCREPL_ReadLine` so the editing experience is
+  unchanged when the user *does* type.
+
+## v0.8.19 — /compact slash command + auto context-fill warning.
 
 ## New since v0.8.18
 

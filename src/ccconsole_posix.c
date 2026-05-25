@@ -206,3 +206,23 @@ HB_FUNC( CCCON_KEYPENDING )
    FD_SET( STDIN_FILENO, &set );
    hb_retl( select( STDIN_FILENO + 1, &set, NULL, NULL, &tv ) > 0 );
 }
+
+
+/* CCCON_StdInWait( nMs ) -> .T. when stdin has >= 1 byte to read within
+ * nMs milliseconds. Used by the permission prompt (and any other reader
+ * that wants a non-blocking timed wait on stdin). Returns .F. on
+ * timeout, signal, or error. */
+HB_FUNC( CCCON_STDINWAIT )
+{
+   int nMs = hb_parni( 1 );
+   fd_set rfds;
+   struct timeval tv;
+   int rc;
+   if( nMs < 0 ) nMs = 0;
+   FD_ZERO( &rfds );
+   FD_SET( STDIN_FILENO, &rfds );
+   tv.tv_sec  = nMs / 1000;
+   tv.tv_usec = ( nMs % 1000 ) * 1000;
+   rc = select( STDIN_FILENO + 1, &rfds, NULL, NULL, &tv );
+   hb_retl( rc > 0 && FD_ISSET( STDIN_FILENO, &rfds ) );
+}

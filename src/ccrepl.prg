@@ -1659,19 +1659,78 @@ STATIC FUNCTION CCREPL_InitConsole()
 // Permission prompt for a tool in "ask" mode. Returns the typed answer
 // ("y"/"n"/"a"); the gate normalises it. Never throws.
 STATIC FUNCTION CCREPL_AskPerm( cName, cArgsJson )
-   LOCAL cLine := "n", oErr
+   LOCAL cLine := "n", oErr, nTimeout
+   // CCHARBOUR_ASK_TIMEOUT (env, seconds): when > 0, deny if no answer
+   // arrives within that window. Non-interactive stdin (piped, script,
+   // background) auto-denies immediately -- nobody can answer.
+   nTimeout := Val( hb_GetEnv( "CCHARBOUR_ASK_TIMEOUT", "0" ) )
+   IF !CCCON_HasConsole()
+      CCREPL_Out( Chr(10) + "[non-interactive stdin -- '" + hb_CStr( cName ) + "' denied]" + Chr(10) )
+      RETURN "n"
+   ENDIF
    BEGIN SEQUENCE WITH {| o | Break( o ) }
       CCREPL_Out( Chr(10) + CCUI_Color( "Tool '" + hb_CStr( cName ) + ;
               "' wants to run: " + CCUI_Summarize( hb_CStr( cArgsJson ), 120 ) + ;
               Chr(10) + "Allow? [y/n/a] ", "33" ) )
-      cLine := CCREPL_ReadLine()
-      IF cLine == NIL
-         cLine := "n"
+      IF nTimeout > 0
+         cLine := CCREPL_ReadLineTimeout( nTimeout )
+         IF cLine == NIL
+            CCREPL_Out( Chr(10) + CCUI_Color( "[no response in " + ;
+                LTrim(Str(nTimeout)) + "s -- denied]", "31" ) + Chr(10) )
+            cLine := "n"
+         ENDIF
+      ELSE
+         cLine := CCREPL_ReadLine()
+         IF cLine == NIL
+            cLine := "n"
+         ENDIF
       ENDIF
    RECOVER USING oErr
       HB_SYMBOL_UNUSED( oErr )
       cLine := "n"
    END SEQUENCE
+   RETURN cLine
+
+// Like CCREPL_ReadLine but returns NIL after nSeconds with no input.
+// Polls stdin via CCCON_StdInWait (POSIX select) before each FRead so
+// the loop can wake periodically and check the deadline.
+STATIC FUNCTION CCREPL_ReadLineTimeout( nSeconds )
+   LOCAL cLine := "", cCh := Space(1), nRead, hIn := hb_GetStdIn()
+   LOCAL nDeadlineMs := hb_MilliSeconds() + nSeconds * 1000
+   LOCAL nRemMs
+   DO WHILE .T.
+      nRemMs := nDeadlineMs - hb_MilliSeconds()
+      IF nRemMs <= 0
+         RETURN iif( Empty( cLine ), NIL, cLine )
+      ENDIF
+      IF !CCCON_StdInWait( iif( nRemMs > 500, 500, nRemMs ) )
+         LOOP
+      ENDIF
+      nRead := FRead( hIn, @cCh, 1 )
+      IF nRead == 0
+         RETURN iif( Empty( cLine ), NIL, cLine )
+      ENDIF
+      IF s_lSkipLF
+         s_lSkipLF := .F.
+         IF cCh == Chr(10)
+            LOOP
+         ENDIF
+      ENDIF
+      DO CASE
+      CASE cCh == Chr(10)
+         EXIT
+      CASE cCh == Chr(13)
+         s_lSkipLF := .T.
+         EXIT
+      CASE ( cCh == Chr(8) .OR. cCh == Chr(127) ) .AND. !Empty( cLine )
+         cLine := hb_BLeft( cLine, hb_BLen( cLine ) - 1 )
+      CASE cCh >= " "
+         cLine += cCh
+      ENDCASE
+   ENDDO
+   IF hb_BLeft( cLine, 3 ) == Chr(239) + Chr(187) + Chr(191)
+      cLine := SubStr( cLine, 4 )
+   ENDIF
    RETURN cLine
 
 // Reads one line from stdin. Returns the line, or NIL at end of input.

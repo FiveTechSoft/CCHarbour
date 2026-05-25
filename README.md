@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.19                    │ v0.8.19 — /compact + auto context-fill warning               │
+│                    CCHarbour  v0.8.20                    │ v0.8.20 — ask-prompt timeout + non-TTY auto-deny             │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -180,6 +180,14 @@ Each tool maps to `allow`, `deny` or `ask`. Defaults: `read`, `glob`, `grep`,
 `github_read` and `memory` are `allow`; `write`, `edit`, `shell`, `web_search`,
 `web_fetch` and `github_write` are `ask`. A `CC.md` file in the working
 directory is appended to the system prompt as project instructions.
+
+When a tool gated `ask` fires and stdin is not a TTY (piped input,
+`script -c`, a background SSH session, a CI runner), the prompt is
+skipped and the call is denied immediately — no human is at the
+keyboard to type `y`. Set `CCHARBOUR_ASK_TIMEOUT=<seconds>` to bound
+the wait even on a real TTY: no answer in that window prints
+`[no response in Ns -- denied]` and the call is denied. Both fall
+back to *deny*, never *allow*.
 
 ## Skills
 
@@ -393,7 +401,21 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.19 — current.** `/compact` summarises older turns into one
+**v0.8.20 — current.** Ask-prompt deadlock fix. When a tool gated
+`ask` fires and `stdin` is not a TTY (piped input, `script -c`,
+background SSH `exec_command`, CI), `CCREPL_AskPerm` now
+short-circuits with `[non-interactive stdin -- '<tool>' denied]`
+instead of blocking on an unreadable stdin forever. On a real TTY,
+`CCHARBOUR_ASK_TIMEOUT=<seconds>` bounds the wait — no answer in
+that window prints `[no response in Ns -- denied]` and the call is
+denied. Both fall back to *deny*. Implemented via a new
+`CCREPL_ReadLineTimeout(nSecs)` helper that polls stdin through
+`CCCON_StdInWait( nMs )` — a thin wrapper around POSIX `select()`
+on `STDIN_FILENO` in `src/ccconsole_posix.c` (and the equivalent
+`WaitForSingleObject` on the Win32 input handle in
+`src/ccconsole.c`).
+
+**v0.8.19 — previous.** `/compact` summarises older turns into one
 synthetic system note (keeps system prompt + last 4 turns verbatim);
 refuses when the last assistant has a dangling `tool_call`. After
 every successful turn, a one-shot soft warning prints when

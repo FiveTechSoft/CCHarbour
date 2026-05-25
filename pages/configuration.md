@@ -48,6 +48,27 @@ or `github_token` in `settings.json`); without it the tool returns
 token but is rate-limited. The environment variable takes precedence over the
 value in `settings.json`.
 
+### Ask-prompt timeout
+
+When a tool is gated `ask`, the REPL prints `Allow? [y/n/a]` and waits
+for input. Two safety nets keep that wait from becoming an indefinite
+hang when no human is at the keyboard:
+
+- **Non-interactive stdin auto-denies.** If `stdin` is not a TTY
+  (piped input, `script -c`, a background SSH `exec_command`, a CI
+  job), the prompt is skipped and the call is denied immediately.
+  The REPL prints `[non-interactive stdin -- '<tool>' denied]` so the
+  reason is visible in logs.
+- **`CCHARBOUR_ASK_TIMEOUT` env var.** Set to a positive integer
+  number of seconds to bound the wait even when stdin *is* a TTY.
+  When the deadline elapses with no answer typed, the REPL prints
+  `[no response in Ns -- denied]` and treats the call as denied.
+  Default (unset or `0`) keeps the original blocking behaviour for
+  interactive sessions where you do want to be asked.
+
+Both fall back to *deny*, never *allow* — a missing human can never
+silently approve a tool call.
+
 ## Shell timeout
 
 The `shell` tool bounds how long a command may run, so a hung command cannot

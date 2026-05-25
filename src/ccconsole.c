@@ -223,6 +223,27 @@ HB_FUNC( CCCON_SIZE )
    hb_itemReturnRelease( pHash );
 }
 
+/* CCCON_StdInWait( nMs ) -> .T. when stdin signals readiness within nMs
+ * milliseconds. Used by the permission prompt (and any other reader that
+ * wants a non-blocking timed wait on stdin). Returns .F. on timeout or
+ * error. Console handles signal on any input event so the caller may
+ * still see a 0-byte FRead and loop; redirected/piped stdin signals on
+ * actual data. */
+HB_FUNC( CCCON_STDINWAIT )
+{
+   int    nMs = hb_parni( 1 );
+   HANDLE h   = GetStdHandle( STD_INPUT_HANDLE );
+   DWORD  r;
+   if( nMs < 0 ) nMs = 0;
+   if( h == INVALID_HANDLE_VALUE || h == NULL )
+   {
+      hb_retl( HB_FALSE );
+      return;
+   }
+   r = WaitForSingleObject( h, ( DWORD ) nMs );
+   hb_retl( r == WAIT_OBJECT_0 );
+}
+
 /* CCCON_KeyPending() -> .T. when a key-down event is waiting in the console
  * input queue. Non-blocking; does NOT consume the event. */
 HB_FUNC( CCCON_KEYPENDING )
