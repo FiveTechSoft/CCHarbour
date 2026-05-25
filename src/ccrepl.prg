@@ -20,6 +20,11 @@ STATIC s_nSessionTurnMs := 0
 // /goal stop pauses the auto-loop without dropping the goal text.
 STATIC s_cGoal := ""
 STATIC s_lGoalLooping := .F.
+// One-shot /compact nudge flag: set when MaybeWarnCompact prints the
+// "context X% full" warning; cleared by /clear and by a successful
+// /compact so the warning can fire again next time the threshold is
+// crossed.
+STATIC s_lCompactNudged := .F.
 #define CC_GOAL_SENTINEL "GOAL COMPLETE"
 #define CC_GOAL_AUTO_CAP 25
 
@@ -187,6 +192,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_nSessionTurnMs := 0
          s_cGoal := ""
          s_lGoalLooping := .F.
+         s_lCompactNudged := .F.
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -234,6 +240,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_HandleGoal( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "tasks"
          CCREPL_HandleTasks( hAction[ "text" ] )
+      CASE hAction[ "type" ] == "compact"
+         aMsgs := CCREPL_HandleCompact( aMsgs, oClient, cModel )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -359,6 +367,7 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    IF hRes[ "success" ]
       CCREPL_ShowTokenBar( hRes[ "usage" ], nTurnMs )
       CCREPL_AccumUsage( hRes[ "usage" ] )
+      CCREPL_MaybeWarnCompact( hRes[ "usage" ], cModel )
    ELSE
       CCREPL_Out( Chr(10) )
    ENDIF
@@ -468,6 +477,168 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       CCPROMPT_Redraw( oPrompt )
    ENDIF
    RETURN iif( Empty( hUpd ), NIL, hUpd )
+
+// Per-model context window (in tokens). Used by /compact to decide
+// when to suggest compaction and by CCREPL_HandleCompact to size the
+// summary against the budget. Values mirror the upstream provider
+// documentation at the time of writing; the function falls back to a
+// conservative 32k when the model id is not in the table.
+STATIC FUNCTION CCREPL_ModelContext( cModel )
+   LOCAL cLow := Lower( hb_CStr( cModel ) )
+   DO CASE
+   CASE "deepseek-v4-pro"   $ cLow ; RETURN 128000
+   CASE "deepseek-v4-flash" $ cLow ; RETURN 128000
+   CASE "deepseek-reasoner" $ cLow ; RETURN  64000
+   CASE "deepseek"          $ cLow ; RETURN 128000
+   CASE "glm-4.6"           $ cLow ; RETURN 128000
+   CASE "glm"               $ cLow ; RETURN 128000
+   CASE "kimi-k2"           $ cLow ; RETURN 200000
+   CASE "moonshot"          $ cLow ; RETURN 200000
+   CASE "gpt-5"             $ cLow ; RETURN 400000
+   CASE "gpt-4o"            $ cLow ; RETURN 128000
+   CASE "gpt-4"             $ cLow ; RETURN 128000
+   ENDCASE
+   RETURN 32000
+
+// After every successful turn, compare the LAST turn's prompt_tokens
+// against the configured fraction of the model's context window and
+// print a single dim hint when it crosses the threshold. Non-blocking,
+// non-destructive -- the user runs /compact when they decide. No second
+// warning is printed during a session until the user actually compacts
+// or /clears, to avoid noise.
+STATIC FUNCTION CCREPL_MaybeWarnCompact( hUsage, cModel )
+   LOCAL nIn, nCtx, nThr, nPct
+   IF s_lCompactNudged
+      RETURN NIL
+   ENDIF
+   IF ValType( hUsage ) != "H"
+      RETURN NIL
+   ENDIF
+   nIn := hb_HGetDef( hUsage, "prompt_tokens", 0 )
+   IF nIn <= 0
+      RETURN NIL
+   ENDIF
+   nCtx := CCREPL_ModelContext( cModel )
+   nThr := hb_HGetDef( CCSETTINGS_Load(), "compact_threshold", 0.7 )
+   IF ValType( nThr ) != "N" .OR. nThr <= 0 .OR. nThr >= 1
+      nThr := 0.7
+   ENDIF
+   IF nIn < ( nCtx * nThr )
+      RETURN NIL
+   ENDIF
+   nPct := Int( ( nIn * 100.0 ) / nCtx )
+   CCREPL_Out( CCUI_Color( ;
+      "[context " + LTrim( Str( nPct ) ) + "% full -- run /compact to " + ;
+      "summarise old turns and free up space]", ;
+      CCUI_Pal( "warn" ) ) + Chr(10) )
+   s_lCompactNudged := .T.
+   RETURN NIL
+
+// Implements /compact -- ask the model to summarise the old part of
+// the conversation, then replace it with one synthetic system note.
+//   aMsgs[ 1 ]   the system prompt (kept verbatim)
+//   aMsgs[ 2..K ]  candidates for summarisation
+//   aMsgs[ K+1..N ]  recent turns kept verbatim (default last 4)
+// Refuses to compact when the very last assistant turn has dangling
+// tool_calls -- compacting between a tool_call and its matching
+// tool_result would orphan an id and break the next turn. Returns the
+// new aMsgs array; on any failure returns the original untouched.
+STATIC FUNCTION CCREPL_HandleCompact( aMsgs, oClient, cModel )
+   LOCAL nKeep := 4, nN, i, aOld, aSumMsgs, hRes, cSummary
+   LOCAL aNew, hMsg
+   nN := Len( aMsgs )
+   IF nN < 6
+      CCREPL_Out( CCUI_Color( "[nothing to compact -- conversation is short]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   // Bail if the boundary would land mid tool-call cycle
+   IF ValType( aMsgs[ nN ] ) == "H" .AND. ;
+      hb_HGetDef( aMsgs[ nN ], "role", "" ) == "assistant" .AND. ;
+      hb_HHasKey( aMsgs[ nN ], "tool_calls" )
+      CCREPL_Out( CCUI_Color( "[cannot compact: last assistant turn has a " + ;
+                              "pending tool_call -- send a message first]", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   // Gather the slice to summarise into a string. Skip tool calls;
+   // include role labels so the summariser knows who said what.
+   aOld := {}
+   FOR i := 2 TO nN - nKeep
+      hMsg := aMsgs[ i ]
+      IF ValType( hMsg ) == "H" .AND. ;
+         ValType( hb_HGetDef( hMsg, "content", NIL ) ) == "C" .AND. ;
+         !Empty( hMsg[ "content" ] )
+         AAdd( aOld, "[" + hb_HGetDef( hMsg, "role", "?" ) + "] " + ;
+                     hMsg[ "content" ] )
+      ENDIF
+   NEXT
+   IF Empty( aOld )
+      CCREPL_Out( CCUI_Color( "[nothing to compact -- nothing in range]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   CCREPL_Out( CCUI_Color( "[compacting " + LTrim( Str( Len( aOld ) ) ) + ;
+                           " turns into a summary...]", ;
+                           CCUI_Pal( "dim" ) ) + Chr(10) )
+   // Stateless one-shot summarisation turn -- bypasses the agent loop
+   // (no tools, no skills, no goal injection), just a single call.
+   aSumMsgs := { ;
+      { "role" => "system", ;
+        "content" => "You are a compaction assistant. Produce a TIGHT 15-25 " + ;
+           "line bullet summary of the conversation below. Preserve: " + ;
+           "decisions taken, exact file paths, exact identifier / symbol " + ;
+           "names, open todos, error messages quoted verbatim, recent " + ;
+           "tool results. Do NOT paraphrase code or commands -- keep " + ;
+           "them verbatim. Do NOT invent details. No preamble, no " + ;
+           "'Suggested next' line." }, ;
+      { "role" => "user", ;
+        "content" => "Conversation to compact:" + Chr(10) + Chr(10) + ;
+                     CCREPL_JoinArray( aOld, Chr(10) + Chr(10) ) } }
+   hRes := CC_AgentRun( oClient, aSumMsgs, ;
+      { "model" => cModel, "max_iterations" => 1 }, ;
+      {| hEv | HB_SYMBOL_UNUSED( hEv ) } )
+   IF !hRes[ "success" ]
+      CCREPL_Out( CCUI_Color( "[compact failed: " + ;
+                              hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ) + ;
+                              "]", CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   cSummary := CCREPL_LastAssistantText( hRes[ "messages" ] )
+   IF Empty( cSummary )
+      CCREPL_Out( CCUI_Color( "[compact failed: empty summary]", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   // Rebuild aMsgs: original system prompt, the new compaction note,
+   // then the last nKeep turns verbatim.
+   aNew := { aMsgs[ 1 ] }
+   AAdd( aNew, { "role" => "system", ;
+                 "content" => "[Conversation compacted by /compact -- " + ;
+                    "summary of older turns follows. Treat as authoritative " + ;
+                    "context for what came before.]" + Chr(10) + Chr(10) + ;
+                    cSummary } )
+   FOR i := nN - nKeep + 1 TO nN
+      AAdd( aNew, aMsgs[ i ] )
+   NEXT
+   s_lCompactNudged := .F.
+   CCREPL_Out( CCUI_Color( "[compacted: " + LTrim( Str( Len( aOld ) ) ) + ;
+                           " turns -> 1 summary, kept last " + ;
+                           LTrim( Str( nKeep ) ) + "]", ;
+                           CCUI_Pal( "accent" ) ) + Chr(10) )
+   RETURN aNew
+
+// Joins an array of strings with cSep. Local helper (avoids depending
+// on hbct's array-join routine across builds).
+STATIC FUNCTION CCREPL_JoinArray( aArr, cSep )
+   LOCAL cOut := "", i, n := Len( aArr )
+   FOR i := 1 TO n
+      cOut += aArr[ i ]
+      IF i < n
+         cOut += cSep
+      ENDIF
+   NEXT
+   RETURN cOut
 
 // Implements /tasks — inspect background subagent tasks. Forms:
 //   /tasks            -> tabular list (id, status, elapsed, prompt summary)

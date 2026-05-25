@@ -1,6 +1,33 @@
-CCHarbour v0.8.18 — Background subagents: dispatch_agent_background tool + /tasks slash command.
+CCHarbour v0.8.19 — /compact slash command + auto context-fill warning.
 
-## New since v0.8.17
+## New since v0.8.18
+
+- **`/compact` slash command.** Summarises the older part of the
+  conversation into one synthetic system note, keeping the system
+  prompt and the last 4 turns verbatim. A stateless one-shot call
+  with a strict "preserve exact paths / identifiers / errors /
+  code verbatim, no paraphrase, no preamble" instruction. Refuses
+  to compact when the very last assistant turn has a dangling
+  `tool_call` (no matching `tool` response yet), so a compaction
+  cannot orphan a tool-call id mid-cycle.
+- **Soft "/compact" hint when context fills up.** After every
+  successful turn `CCREPL_MaybeWarnCompact` compares the last
+  `prompt_tokens` against `compact_threshold` (default `0.7`) of
+  the model's context window and prints
+  `[context X% full -- run /compact ...]` one time. Re-armable on
+  `/clear` or after a successful `/compact`. Never auto-runs.
+- **Per-model context windows.** `CCREPL_ModelContext` maps the
+  active model to its context size (deepseek 128k, kimi-k2 200k,
+  gpt-5 400k, ...) with a 32k fallback.
+- **`compact_threshold` setting.** New `0.7` default in
+  `CCSETTINGS_Defaults`; users can tune it per project.
+- **`dispatch_agent_background` ungated.** Added to the never-gated
+  list in `CCPERM_Decide` alongside `dispatch_agent` /
+  `propose_agents` — same consent model.
+
+## v0.8.18 — Background subagents: dispatch_agent_background tool + /tasks slash command.
+
+### New since v0.8.17
 
 - **`dispatch_agent_background` tool.** Fire-and-forget variant of
   `dispatch_agent`. Returns a task-id (`bg1`, `bg2`, ...) IMMEDIATELY

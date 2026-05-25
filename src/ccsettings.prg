@@ -1,17 +1,21 @@
 // Returns the built-in default settings hash.
+// compact_threshold: 0..1 fraction of the model's context window that the
+// last turn's prompt_tokens must exceed for CCREPL_Out to print a one-shot
+// "/compact" hint (warn-only, never auto-runs).
 FUNCTION CCSETTINGS_Defaults()
-   RETURN { "model"          => "deepseek-v4-flash", ;
-            "base_url"       => "https://api.deepseek.com", ;
-            "max_iterations" => 25, ;
-            "color"          => .T., ;
-            "co_author"      => "", ;
-            "shell_timeout"  => 30, ;               // seconds, 0 = no timeout
-            "permissions"    => { "read"  => "allow", "glob"  => "allow", ;
-                                  "grep"  => "allow", "write" => "ask", ;
-                                  "edit"  => "ask",   "shell" => "ask", ;
-                                  "web_search"   => "ask",   "web_fetch"    => "ask", ;
-                                  "github_read"  => "allow", "github_write" => "ask", ;
-                                  "memory" => "allow" } }
+   RETURN { "model"             => "deepseek-v4-flash", ;
+            "base_url"          => "https://api.deepseek.com", ;
+            "max_iterations"    => 25, ;
+            "color"             => .T., ;
+            "co_author"         => "", ;
+            "shell_timeout"     => 30, ;
+            "compact_threshold" => 0.7, ;
+            "permissions"       => { "read"  => "allow", "glob"  => "allow", ;
+                                     "grep"  => "allow", "write" => "ask", ;
+                                     "edit"  => "ask",   "shell" => "ask", ;
+                                     "web_search"   => "ask",   "web_fetch"    => "ask", ;
+                                     "github_read"  => "allow", "github_write" => "ask", ;
+                                     "memory" => "allow" } }
 
 // Loads settings.json merged over the defaults.
 // cPath omitted -> env CCHARBOUR_CONFIG, else .ccharbour/settings.json under cwd.

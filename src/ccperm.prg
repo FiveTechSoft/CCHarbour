@@ -26,7 +26,7 @@ STATIC FUNCTION CCPERM_Decide( hPerm, bInner, bAsk, cName, cArgsJson )
    // consented, never gated
    IF cName == "ask_user" .OR. cName == "todo_write" .OR. ;
       cName == "use_skill" .OR. cName == "dispatch_agent" .OR. ;
-      cName == "propose_agents"
+      cName == "dispatch_agent_background" .OR. cName == "propose_agents"
       RETURN Eval( bInner, cName, cArgsJson )
    ENDIF
    // Plan mode locks every codebase-mutating or shell-running tool until the

@@ -18,6 +18,7 @@ assistant.
 | `/provider [args]` | configure the LLM backend at runtime               |
 | `/goal [args]`  | set a goal — keep working until the condition is met |
 | `/tasks [args]` | inspect background subagent tasks (list / view / kill / clear) |
+| `/compact`      | summarise older turns to free context (last 4 + system kept verbatim) |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -211,6 +212,29 @@ re-run `/tasks` to refresh.
 `dispatch_agent_background` is removed from a subagent's tool
 registry by `CCTOOLS_FilterForAgent`, so a background subagent
 cannot spawn its own background subagents.
+
+## /compact
+
+`/compact` summarises the older part of the conversation into one
+synthetic system note, keeping the original system prompt and the
+last 4 turns verbatim. A stateless one-shot call with a strict
+"preserve exact paths / identifiers / errors / code verbatim, no
+paraphrase, no preamble" instruction. The handler refuses to compact
+when the very last assistant turn has a dangling `tool_call` (no
+matching `tool` response yet), so a compaction cannot orphan a tool
+call mid-cycle.
+
+After every successful turn the REPL prints a one-shot soft warning
+when `prompt_tokens` cross `compact_threshold` (default `0.7`) of
+the model's context window:
+
+    [context 78% full -- run /compact to summarise old turns and free up space]
+
+It NEVER auto-runs. The hint re-arms on `/clear` or after a successful
+`/compact`. Tunable via `compact_threshold` in `settings.json`. Per-
+model context sizes are read from a table inside `CCREPL_ModelContext`
+(deepseek-v4-flash / deepseek-v4-pro = 128k, kimi-k2 = 200k, gpt-5 =
+400k, fallback 32k).
 
 ## /btw
 

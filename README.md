@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.18                    │ v0.8.18 — background subagents + /tasks slash command        │
+│                    CCHarbour  v0.8.19                    │ v0.8.19 — /compact + auto context-fill warning               │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -393,7 +393,16 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.18 — current.** Background subagents: the new
+**v0.8.19 — current.** `/compact` summarises older turns into one
+synthetic system note (keeps system prompt + last 4 turns verbatim);
+refuses when the last assistant has a dangling `tool_call`. After
+every successful turn, a one-shot soft warning prints when
+`prompt_tokens` cross `compact_threshold` (default 0.7) of the
+model's context window — never auto-runs. New per-model context
+table (`CCREPL_ModelContext`). `dispatch_agent_background` joined
+the never-gated tool list alongside `dispatch_agent`.
+
+**v0.8.18 — previous.** Background subagents: the new
 `dispatch_agent_background` tool spawns a subagent on an
 `hb_threadStart` worker and returns a task-id (`bg1`, `bg2`, ...)
 IMMEDIATELY, without blocking the parent. The worker writes
