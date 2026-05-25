@@ -2,6 +2,8 @@
 // agent logic. createUI(handlers) wires DOM events to the supplied callbacks
 // and returns render methods the app calls in response to agent events.
 
+import { PROVIDERS, keyFor } from "./config.js";
+
 export function createUI(handlers) {
   const $ = (id) => document.getElementById(id);
   const scrollback = $("scrollback");
@@ -77,13 +79,31 @@ export function createUI(handlers) {
   $("settings-toggle").addEventListener("click", () => {
     $("settings").classList.toggle("hidden");
   });
+  // When the user switches provider, repopulate model / baseUrl / api-key
+  // with that provider's stored values (or its preset defaults) so the form
+  // reflects the slot the Save button will write to.
+  $("provider").addEventListener("change", () => {
+    const pid = $("provider").value;
+    const preset = PROVIDERS[pid] || PROVIDERS.deepseek;
+    $("key-api").value = keyFor(pid);
+    $("model").value = preset.model;
+    $("base-url").value = preset.baseUrl;
+    refreshProviderNote(pid);
+    refreshProviderBadge(pid);
+  });
   $("settings-save").addEventListener("click", () => {
+    const pid = $("provider").value;
+    const preset = PROVIDERS[pid] || PROVIDERS.deepseek;
     handlers.onSaveSettings({
-      deepseekKey: $("key-deepseek").value.trim(),
+      providerId: pid,
+      provider: preset,
+      apiKey: $("key-api").value.trim(),
       githubToken: $("key-github").value.trim(),
-      model: $("model").value.trim() || "deepseek-v4-flash",
+      model: $("model").value.trim() || preset.model,
+      baseUrl: $("base-url").value.trim() || preset.baseUrl,
     });
     $("settings").classList.add("hidden");
+    refreshProviderBadge(pid);
   });
   $("settings-cancel").addEventListener("click", () => {
     // close without saving; the displayed values are not committed back
@@ -96,12 +116,35 @@ export function createUI(handlers) {
   });
   $("reset").addEventListener("click", () => handlers.onReset());
 
+  function refreshProviderNote(pid) {
+    const preset = PROVIDERS[pid] || PROVIDERS.deepseek;
+    const note = $("provider-note");
+    if (!note) return;
+    const signup = preset.signup
+      ? ` · <a href="${preset.signup}" target="_blank" rel="noopener">sign up</a>`
+      : "";
+    const env = preset.keyEnv ? ` · env var: <code>${preset.keyEnv}</code>` : "";
+    note.innerHTML = preset.note + signup + env;
+  }
+  function refreshProviderBadge(pid) {
+    const preset = PROVIDERS[pid] || PROVIDERS.deepseek;
+    const badge = $("provider-badge");
+    if (!badge) return;
+    badge.textContent = preset.label;
+    badge.dataset.provider = pid;
+  }
+
   return {
     // Populate the settings inputs from a config object.
     fillSettings(cfg) {
-      $("key-deepseek").value = cfg.deepseekKey || "";
+      const preset = cfg.provider || PROVIDERS[cfg.providerId] || PROVIDERS.deepseek;
+      $("provider").value = preset.id;
+      $("key-api").value = cfg.apiKey || "";
       $("key-github").value = cfg.githubToken || "";
-      $("model").value = cfg.model || "deepseek-v4-flash";
+      $("model").value = cfg.model || preset.model;
+      $("base-url").value = cfg.baseUrl || preset.baseUrl;
+      refreshProviderNote(preset.id);
+      refreshProviderBadge(preset.id);
     },
     openSettings() { $("settings").classList.remove("hidden"); },
 

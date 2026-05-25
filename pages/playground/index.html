@@ -1,55 +1,98 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CCHarbour Playground</title>
+  <meta name="description" content="Browser playground for CCHarbour — a Claude Code-style terminal coding assistant. Multi-provider, agentic, ~2 MB native binary.">
   <link rel="icon" type="image/svg+xml" href="../logo.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="aurora" aria-hidden="true"></div>
   <div id="app">
     <header id="banner">
-      <pre class="logo">  ██████╗ ██████╗
+      <pre class="logo" aria-hidden="true">  ██████╗ ██████╗
  ██╔════╝██╔════╝
  ██║     ██║
  ██║     ██║
  ╚██████╗╚██████╗
   ╚═════╝ ╚═════╝</pre>
       <div class="banner-text">
-        <strong>✻ CCHarbour Playground <span class="version">v0.8.8</span></strong>
-        <span>A browser playground for the CCHarbour coding assistant — Claude Code-style,
-          multi-platform (Windows, macOS, Linux), ~2 MB native binary.
-          <a href="../">Documentation</a> ·
-          <a href="https://github.com/FiveTechSoft/CCHarbour/releases/latest">Download the native binary</a></span>
-        <span class="hint">Browser tools: file / web / github / memory / todo_write.
-          Shell, subagents, plan-mode, lean-mode and the box UI ship in the native binary.</span>
+        <strong>✻ CCHarbour Playground <span class="version">v0.8.18</span></strong>
+        <span class="tagline">A browser-side preview of the CCHarbour coding assistant —
+          multi-provider, agentic, multi-platform, ships as a single ~2 MB native binary.</span>
+        <div class="banner-chips">
+          <span class="chip"><span class="dot"></span> DeepSeek</span>
+          <span class="chip"><span class="dot"></span> GLM</span>
+          <span class="chip"><span class="dot"></span> Moonshot</span>
+          <span class="chip"><span class="dot"></span> OpenAI</span>
+          <span class="chip ghost">Custom OpenAI-compatible</span>
+        </div>
+        <div class="banner-links">
+          <a href="../">Documentation</a>
+          <a href="https://github.com/FiveTechSoft/CCHarbour/releases/latest">Download the native binary</a>
+          <a href="https://github.com/FiveTechSoft/CCHarbour">GitHub</a>
+        </div>
+        <span class="hint">Browser tools: <code>file</code> / <code>web</code> / <code>github</code> / <code>memory</code> / <code>todo_write</code>.
+          Shell, subagents (incl. background), plan-mode, lean-mode and the dynamic box ship in the native binary.</span>
       </div>
-      <button id="settings-toggle" type="button">Settings</button>
+      <button id="settings-toggle" type="button">
+        <span class="gear" aria-hidden="true">⚙</span>
+        <span>Settings</span>
+      </button>
     </header>
 
-    <section id="settings" class="hidden">
-      <h2>Settings</h2>
-      <label>DeepSeek API key
-        <input id="key-deepseek" type="password" autocomplete="off"></label>
-      <label>GitHub token — optional, enables github_write
-        <input id="key-github" type="password" autocomplete="off"></label>
-      <label>Model
-        <input id="model" type="text" autocomplete="off"></label>
-      <p class="warn">Keys are stored in this browser's localStorage and are sent
-        only to the official DeepSeek and GitHub APIs. Web search uses DuckDuckGo
-        (no API key needed). This is a client-side playground — do not use it on
-        a shared or untrusted computer.</p>
+    <section id="settings" class="hidden" aria-labelledby="settings-title">
+      <h2 id="settings-title">Settings</h2>
+
+      <div class="settings-grid">
+        <label class="provider-pick">Provider
+          <select id="provider">
+            <option value="deepseek">DeepSeek</option>
+            <option value="glm">GLM (Zhipu)</option>
+            <option value="moonshot">Moonshot (Kimi)</option>
+            <option value="openai">OpenAI</option>
+            <option value="custom">Custom (OpenAI-compatible)</option>
+          </select>
+        </label>
+        <p id="provider-note" class="provider-note"></p>
+
+        <label>API key
+          <input id="key-api" type="password" autocomplete="off"
+                 placeholder="sk-…">
+        </label>
+        <label>Model
+          <input id="model" type="text" autocomplete="off"
+                 placeholder="deepseek-v4-flash">
+        </label>
+        <label>Base URL — optional override
+          <input id="base-url" type="text" autocomplete="off"
+                 placeholder="https://api.deepseek.com">
+        </label>
+        <label>GitHub token — optional, enables <code>github_write</code>
+          <input id="key-github" type="password" autocomplete="off">
+        </label>
+      </div>
+
+      <p class="warn">
+        Keys live in this browser's <code>localStorage</code> and are sent
+        only to the selected provider and to GitHub. Web search uses the
+        DuckDuckGo Instant Answer API (no key). Each provider gets its own
+        key slot, so you can keep several configured at once. Do not use a
+        shared computer.
+      </p>
       <div class="settings-actions">
         <button id="settings-cancel" type="button" class="ghost">Close</button>
         <button id="settings-save" type="button">Save</button>
       </div>
     </section>
 
-    <main id="scrollback"></main>
+    <main id="scrollback" role="log" aria-live="polite"></main>
 
     <footer>
       <div class="status">
+        <span id="provider-badge" class="provider-badge"></span>
         <span id="usage">no usage yet</span>
         <button id="reset" type="button">Reset project</button>
       </div>

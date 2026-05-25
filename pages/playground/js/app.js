@@ -23,10 +23,10 @@ const ui = createUI({
 
 ui.fillSettings(config);
 ui.addNotice("Welcome to the CCHarbour playground. " +
-  (config.deepseekKey ? "Type a request to begin."
-    : "Open Settings and add your DeepSeek API key to begin."));
+  (config.apiKey ? "Type a request to begin."
+    : "Open Settings, pick a provider, and add an API key to begin."));
 ui.showTip();
-if (!config.deepseekKey) ui.openSettings();
+if (!config.apiKey) ui.openSettings();
 
 function buildRegistryForRun() {
   return buildRegistry({
@@ -35,15 +35,15 @@ function buildRegistryForRun() {
     confirmWrite: (name, args) => ui.confirmWrite(name, args),
     fetchImpl: (...a) => fetch(...a),
     getModel:   () => config.model,
-    getApiKey:  () => config.deepseekKey,
+    getApiKey:  () => config.apiKey,
     getBaseUrl: () => config.baseUrl,
   });
 }
 
 async function handleSubmit(text) {
   if (running) return;
-  if (!config.deepseekKey) {
-    ui.addError("No DeepSeek API key. Open Settings to add one.");
+  if (!config.apiKey) {
+    ui.addError("No API key. Open Settings, pick a provider, and add one.");
     ui.openSettings();
     return;
   }
@@ -61,7 +61,7 @@ async function handleSubmit(text) {
         model: config.model,
         tools: schemas,
         toolExecutor: executor,
-        deepseekOpts: { apiKey: config.deepseekKey },
+        deepseekOpts: { apiKey: config.apiKey, baseUrl: config.baseUrl },
       },
       onEvent,
     );
@@ -81,7 +81,7 @@ async function handleSubmit(text) {
           tools: schemas,
           toolExecutor: executor,
           maxIterations: 25,
-          deepseekOpts: { apiKey: config.deepseekKey },
+          deepseekOpts: { apiKey: config.apiKey, baseUrl: config.baseUrl },
         },
         onEvent,
       );
