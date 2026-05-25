@@ -1,6 +1,40 @@
-CCHarbour v0.8.17 — /save and /load now round-trip the full session state: goal, modes, skills, timer, and the pending suggestion.
+CCHarbour v0.8.18 — Background subagents: dispatch_agent_background tool + /tasks slash command.
 
-## New since v0.8.16
+## New since v0.8.17
+
+- **`dispatch_agent_background` tool.** Fire-and-forget variant of
+  `dispatch_agent`. Returns a task-id (`bg1`, `bg2`, ...) IMMEDIATELY
+  without blocking the parent. A fresh `hb_threadStart` worker runs
+  `CC_AgentRun` in the background and writes progress into an in-
+  memory registry; the parent agent can chain its next step right
+  away.
+- **Background-task registry** (`src/ccbg.prg`). Mutex-protected
+  hash keyed by task id. Each record carries `id`, `type`, `prompt`,
+  `timeout`, `status` (`queued` / `running` / `done` / `failed` /
+  `cancelled` / `timed_out`), `started_ms`, `ended_ms`,
+  `iterations`, `reply`, `error`, `cancel_requested`. Public API:
+  `CCBG_NextId / Add / Update / Get / List / Kill / CancelRequested /
+  ClearFinished`. Workers MUST NOT touch the terminal (that would
+  corrupt the dynamic input box); the main REPL polls the registry.
+- **`/tasks` slash command.** The user's only window into the
+  registry:
+    - `/tasks` -- tabular list (id, status, elapsed, type, prompt
+      summary).
+    - `/tasks view <id>` -- full record including reply / error.
+    - `/tasks kill <id>` -- request cancel; worker exits at next
+      agent-loop boundary.
+    - `/tasks clear` -- drop every finished / failed / cancelled
+      / timed-out record.
+- **Subagent filter widened.** `CCTOOLS_FilterForAgent` removes BOTH
+  `dispatch_agent` and `dispatch_agent_background` from a subagent's
+  registry, so a subagent cannot spawn its own subagents (no
+  unbounded recursion).
+- **Help, README and `pages/commands.md` updated** with the new
+  command rows.
+
+## v0.8.17 — /save and /load now round-trip the full session state: goal, modes, skills, timer, and the pending suggestion.
+
+### New since v0.8.16
 
 - **/save / /load preserve every REPL-level static, not just the
   conversation.** Saved JSON now carries a new `state` block plus a

@@ -20,6 +20,7 @@ src/cctools_todo.prg
 src/cctools_skill.prg
 src/cctools_dispatch.prg
 src/cctools_propose.prg
+src/ccbg.prg
 src/ccdiff.prg
 src/ccsettings.prg
 src/ccperm.prg

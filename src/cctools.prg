@@ -23,6 +23,7 @@ FUNCTION CCTOOLS_Registry( hKeys )
    CCTOOLS_Register( oReg, CCTool_TodoWrite() )
    CCTOOLS_Register( oReg, CCTool_UseSkill() )
    CCTOOLS_Register( oReg, CCTool_DispatchAgent() )
+   CCTOOLS_Register( oReg, CCTool_DispatchAgentBackground() )
    CCTOOLS_Register( oReg, CCTool_ProposeAgents() )
    RETURN oReg
 
@@ -31,7 +32,7 @@ FUNCTION CCTOOLS_Registry( hKeys )
 // own subagent (no recursion). For "explore", keeps read-only tools only.
 // For "general", keeps everything except dispatch_agent.
 FUNCTION CCTOOLS_FilterForAgent( oReg, cType )
-   LOCAL aRemove := { "dispatch_agent" }, cKey
+   LOCAL aRemove := { "dispatch_agent", "dispatch_agent_background" }, cKey
    LOCAL aKeepExplore := { "read", "glob", "grep", "github_read", ;
                            "memory", "use_skill" }
    IF cType == "explore"

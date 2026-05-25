@@ -37,6 +37,8 @@ FUNCTION CCUI_ParseCommand( cLine )
                "text" => AllTrim( SubStr( cTrim, 10 ) ) }
    CASE cLow == "/goal" .OR. Left( cLow, 6 ) == "/goal "
       RETURN { "type" => "goal", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/tasks" .OR. Left( cLow, 7 ) == "/tasks "
+      RETURN { "type" => "tasks", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -550,7 +552,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.17"
+   RETURN "0.8.18"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
@@ -1035,6 +1037,10 @@ FUNCTION CCUI_Help()
           "  /goal <text>   set a goal -- keep working until the condition is met" + Chr(10) + ;
           "  /goal stop     stop the auto-continue loop without dropping the goal" + Chr(10) + ;
           "  /goal clear    drop the goal" + Chr(10) + ;
+          "  /tasks         list background subagent tasks (dispatch_agent_background)" + Chr(10) + ;
+          "  /tasks view <id>  show full record for one task" + Chr(10) + ;
+          "  /tasks kill <id>  request cancellation of a running task" + Chr(10) + ;
+          "  /tasks clear   drop finished/failed/cancelled tasks from the list" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

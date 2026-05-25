@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.17                    │ v0.8.17 — /save round-trips full session state               │
+│                    CCHarbour  v0.8.18                    │ v0.8.18 — background subagents + /tasks slash command        │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,18 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.17 — current.** `/save` and `/load` now round-trip the full
+**v0.8.18 — current.** Background subagents: the new
+`dispatch_agent_background` tool spawns a subagent on an
+`hb_threadStart` worker and returns a task-id (`bg1`, `bg2`, ...)
+IMMEDIATELY, without blocking the parent. The worker writes
+progress / reply / error into a mutex-protected registry
+(`src/ccbg.prg`). New `/tasks` slash command lists, views,
+cancels and clears tasks. `CCTOOLS_FilterForAgent` strips both
+`dispatch_agent` and `dispatch_agent_background` from a
+subagent's registry, so a subagent cannot spawn its own
+background subagents.
+
+**v0.8.17 — previous.** `/save` and `/load` now round-trip the full
 session state, not just the conversation. The saved JSON gains a
 `state` block (goal text + auto-continue flag, plan-mode, lean-mode,
 active skills, session-turn timer) and a `suggest` field (the

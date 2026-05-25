@@ -17,6 +17,7 @@ assistant.
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/provider [args]` | configure the LLM backend at runtime               |
 | `/goal [args]`  | set a goal — keep working until the condition is met |
+| `/tasks [args]` | inspect background subagent tasks (list / view / kill / clear) |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -184,6 +185,32 @@ runs another turn (capped at 25 auto-iterations per user turn).
 A `[goal]` badge appears in the status line whenever a goal is set.
 Pressing Esc mid-loop pauses the auto-continue without clearing the
 goal — send another message (or `/goal <text>`) to restart it.
+
+## /tasks
+
+`/tasks` is the user's window into the background subagent registry.
+A subagent is spawned in the background when the model calls the
+`dispatch_agent_background` tool: it returns a task-id (`bg1`,
+`bg2`, ...) IMMEDIATELY and a worker thread runs `CC_AgentRun`
+without blocking the parent. The worker writes status / reply /
+error into a mutex-protected hash (`src/ccbg.prg`); the worker
+never touches the terminal (that would corrupt the dynamic input
+box).
+
+| Form               | What it does |
+|--------------------|--------------|
+| `/tasks`           | tabular list: id, status, elapsed, type, prompt summary |
+| `/tasks view <id>` | full record for one task (prompt, iterations, reply or error) |
+| `/tasks kill <id>` | request cancellation; worker exits at the next agent-loop boundary |
+| `/tasks clear`     | drop every finished / failed / cancelled / timed-out record |
+
+Status values: `queued`, `running`, `done`, `failed`, `cancelled`,
+`timed_out`. The status updates live as the worker progresses —
+re-run `/tasks` to refresh.
+
+`dispatch_agent_background` is removed from a subagent's tool
+registry by `CCTOOLS_FilterForAgent`, so a background subagent
+cannot spawn its own background subagents.
 
 ## /btw
 

@@ -232,6 +232,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
       CASE hAction[ "type" ] == "goal"
          CCREPL_HandleGoal( hAction[ "text" ], aMsgs, oPrompt )
+      CASE hAction[ "type" ] == "tasks"
+         CCREPL_HandleTasks( hAction[ "text" ] )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -466,6 +468,115 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       CCPROMPT_Redraw( oPrompt )
    ENDIF
    RETURN iif( Empty( hUpd ), NIL, hUpd )
+
+// Implements /tasks — inspect background subagent tasks. Forms:
+//   /tasks            -> tabular list (id, status, elapsed, prompt summary)
+//   /tasks view <id>  -> full record (prompt, reply or error)
+//   /tasks kill <id>  -> request cancel; worker exits at next agent boundary
+//   /tasks clear      -> remove finished/failed/cancelled records
+// No UI runs on the worker thread itself; this handler is the user's
+// only window into the registry maintained by ccbg.prg.
+STATIC FUNCTION CCREPL_HandleTasks( cArg )
+   LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
+   LOCAL cLow  := Lower( cTrim )
+   LOCAL nSp, cMode, cRest, hTask, aTasks, cOut, cElapsed, cPrev, cSummary
+   nSp := At( " ", cTrim )
+   IF nSp > 0
+      cMode := Lower( Left( cTrim, nSp - 1 ) )
+      cRest := AllTrim( SubStr( cTrim, nSp + 1 ) )
+   ELSE
+      cMode := cLow
+      cRest := ""
+   ENDIF
+   DO CASE
+   CASE Empty( cMode )
+      aTasks := CCBG_List()
+      IF Empty( aTasks )
+         CCREPL_Out( CCUI_Color( "[no background tasks yet -- use the " + ;
+                                 "dispatch_agent_background tool]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      cOut := CCUI_Color( "  id     status     elapsed  type      prompt", "1" ) + Chr(10)
+      FOR EACH hTask IN aTasks
+         cElapsed := CCREPL_TaskElapsed( hTask )
+         cSummary := hb_CStr( hTask[ "prompt" ] )
+         IF hb_UTF8Len( cSummary ) > 60
+            cSummary := hb_UTF8SubStr( cSummary, 1, 57 ) + "..."
+         ENDIF
+         cOut += "  " + PadR( hTask[ "id" ], 6 ) + " " + ;
+                 PadR( hTask[ "status" ], 10 ) + " " + ;
+                 PadR( cElapsed, 8 ) + " " + ;
+                 PadR( hTask[ "type" ], 9 ) + " " + cSummary + Chr(10)
+      NEXT
+      CCREPL_Out( CCUI_Color( cOut, "90" ) )
+   CASE cMode == "view"
+      IF Empty( cRest )
+         CCREPL_Out( CCUI_Color( "Usage: /tasks view <id>", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      hTask := CCBG_Get( cRest )
+      IF hTask == NIL
+         CCREPL_Out( CCUI_Color( "[task '" + cRest + "' not found]", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      cElapsed := CCREPL_TaskElapsed( hTask )
+      cOut := CCUI_Color( "  id:         " + hTask[ "id" ] + Chr(10) + ;
+                          "  status:     " + hTask[ "status" ] + Chr(10) + ;
+                          "  type:       " + hTask[ "type" ] + Chr(10) + ;
+                          "  elapsed:    " + cElapsed + Chr(10) + ;
+                          "  timeout:    " + LTrim( Str( hTask[ "timeout" ] ) ) + "s" + Chr(10) + ;
+                          "  iterations: " + LTrim( Str( hTask[ "iterations" ] ) ) + Chr(10) + ;
+                          "  prompt:     " + hTask[ "prompt" ] + Chr(10), "90" )
+      IF !Empty( hTask[ "error" ] )
+         cOut += CCUI_Color( "  error:" + Chr(10), "1;31" ) + ;
+                 "    " + hTask[ "error" ] + Chr(10)
+      ENDIF
+      IF !Empty( hTask[ "reply" ] )
+         cOut += CCUI_Color( "  reply:" + Chr(10), "1" ) + ;
+                 "    " + StrTran( hTask[ "reply" ], Chr(10), Chr(10) + "    " ) + Chr(10)
+      ENDIF
+      CCREPL_Out( cOut )
+   CASE cMode == "kill"
+      IF Empty( cRest )
+         CCREPL_Out( CCUI_Color( "Usage: /tasks kill <id>", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      IF CCBG_Kill( cRest )
+         CCREPL_Out( CCUI_Color( "[cancel requested for " + cRest + ;
+                                 " -- worker exits at next agent boundary]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         CCREPL_Out( CCUI_Color( "[task '" + cRest + "' not running or not found]", ;
+                                 CCUI_Pal( "error" ) ) + Chr(10) )
+      ENDIF
+   CASE cMode == "clear"
+      CCREPL_Out( CCUI_Color( "[" + LTrim( Str( CCBG_ClearFinished() ) ) + ;
+                              " finished tasks cleared]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+   OTHERWISE
+      CCREPL_Out( CCUI_Color( "Unknown /tasks sub-command. " + ;
+                              "Use /tasks, /tasks view <id>, " + ;
+                              "/tasks kill <id>, /tasks clear.", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+   ENDCASE
+   RETURN NIL
+
+// Formats the elapsed time for one task record as "Ns" or "still running".
+// Uses ended_ms when set, otherwise the wall clock; queued tasks show "-".
+STATIC FUNCTION CCREPL_TaskElapsed( hTask )
+   LOCAL nStart := hb_HGetDef( hTask, "started_ms", 0 )
+   LOCAL nEnd   := hb_HGetDef( hTask, "ended_ms",   0 )
+   IF nStart == 0
+      RETURN "-"
+   ENDIF
+   IF nEnd == 0
+      nEnd := hb_milliseconds()
+   ENDIF
+   RETURN Str( ( nEnd - nStart ) / 1000.0, 6, 1 ) + "s"
 
 // Auto-continue loop driven by /goal. Called from the main loop after a
 // user-initiated turn returns, while a goal is active and the auto-

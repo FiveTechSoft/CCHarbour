@@ -226,3 +226,141 @@ STATIC FUNCTION CCTool_DispatchRun( hArgs )
       ENDIF
    NEXT
    RETURN iif( Empty( cReply ), "[subagent returned no text]", cReply )
+
+// dispatch_agent_background -- fire-and-forget variant of dispatch_agent.
+// Returns IMMEDIATELY with a task-id ("bg1", "bg2", ...) so the parent
+// agent does not block. A worker thread runs CC_AgentRun in the
+// background and writes status / reply / error into the ccbg.prg
+// registry as it progresses. The user inspects, attaches or kills via
+// the /tasks slash command. No UI is painted by the worker -- terminal
+// I/O from a thread would corrupt the dynamic input box.
+FUNCTION CCTool_DispatchAgentBackground()
+   RETURN { "name" => "dispatch_agent_background", ;
+            "description" => "Spawn a subagent in the BACKGROUND and " + ;
+               "return a task-id IMMEDIATELY. The agent loop does not " + ;
+               "block: use this when the subagent's work is independent " + ;
+               "of your next step (a long search, a parallel analysis, " + ;
+               "a polling job). The user inspects progress with /tasks, " + ;
+               "/tasks view <id>, /tasks kill <id>. The handler returns " + ;
+               "ONLY the task-id -- do NOT wait for it; continue your " + ;
+               "own work and tell the user how to retrieve the result. " + ;
+               "agent_type: 'explore' (read-only) or 'general' (full " + ;
+               "toolset). timeout_s caps wall-clock (default 120, max 600).", ;
+            "parameters" => { "type" => "object", ;
+               "properties" => { ;
+                  "prompt" => { "type" => "string", ;
+                                "description" => "The task for the subagent" }, ;
+                  "agent_type" => { "type" => "string", ;
+                                    "description" => "explore | general (default: explore)" }, ;
+                  "timeout_s" => { "type" => "number", ;
+                                   "description" => "Max wall-clock seconds (default 120, max 600)" } }, ;
+               "required" => { "prompt" } }, ;
+            "handler" => {| hArgs | CCTool_DispatchBackgroundRun( hArgs ) } }
+
+STATIC FUNCTION CCTool_DispatchBackgroundRun( hArgs )
+   LOCAL cPrompt, cType, nTimeout, cId
+   cPrompt := hb_CStr( hArgs[ "prompt" ] )
+   IF Empty( cPrompt )
+      RETURN "Error: dispatch_agent_background requires 'prompt'"
+   ENDIF
+   cType := iif( hb_HHasKey( hArgs, "agent_type" ) .AND. ;
+                 ValType( hArgs[ "agent_type" ] ) == "C", ;
+                 Lower( hArgs[ "agent_type" ] ), "explore" )
+   IF !( cType == "explore" .OR. cType == "general" )
+      RETURN "Error: agent_type must be 'explore' or 'general'"
+   ENDIF
+   nTimeout := iif( hb_HHasKey( hArgs, "timeout_s" ) .AND. ;
+                    ValType( hArgs[ "timeout_s" ] ) == "N", ;
+                    hArgs[ "timeout_s" ], 120 )
+   IF nTimeout < 5  ; nTimeout := 5    ; ENDIF
+   IF nTimeout > 600 ; nTimeout := 600 ; ENDIF
+   cId := CCBG_NextId()
+   CCBG_Add( cId, cType, cPrompt, nTimeout )
+   // hb_threadStart copies the arguments by value, so the worker gets
+   // an independent snapshot of the prompt / type / timeout.
+   hb_threadStart( @CCTool_BackgroundWorker(), cId, cType, cPrompt, nTimeout )
+   RETURN "[background task started: " + cId + " -- inspect with /tasks " + ;
+          "view " + cId + " when it finishes]"
+
+// Worker body run on a fresh thread. Mirrors the synchronous dispatch
+// path but writes every progress signal into the registry instead of
+// painting to the terminal. interrupt_check checks the cancel-request
+// flag and the per-task timeout. The final status / reply / error /
+// ended_ms is committed before the thread exits.
+STATIC FUNCTION CCTool_BackgroundWorker( cId, cType, cPrompt, nTimeout )
+   LOCAL hSet, hCfg, oClient, oReg, hKeys, aMsgs, hRes, cReply, hMsg
+   LOCAL nStartMs, bInterrupt, cStopReason, nElapsedMs
+   nStartMs := hb_milliseconds()
+   CCBG_Update( cId, { "status" => "running", "started_ms" => nStartMs } )
+   hSet := CCSETTINGS_Load()
+   hCfg := CCCFG_Resolve( {=>} )
+   IF !hCfg[ "ok" ]
+      CCBG_Update( cId, { "status" => "failed", ;
+                          "error" => "no API key configured", ;
+                          "ended_ms" => hb_milliseconds() } )
+      RETURN NIL
+   ENDIF
+   oClient := CC_Client( { "model" => hSet[ "model" ], ;
+                           "base_url" => hSet[ "base_url" ] } )
+   hKeys := { "github"        => CCCFG_ResolveKey( "GITHUB_TOKEN", ;
+                                                   "github_token", hSet ), ;
+              "co_author"     => hb_HGetDef( hSet, "co_author", "" ), ;
+              "shell_timeout" => hb_HGetDef( hSet, "shell_timeout", 30 ) }
+   oReg := CCTOOLS_Registry( hKeys )
+   CCTOOLS_FilterForAgent( oReg, cType )
+   aMsgs := { ;
+      { "role" => "system", ;
+        "content" => "You are a CCHarbour background subagent of type '" + ;
+           cType + "'. Complete the task using the tools you have, then " + ;
+           "return a SHORT synthesis -- at most 10-15 lines, ideally " + ;
+           "fewer. NEVER dump raw tool output. No preamble, no " + ;
+           "'Suggested next' line. Start with the answer." }, ;
+      { "role" => "user", "content" => cPrompt } }
+   // Cancel on user request OR on per-task timeout. The body runs in
+   // its own thread, so it CANNOT touch CCPROMPT state.
+   bInterrupt := {|| ;
+      CCBG_CancelRequested( cId ) .OR. ;
+      ( ( hb_milliseconds() - nStartMs ) / 1000.0 > nTimeout ) }
+   hRes := CC_AgentRun( oClient, aMsgs, ;
+      { "model"           => hSet[ "model" ], ;
+        "tools"           => CCTOOLS_Schemas( oReg ), ;
+        "tool_executor"   => CCTOOLS_Executor( oReg ), ;
+        "max_iterations"  => 10, ;
+        "interrupt_check" => bInterrupt }, ;
+      {| hEv | HB_SYMBOL_UNUSED( hEv ) } )
+   nElapsedMs := hb_milliseconds() - nStartMs
+   cStopReason := hb_HGetDef( hRes, "stop_reason", "" )
+   IF cStopReason == "interrupted"
+      IF ( nElapsedMs / 1000.0 ) >= nTimeout - 0.5
+         CCBG_Update( cId, { "status" => "timed_out", ;
+                             "ended_ms" => hb_milliseconds(), ;
+                             "error" => "wall-clock timeout (" + ;
+                                LTrim( Str( Int( nTimeout ) ) ) + "s)" } )
+      ELSE
+         CCBG_Update( cId, { "status" => "cancelled", ;
+                             "ended_ms" => hb_milliseconds() } )
+      ENDIF
+      RETURN NIL
+   ENDIF
+   IF !hRes[ "success" ]
+      CCBG_Update( cId, { "status" => "failed", ;
+                          "ended_ms" => hb_milliseconds(), ;
+                          "error" => hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ) + ;
+                             ": " + hb_CStr( hb_HGetDef( hRes, "message", "" ) ) } )
+      RETURN NIL
+   ENDIF
+   cReply := ""
+   FOR EACH hMsg IN hRes[ "messages" ]
+      IF hMsg[ "role" ] == "assistant" .AND. ;
+         hb_HHasKey( hMsg, "content" ) .AND. ;
+         ValType( hMsg[ "content" ] ) == "C" .AND. ;
+         !Empty( hMsg[ "content" ] )
+         cReply := hMsg[ "content" ]
+      ENDIF
+   NEXT
+   CCBG_Update( cId, { "status" => "done", ;
+                       "ended_ms" => hb_milliseconds(), ;
+                       "iterations" => hb_HGetDef( hRes, "iterations", 0 ), ;
+                       "reply" => iif( Empty( cReply ), ;
+                                       "[subagent returned no text]", cReply ) } )
+   RETURN NIL
