@@ -7,6 +7,10 @@
   <meta name="description" content="Browser playground for CCHarbour — a Claude Code-style terminal coding assistant. Multi-provider, agentic, ~2 MB native binary.">
   <link rel="icon" type="image/svg+xml" href="../logo.svg">
   <link rel="stylesheet" href="style.css">
+  <!-- Random per-load hue: rewrites the playground's --accent* vars to
+       a fresh HSL palette on every visit. Loaded as early as possible
+       so the first paint already uses the new colour. -->
+  <script src="../assets/js/random-hue.js"></script>
 </head>
 <body>
   <div id="aurora" aria-hidden="true"></div>
