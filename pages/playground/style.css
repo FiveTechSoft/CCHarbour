@@ -49,10 +49,14 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   background-color: var(--bg-0);
+  /* Wire the body gradient through the per-load --accent vars so the
+     dominant background tints follow the random hue (including blue
+     and orange). Hardcoded teal/violet rgba() lived here before, which
+     made the page always feel teal regardless of the rolled palette. */
   background-image:
-    radial-gradient(circle at 85% -5%, rgba(45,212,191,0.16), transparent 38%),
-    radial-gradient(circle at -10% 110%, rgba(167,139,250,0.12), transparent 35%),
-    radial-gradient(circle at 50% 50%, rgba(20,184,166,0.06), transparent 60%);
+    radial-gradient(circle at 85% -5%, var(--accent-glow), transparent 38%),
+    radial-gradient(circle at -10% 110%, var(--accent-glow-soft), transparent 35%),
+    radial-gradient(circle at 50% 50%, var(--accent-glow-soft), transparent 60%);
   background-attachment: fixed;
   overflow: hidden;
 }
@@ -64,7 +68,7 @@ body::before {
   pointer-events: none;
   background-image:
     radial-gradient(circle at 10% 20%, var(--accent-glow-soft), transparent 30%),
-    radial-gradient(circle at 90% 80%, rgba(167,139,250,0.08), transparent 30%);
+    radial-gradient(circle at 90% 80%, var(--accent-glow-soft), transparent 30%);
   animation: drift 24s ease-in-out infinite alternate;
   z-index: 0;
 }
@@ -312,10 +316,13 @@ code, pre, .turn, .logo, #input {
   position: fixed;
   inset: -20% -20% auto -20%;
   height: 60vh;
+  /* Aurora layer takes its colour from --accent vars too. Three stops
+     so the rolled hue blooms in three positions; the page stays vivid
+     whether the picked hue is teal, blue, orange, magenta, etc. */
   background:
-    radial-gradient(closest-side at 30% 40%, rgba(45,212,191,0.22), transparent 65%),
-    radial-gradient(closest-side at 70% 60%, rgba(167,139,250,0.18), transparent 60%),
-    radial-gradient(closest-side at 50% 80%, rgba(20,184,166,0.10), transparent 70%);
+    radial-gradient(closest-side at 30% 40%, var(--accent-glow), transparent 65%),
+    radial-gradient(closest-side at 70% 60%, var(--accent-glow), transparent 60%),
+    radial-gradient(closest-side at 50% 80%, var(--accent-glow-soft), transparent 70%);
   filter: blur(40px) saturate(160%);
   z-index: 0;
   pointer-events: none;
