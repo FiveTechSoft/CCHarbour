@@ -198,7 +198,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       CASE hAction[ "type" ] == "cost"
          CCREPL_Out( CCUI_CostReport( s_hSessionUsage ) )
       CASE hAction[ "type" ] == "save"
-         CCREPL_SaveSession( aMsgs, cModel, s_hSessionUsage, hAction[ "text" ] )
+         CCREPL_SaveSession( aMsgs, cModel, s_hSessionUsage, cSuggest, hAction[ "text" ] )
       CASE hAction[ "type" ] == "load"
          hLoaded := CCREPL_LoadSession( hAction[ "text" ] )
          IF ValType( hLoaded ) == "H"
@@ -207,6 +207,13 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             s_hSessionUsage := iif( hb_HHasKey( hLoaded, "usage" ) .AND. ;
                                     ValType( hLoaded[ "usage" ] ) == "H", ;
                                     hLoaded[ "usage" ], {=>} )
+            // Restore the REPL-level statics (goal, modes, skills, timer)
+            // and the suggested-next prompt; CCREPL_StateImport silently
+            // skips missing keys so legacy session files still load.
+            IF hb_HHasKey( hLoaded, "state" )
+               CCREPL_StateImport( hLoaded[ "state" ] )
+            ENDIF
+            cSuggest := hb_HGetDef( hLoaded, "suggest", "" )
          ENDIF
       CASE hAction[ "type" ] == "skill"
          CCREPL_ActivateSkill( hAction[ "text" ], aMsgs, oPrompt )
@@ -628,6 +635,44 @@ FUNCTION CCREPL_StopGoalLoop()
    s_lGoalLooping := .F.
    RETURN NIL
 
+// Returns a hash of every REPL-level static that /save needs to persist,
+// so /load can restore the full session state (not just messages + model
+// + usage). Skills are returned as the array of active names; the
+// pending suggested-next prompt is owned by CCREPL_Run and threaded in
+// separately. Values stay primitive (string / numeric / logical / array)
+// so hb_jsonEncode round-trips cleanly.
+FUNCTION CCREPL_StateExport()
+   RETURN { "goal"             => s_cGoal, ;
+            "goal_looping"     => s_lGoalLooping, ;
+            "session_turn_ms"  => s_nSessionTurnMs, ;
+            "plan_mode"        => s_lPlanMode, ;
+            "lean_mode"        => s_lLeanMode, ;
+            "skills"           => CCSKILL_Active() }
+
+// Restores the REPL-level statics from a hash produced by
+// CCREPL_StateExport. Missing keys fall back to current defaults so an
+// old session file without these fields still loads cleanly.
+FUNCTION CCREPL_StateImport( hState )
+   LOCAL aSkills, cName
+   IF ValType( hState ) != "H"
+      RETURN NIL
+   ENDIF
+   s_cGoal          := hb_HGetDef( hState, "goal",            "" )
+   s_lGoalLooping   := hb_HGetDef( hState, "goal_looping",    .F. )
+   s_nSessionTurnMs := hb_HGetDef( hState, "session_turn_ms", 0 )
+   s_lPlanMode      := hb_HGetDef( hState, "plan_mode",       .F. )
+   s_lLeanMode      := hb_HGetDef( hState, "lean_mode",       .F. )
+   CCSKILL_ClearAll()
+   aSkills := hb_HGetDef( hState, "skills", {} )
+   IF ValType( aSkills ) == "A"
+      FOR EACH cName IN aSkills
+         IF ValType( cName ) == "C" .AND. !Empty( cName )
+            CCSKILL_Activate( cName )
+         ENDIF
+      NEXT
+   ENDIF
+   RETURN NIL
+
 // True when cReply ends with (or contains, on its own line) the GOAL
 // COMPLETE sentinel emitted by the model when it believes the condition
 // is met. The check is case-sensitive on the sentinel itself and
@@ -851,7 +896,7 @@ STATIC FUNCTION CCREPL_AccumUsage( hTurnUsage )
 
 // Saves the current session to a JSON file.
 // cArg is the user-supplied name (empty = auto-name with timestamp).
-STATIC FUNCTION CCREPL_SaveSession( aMsgs, cModel, hUsage, cArg )
+STATIC FUNCTION CCREPL_SaveSession( aMsgs, cModel, hUsage, cSuggest, cArg )
    LOCAL cName, cPath, hPack, cJson, hSaved
    LOCAL aSessions
 
@@ -876,10 +921,12 @@ STATIC FUNCTION CCREPL_SaveSession( aMsgs, cModel, hUsage, cArg )
    ENDIF
 
    cPath := CCUI_SessionPath( cName )
-   hPack := { "model" => cModel, ;
+   hPack := { "model"    => cModel, ;
               "saved_at" => DToS( Date() ) + "T" + Time(), ;
-              "usage" => hUsage, ;
-              "messages" => aMsgs }
+              "usage"    => hUsage, ;
+              "messages" => aMsgs, ;
+              "state"    => CCREPL_StateExport(), ;
+              "suggest"  => hb_CStr( cSuggest ) }
    cJson := hb_jsonEncode( hPack, .T. )  // .T. = pretty-print
 
    IF !hb_MemoWrit( cPath, cJson )

@@ -8,11 +8,15 @@ assistant.
 | `/help`         | show the command list                           |
 | `/init`         | analyse the project and write `CC.md`           |
 | `/model [name]` | show the current model, or switch to `<name>`   |
+| `/cost`         | show session token usage and estimated cost     |
 | `/clear`        | wipe the screen and reset the conversation      |
+| `/save [name]`  | save the session (messages + state + suggestion) to JSON |
+| `/load [name]`  | load a saved session (no name lists them)       |
 | `/caveman`      | activate the caveman skill (terse replies)      |
 | `/plan [text]`  | enter plan mode (locks write/edit/shell)        |
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/provider [args]` | configure the LLM backend at runtime               |
+| `/goal [args]`  | set a goal — keep working until the condition is met |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -137,6 +141,49 @@ how you set the backend at runtime.
 The key is stored in plain text in `.ccharbour/settings.json`, the same
 way most OpenAI-compatible CLIs handle their credentials. That folder is
 in `.gitignore` by default, so the key is not committed.
+
+## /save and /load
+
+`/save [name]` writes the current session to
+`.ccharbour/sessions/<name>.json` (auto-named `session_YYYY-MM-DD_HHMMSS`
+when no name is given). The file is a single JSON document that
+round-trips the **full session state**, not just the conversation:
+
+| Field      | What it carries |
+|------------|-----------------|
+| `model`    | the active model name at save time |
+| `saved_at` | ISO timestamp |
+| `usage`    | accumulated `prompt_tokens` / `completion_tokens` for `/cost` |
+| `messages` | the full message array (system + user + assistant + tool calls) |
+| `state`    | `goal`, `goal_looping`, `session_turn_ms`, `plan_mode`, `lean_mode`, `skills` |
+| `suggest`  | the pending "Suggested next:" prompt for the editor |
+
+`/load [name]` reads the JSON and reapplies every field on top of the
+running REPL: messages replace the conversation, `state` reactivates
+the goal / plan-mode / lean-mode / skills, `suggest` re-seeds the
+green Tab-acceptable preview, and `usage` restores `/cost`. With no
+argument `/load` lists the saved sessions. Legacy files that lack the
+`state` or `suggest` field still load — the missing pieces fall back
+to current defaults.
+
+## /goal
+
+`/goal` pins a session-wide objective the agent keeps working toward
+across turns. The injected system note teaches the model to emit a
+literal `GOAL COMPLETE` sentinel when the condition is met; while the
+sentinel is absent the REPL auto-feeds `Continue toward the goal.` and
+runs another turn (capped at 25 auto-iterations per user turn).
+
+| Form          | What it does |
+|---------------|--------------|
+| `/goal`       | show the current goal (or `(none)`) and whether the auto-continue loop is on |
+| `/goal <text>` | set the goal, inject the keep-working system note, arm the auto-continue loop |
+| `/goal stop`  | pause the auto-continue loop without dropping the goal text (badge stays on) |
+| `/goal clear` (alias `/goal off`) | drop the goal entirely and disarm the loop |
+
+A `[goal]` badge appears in the status line whenever a goal is set.
+Pressing Esc mid-loop pauses the auto-continue without clearing the
+goal — send another message (or `/goal <text>`) to restart it.
 
 ## /btw
 

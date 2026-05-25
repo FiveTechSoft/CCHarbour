@@ -70,6 +70,12 @@ FUNCTION CCSKILL_Deactivate( cName )
 FUNCTION CCSKILL_Active()
    RETURN AClone( s_aActive )
 
+// Drops every active skill at once. Used by /load when restoring a saved
+// session: the loaded skill list takes over from whatever was active.
+FUNCTION CCSKILL_ClearAll()
+   s_aActive := {}
+   RETURN NIL
+
 // Scans every skill's frontmatter triggers (case-insensitive regex patterns)
 // against the user's input. Activates any matching skill that is not already
 // active, and returns the array of newly-activated names so the caller can

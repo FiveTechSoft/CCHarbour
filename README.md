@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.16                    │ v0.8.16 — /goal auto-continue loop until GOAL COMPLETE       │
+│                    CCHarbour  v0.8.17                    │ v0.8.17 — /save round-trips full session state               │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -390,7 +390,15 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.16 — current.** `/goal` becomes "keep working until the
+**v0.8.17 — current.** `/save` and `/load` now round-trip the full
+session state, not just the conversation. The saved JSON gains a
+`state` block (goal text + auto-continue flag, plan-mode, lean-mode,
+active skills, session-turn timer) and a `suggest` field (the
+pending Suggested-next prompt). `/load` reapplies them on top of the
+restored messages / model / usage. Legacy session files without the
+new fields still load cleanly.
+
+**v0.8.16 — previous.** `/goal` becomes "keep working until the
 condition is met": the injected system note teaches the model to
 emit a literal `GOAL COMPLETE` sentinel when done, and the main REPL
 loop auto-feeds `Continue toward the goal.` between turns until the

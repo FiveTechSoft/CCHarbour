@@ -1,6 +1,29 @@
-CCHarbour v0.8.16 — /goal turns into "keep working until the condition is met": auto-continue loop + GOAL COMPLETE sentinel.
+CCHarbour v0.8.17 — /save and /load now round-trip the full session state: goal, modes, skills, timer, and the pending suggestion.
 
-## New since v0.8.15
+## New since v0.8.16
+
+- **/save / /load preserve every REPL-level static, not just the
+  conversation.** Saved JSON now carries a new `state` block plus a
+  `suggest` string in addition to `model` / `usage` / `messages`.
+  `/load` restores them on top of the conversation so a reload is
+  truly a full snapshot.
+- **`state` block.** `CCREPL_StateExport()` packs the current
+  `goal`, `goal_looping`, `session_turn_ms`, `plan_mode`, `lean_mode`,
+  and `skills` (active skill names) into a primitive hash.
+  `CCREPL_StateImport( hState )` reapplies them, silently skipping
+  missing keys so legacy session files still load cleanly.
+- **`suggest` field.** The pending "Suggested next:" prompt that the
+  model emitted on its last turn is persisted alongside the messages
+  and re-seeded into the editor on the first idle frame after
+  `/load`, so the green Tab-acceptable preview survives a restart.
+- **`CCSKILL_ClearAll()`.** New helper that drops every active skill
+  in one shot; called by `CCREPL_StateImport` before re-activating the
+  loaded skill list so the restored set takes over from whatever was
+  active.
+
+## v0.8.16 — /goal turns into "keep working until the condition is met": auto-continue loop + GOAL COMPLETE sentinel.
+
+### New since v0.8.15
 
 - **/goal redesigned around "keep working until the condition is met".**
   Setting a goal now arms an auto-continue loop in the main REPL:
