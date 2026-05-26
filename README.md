@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.21                    │ v0.8.21 — /loop fixed-interval rerun + /rewind (double-Esc)  │
+│                    CCHarbour  v0.8.22                    │ v0.8.22 — /load crash fix + playground /loop and /rewind     │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -403,7 +403,21 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.21 — current.** `/loop` re-runs a prompt on a fixed interval,
+**v0.8.22 — current.** Fixes a pre-existing crash in `/load` that
+shipped in v0.8.21: `CCUI_SessionListOutput` concatenated a
+Harbour DATE with a string (`DToS(d) + " " + d`) inside the row
+formatter, which raised `Fatal: Argument error` the first time
+`/load` was run against a sessions directory that contained any
+saved file. Switched to `DToC( mtime )` so the date renders as a
+plain string. Reproduced and verified on Windows, macOS and
+Linux. The browser playground also gains a working `/rewind [N]`
+(pops a conversation snapshot stack capped at 20) and `/loop
+<interval> <prompt>` (re-runs the prompt every interval via
+`setInterval`, with `/loop status` / `/loop stop` / `/loop clear`
+mirroring the native binary). `/clear` in the playground now
+flushes the rewind stack and cancels any armed loop.
+
+**v0.8.21 — previous.** `/loop` re-runs a prompt on a fixed interval,
 matching Claude Code's fixed-interval form: `/loop 5m check CI`
 arms a recurring turn every 5 minutes, `/loop status` / `/loop stop`
 / `/loop clear` manage it, and Esc during the sleep window ends the

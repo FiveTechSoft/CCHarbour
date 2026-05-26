@@ -1,6 +1,34 @@
-CCHarbour v0.8.21 — `/loop` fixed-interval rerun + `/rewind` (double-tap Esc).
+CCHarbour v0.8.22 — `/load` crash fix + working `/loop` and `/rewind` in the playground.
 
-## New since v0.8.20
+## New since v0.8.21
+
+- **Fixed `/load` crash.** `CCUI_SessionListOutput` concatenated a
+  Harbour DATE with a string (`DToS(d) + " " + d`) inside the row
+  formatter and raised `Fatal: Argument error` the first time
+  `/load` was run against a sessions directory that contained any
+  saved file. The bug shipped in v0.8.21. Switched to
+  `DToC( mtime )` so the date renders as a plain string. Verified
+  on Windows, macOS and Linux.
+- **Playground `/rewind [N]`.** Pops the conversation snapshot
+  stack (capped at 20), restoring the message array and the
+  cumulative usage counter to the state before the last user
+  turn. Snapshots are pushed in `handleSubmit` just before the
+  user message is appended, so slash commands and the
+  API-key-missing branch do not push spurious entries.
+- **Playground `/loop <interval> <prompt>`.** Arms a
+  `setInterval` that re-issues the prompt via `handleSubmit`
+  every interval. Intervals accept `s` / `m` / `h` suffixes;
+  bare numbers are seconds. `/loop status`, `/loop stop` and
+  `/loop clear` mirror the native binary; ticks that would
+  overlap a running turn are skipped.
+- **Playground `/clear` now resets `/loop` and `/rewind` state.**
+  The handler flushes the rewind stack and cancels any armed
+  loop alongside the existing project / conversation / usage
+  reset.
+
+## v0.8.21 — `/loop` fixed-interval rerun + `/rewind` (double-tap Esc).
+
+### New since v0.8.20
 
 - **`/loop` slash command.** Re-run a prompt on a fixed interval,
   matching Claude Code's fixed-interval `/loop`. `/loop 5m check CI`
