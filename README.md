@@ -109,6 +109,27 @@ You need **Harbour 3.2** (`hbmk2` on `PATH`) and a C compiler:
 4. **Permissions** — edit `.ccharbour/settings.json` to flip any tool
    between `allow`, `ask` and `deny`.
 
+## Running locally with Ollama (experimental)
+
+`/provider ollama` points CCHarbour at a local Ollama daemon
+(`http://localhost:11434/v1`). Status as of v0.8.25, captured by
+end-to-end testing on real hardware:
+
+| Setup                                                          | Result                                                                                                  |
+|----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| RTX 3060 12 GB · `llama3.1:8b`                                 | ✅ short turns work; full agent loop with 17 tools hits the 120 s curl deadline on consumer GPUs        |
+| RTX A5000 24 GB · `qwen3-coder:30b` (official Ollama library)  | ✅ full agent loop confirmed — `glob` fires, 33 files listed, model summarises coherently               |
+| RTX 3060 12 GB · `hf.co/unsloth/Qwen3-Coder-30B-A3B:IQ4_XS`    | ❌ 16 GB model > 12 GB VRAM → 100 % CPU fallback (slow) + tool routing broken (emits XML in `content`)  |
+| Any GPU · `qwen2.5-coder` (any size, including abliterated)    | ❌ emits bare JSON inside `message.content`, never populates `tool_calls`                               |
+
+**Rules of thumb that fell out of testing:**
+
+- **Prefer official Ollama library tags** (`ollama pull qwen3-coder:30b`) over Hugging Face GGUFs (`hf.co/...`). The official Ollama Modelfiles route tool calls through OpenAI's `tool_calls` field; many HF GGUFs need a custom Modelfile and otherwise emit `<tools>{...}</tools>` text inside `content` that CCHarbour cannot dispatch.
+- **Pick a tool-calling-capable model.** Confirmed working: `llama3.1:8b`, `qwen3-coder:30b`, `mistral-nemo:12b`, `command-r:35b`. Confirmed broken: all `qwen2.5-coder` variants.
+- **Size the model to fit your VRAM.** A 16 GB model on a 12 GB card falls back to CPU and turns become 10–30× slower. For 12 GB cards, stay ≤ 8 B params; for 24 GB cards, 30 B MoE works comfortably.
+- **Raise the context window.** Start the daemon with `OLLAMA_CONTEXT_LENGTH=16384` (or higher) so the system prompt + 17 tool schemas fit. The 4096 default silently hangs the request.
+- **Tool count is the real ceiling on consumer GPUs.** Sending all 17 CCHarbour tool schemas (~15 KB JSON) to an 8 B model regularly takes Ollama > 90 s per turn — within the 120 s curl deadline but slow. The agent loop is comfortable on a 24 GB workstation card, painful on a 12 GB consumer card. Cloud providers (DeepSeek, GLM, Moonshot, OpenAI) remain the recommended default.
+
 ## Commands
 
 | Command         | Action                                          |
