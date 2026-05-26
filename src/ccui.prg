@@ -148,7 +148,12 @@ FUNCTION CCUI_SessionListOutput( aSessions )
    ENDIF
    cOut := CCUI_Color( "Saved sessions:", "1" ) + Chr(10)
    FOR EACH hS IN aSessions
-      cTime := DToS( hS[ "mtime" ] ) + " " + hS[ "mtime" ]  // crude, but works
+      // mtime is a DATE; DToC formats it as "yyyy-mm-dd" via SET DATE FORMAT
+      // (or the locale default). Prior code did `DToS(d) + " " + d` which
+      // tried to concatenate a DATE with a string and crashed with
+      // "Argument error" the first time /load was run against a directory
+      // that actually contained a saved session.
+      cTime := DToC( hS[ "mtime" ] )
       cOut += "  " + hS[ "name" ] + CCUI_Color( "  (" + cTime + ")", "90" ) + Chr(10)
    NEXT
    cOut += CCUI_Color( "Use /load <name> to restore a session.", "90" ) + Chr(10)
