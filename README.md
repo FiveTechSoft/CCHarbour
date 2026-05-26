@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.23                    │ v0.8.23 — Ollama provider preset + no-tool-call hint         │
+│                    CCHarbour  v0.8.24                    │ v0.8.24 — Ollama preset → llama3.1:8b + setup notes          │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -403,7 +403,24 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.23 — current.** Adds an Ollama provider preset and a
+**v0.8.24 — current.** Updates the `/provider ollama` preset
+default model from `qwen2.5-coder:7b` to `llama3.1:8b` after
+local testing showed that `qwen2.5-coder:7b` (and its
+abliterated variants) emits bare JSON inside `message.content`
+rather than populating the OpenAI `tool_calls` field, so Ollama
+cannot route the call and CCHarbour's agent loop never sees a
+tool invocation. `llama3.1:8b` returns proper `tool_calls`
+through Ollama's `/v1/chat/completions`. The applied-preset
+message and `pages/commands.md` now spell out the three real
+gotchas: (1) `OLLAMA_CONTEXT_LENGTH=16384` is needed because
+the default 4096 ctx is too small for the CCHarbour system
+prompt + 16 tool schemas (the request silently hangs); (2)
+pick a model whose tool calls actually route through the
+OpenAI field (`llama3.1:8b`, `mistral-nemo:12b`, `command-r`
+work; `qwen2.5-coder` does not); (3) Ollama 0.20.x can hang on
+`/v1` streaming + tools depending on the model.
+
+**v0.8.23 — previous.** Adds an Ollama provider preset and a
 one-shot no-tool-call hint. `/provider ollama` switches the
 backend to `http://localhost:11434/v1` with `qwen2.5-coder:7b`
 as the default model, seeds a placeholder API key (Ollama's

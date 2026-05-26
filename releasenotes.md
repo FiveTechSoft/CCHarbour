@@ -1,6 +1,31 @@
-CCHarbour v0.8.23 — Ollama provider preset + one-shot no-tool-call hint.
+CCHarbour v0.8.24 — Ollama preset default switched to llama3.1:8b + setup notes.
 
-## New since v0.8.22
+## New since v0.8.23
+
+- **`/provider ollama` default model is now `llama3.1:8b`.** Local
+  testing showed `qwen2.5-coder:7b` (the previous default) emits
+  bare JSON inside `message.content` instead of populating
+  `tool_calls`, so Ollama's OpenAI-compatible endpoint never
+  surfaces a tool call and the agent loop ends every turn with
+  the `[hint: 0 tool calls...]` warning. `llama3.1:8b` returns
+  proper `tool_calls` through the same endpoint and works with
+  the loop end-to-end. Same caveat for the abliterated
+  `qwen2.5-coder` GGUFs floating around on Hugging Face.
+- **Updated applied-preset message and commands.md.** Three real
+  gotchas are now spelled out: (1) `OLLAMA_CONTEXT_LENGTH=16384`
+  is required -- the default 4096 ctx is too small for the
+  CCHarbour system prompt + 16 tool schemas (the request silently
+  hangs at the curl 120 s timeout); (2) only models that route
+  tool calls through the OpenAI `tool_calls` field actually
+  work with CCHarbour (`llama3.1:8b`, `mistral-nemo:12b`,
+  `command-r` confirmed; `qwen2.5-coder` confirmed broken);
+  (3) Ollama 0.20.x can hang on `/v1/chat/completions` with
+  `stream:true` and a populated `tools` array for some models --
+  switch model if the timeout fires.
+
+## v0.8.23 — Ollama provider preset + one-shot no-tool-call hint.
+
+### New since v0.8.22
 
 - **`/provider ollama` preset.** Sets `base_url` to
   `http://localhost:11434/v1` and the default model to

@@ -138,10 +138,17 @@ how you set the backend at runtime.
 | `/provider glm` | Apply the GLM / Zhipu preset (`open.bigmodel.cn/api/paas/v4` + `glm-4.6`). |
 | `/provider moonshot` | Apply the Moonshot preset (`api.moonshot.cn/v1` + `kimi-k2`). |
 | `/provider openai` | Apply the OpenAI preset (`api.openai.com/v1` + `gpt-5`). |
-| `/provider ollama` | Apply the Ollama preset (`localhost:11434/v1` + `qwen2.5-coder:7b`). Seeds a placeholder API key so the agent loop runs without a real secret; Ollama's OpenAI-compatible endpoint ignores `Authorization`. Pick a tool-calling model (qwen2.5-coder, llama3.1+, mistral-nemo) and run `ollama serve` + `ollama pull <model>` first. |
+| `/provider ollama` | Apply the Ollama preset (`localhost:11434/v1` + `llama3.1:8b`). Seeds a placeholder API key so the agent loop runs without a real secret; Ollama's OpenAI-compatible endpoint ignores `Authorization`. See the Ollama setup notes below. |
 | `/provider key <secret>` | Save the API key to `settings.json` for the active backend. |
 | `/provider model <name>` | Switch the model only (without changing `base_url`). |
 | `/provider clear` | Remove the stored API key. |
+
+### Ollama setup notes
+
+- **Start Ollama with a larger context.** The default `num_ctx` is 4096, which is too small for the CCHarbour system prompt + 16 tool schemas (~3500 tokens). The request will silently hang. Start the daemon with `OLLAMA_CONTEXT_LENGTH=16384 ollama serve` (Linux/macOS) or set the env var before launching the Ollama app on Windows.
+- **Pick a model that emits OpenAI `tool_calls`.** Not every Ollama model that lists `tools` in its capabilities actually routes tool calls through the OpenAI-compatible field. Confirmed working: `llama3.1:8b`, `mistral-nemo:12b`, `command-r:35b`. Confirmed broken at the time of writing: `qwen2.5-coder:7b` (and its abliterated variants) — the model emits bare JSON inside `message.content` and Ollama does not detect it, so the agent loop never sees a tool call and the `[hint: 0 tool calls...]` warning fires.
+- **Pull the model first.** `ollama pull llama3.1:8b`, then `/provider ollama` and the agent is ready to go.
+- **Streaming + tools quirk.** On Ollama 0.20.x with some models, `/v1/chat/completions` with `stream:true` and a populated `tools` array can hang; if you hit a 120 s timeout, try `/provider model <different-model>` or fall back to a cloud provider for that turn.
 
 The key is stored in plain text in `.ccharbour/settings.json`, the same
 way most OpenAI-compatible CLIs handle their credentials. That folder is

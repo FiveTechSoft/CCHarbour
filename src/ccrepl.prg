@@ -453,7 +453,7 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
                       "model"    => "gpt-5", ;
                       "env"      => "OPENAI_API_KEY" }, ;
       "ollama"   => { "base_url" => "http://localhost:11434/v1", ;
-                      "model"    => "qwen2.5-coder:7b", ;
+                      "model"    => "llama3.1:8b", ;
                       "env"      => "" } }
    DO CASE
    CASE Empty( cMode )
@@ -469,7 +469,7 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
          "  /provider glm        -> open.bigmodel.cn    / glm-4.6" + Chr(10) + ;
          "  /provider moonshot   -> api.moonshot.cn     / kimi-k2" + Chr(10) + ;
          "  /provider openai     -> api.openai.com      / gpt-5" + Chr(10) + ;
-         "  /provider ollama     -> localhost:11434/v1  / qwen2.5-coder:7b" + Chr(10) + ;
+         "  /provider ollama     -> localhost:11434/v1  / llama3.1:8b" + Chr(10) + ;
          Chr(10) + ;
          "  /provider key <secret>   -- save the API key in settings.json" + Chr(10) + ;
          "  /provider model <name>   -- switch the model only" + Chr(10) + ;
@@ -492,9 +492,14 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       cMsg := "[provider -> " + cMode + "  (" + hSet[ "base_url" ] + " / " + ;
               hSet[ "model" ] + ")]"
       IF cMode == "ollama"
-         cMsg += " -- make sure 'ollama serve' is running and the model is " + ;
-                 "pulled (ollama pull " + hSet[ "model" ] + "). Use a " + ;
-                 "tool-calling model (qwen2.5-coder, llama3.1+, mistral-nemo)."
+         cMsg += " -- start ollama with a larger context " + ;
+                 "(OLLAMA_CONTEXT_LENGTH=16384 ollama serve) and pull the " + ;
+                 "model (ollama pull " + hSet[ "model" ] + "). Use a model " + ;
+                 "that emits OpenAI tool_calls -- llama3.1:8b, " + ;
+                 "mistral-nemo, command-r are confirmed working; " + ;
+                 "qwen2.5-coder emits bare JSON in content and is NOT " + ;
+                 "compatible with the agent loop. Default ollama ctx 4096 " + ;
+                 "is too small for the agent prompt + tool schemas."
       ELSEIF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
          cMsg += " -- now set the key with /provider key <secret> or " + ;
                  "export " + hPresets[ cMode ][ "env" ]
