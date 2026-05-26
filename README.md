@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.22                    │ v0.8.22 — /load crash fix + playground /loop and /rewind     │
+│                    CCHarbour  v0.8.23                    │ v0.8.23 — Ollama provider preset + no-tool-call hint         │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -403,7 +403,23 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.22 — current.** Fixes a pre-existing crash in `/load` that
+**v0.8.23 — current.** Adds an Ollama provider preset and a
+one-shot no-tool-call hint. `/provider ollama` switches the
+backend to `http://localhost:11434/v1` with `qwen2.5-coder:7b`
+as the default model, seeds a placeholder API key (Ollama's
+OpenAI-compatible endpoint ignores `Authorization`), and prints
+a reminder to start `ollama serve`, pull the model, and pick a
+tool-calling-capable model (qwen2.5-coder, llama3.1+,
+mistral-nemo). The agent loop now also tracks `tool_call_count`
+per turn; when a successful turn ends with zero tool calls AND
+the model's reply contains a phrase that suggests it wanted to
+act but could not ("I would run...", "I cannot access...",
+"without access to tools"), CCHarbour prints a one-shot hint
+pointing at `/provider model <name>`. The hint is muted as soon
+as any tool call succeeds in the session (proof of tool
+support), and is re-armed by `/clear` and `/provider`.
+
+**v0.8.22 — previous.** Fixes a pre-existing crash in `/load` that
 shipped in v0.8.21: `CCUI_SessionListOutput` concatenated a
 Harbour DATE with a string (`DToS(d) + " " + d`) inside the row
 formatter, which raised `Fatal: Argument error` the first time

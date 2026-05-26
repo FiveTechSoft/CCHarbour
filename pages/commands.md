@@ -138,6 +138,7 @@ how you set the backend at runtime.
 | `/provider glm` | Apply the GLM / Zhipu preset (`open.bigmodel.cn/api/paas/v4` + `glm-4.6`). |
 | `/provider moonshot` | Apply the Moonshot preset (`api.moonshot.cn/v1` + `kimi-k2`). |
 | `/provider openai` | Apply the OpenAI preset (`api.openai.com/v1` + `gpt-5`). |
+| `/provider ollama` | Apply the Ollama preset (`localhost:11434/v1` + `qwen2.5-coder:7b`). Seeds a placeholder API key so the agent loop runs without a real secret; Ollama's OpenAI-compatible endpoint ignores `Authorization`. Pick a tool-calling model (qwen2.5-coder, llama3.1+, mistral-nemo) and run `ollama serve` + `ollama pull <model>` first. |
 | `/provider key <secret>` | Save the API key to `settings.json` for the active backend. |
 | `/provider model <name>` | Switch the model only (without changing `base_url`). |
 | `/provider clear` | Remove the stored API key. |

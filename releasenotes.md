@@ -1,6 +1,34 @@
-CCHarbour v0.8.22 — `/load` crash fix + working `/loop` and `/rewind` in the playground.
+CCHarbour v0.8.23 — Ollama provider preset + one-shot no-tool-call hint.
 
-## New since v0.8.21
+## New since v0.8.22
+
+- **`/provider ollama` preset.** Sets `base_url` to
+  `http://localhost:11434/v1` and the default model to
+  `qwen2.5-coder:7b`. The placeholder API key `ollama` is
+  auto-seeded so the agent loop does not block on the "no api
+  key" branch -- Ollama's OpenAI-compatible endpoint ignores
+  `Authorization`. The applied-preset message reminds the user
+  to run `ollama serve`, pull the model, and pick a
+  tool-calling-capable model (qwen2.5-coder, llama3.1+,
+  mistral-nemo). Updated `Presets:` list, "no API key" banner
+  warning, and the playground `/help` footer to mention ollama.
+- **No-tool-call detection.** `CC_AgentRun` now returns
+  `tool_call_count` -- the total number of tool calls issued
+  across the whole run. After every successful turn,
+  `CCREPL_MaybeWarnNoToolCall` checks whether the count is
+  zero AND the model's reply contains a phrase that suggests
+  the model wanted to act but could not ("I would run...", "I
+  cannot access...", "without access to tools", and ~15 more).
+  When both conditions hold, a one-shot warn-coloured hint
+  points at `/provider model <name>` with a curated list of
+  tool-calling models. The hint is muted permanently once any
+  tool call succeeds (proof of tool support); `/clear` and
+  `/provider` re-arm it so the next backend gets a fair
+  re-evaluation.
+
+## v0.8.22 — `/load` crash fix + working `/loop` and `/rewind` in the playground.
+
+### New since v0.8.21
 
 - **Fixed `/load` crash.** `CCUI_SessionListOutput` concatenated a
   Harbour DATE with a string (`DToS(d) + " " + d`) inside the row

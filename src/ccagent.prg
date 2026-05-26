@@ -14,6 +14,7 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
 
    hResult := { "success" => .F., "messages" => {}, "content" => "", ;
                 "stop_reason" => NIL, "iterations" => 0, "usage" => {=>}, ;
+                "tool_call_count" => 0, ;
                 "error_type" => NIL, "message" => NIL }
 
    // validate the input history
@@ -90,6 +91,7 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
          RETURN hResult
       ENDIF
 
+      hResult[ "tool_call_count" ] += Len( hChat[ "tool_calls" ] )
       // execute every tool call this turn, append each result as a tool message
       FOR EACH tc IN hChat[ "tool_calls" ]
          // honour an interruption requested mid-turn

@@ -37,6 +37,10 @@ STATIC s_lLoopActive := .F.
 // to bound memory in long sessions.
 STATIC s_aRewindStack := {}
 #define CC_REWIND_MAX 20
+// One-shot "model isn't calling tools" hint. Set after the warning fires
+// (or the model successfully calls a tool, so the model clearly supports
+// tools). Cleared by /clear and /provider so the next session re-evaluates.
+STATIC s_lNoToolWarned := .F.
 // One-shot /compact nudge flag: set when MaybeWarnCompact prints the
 // "context X% full" warning; cleared by /clear and by a successful
 // /compact so the warning can fire again next time the threshold is
@@ -150,8 +154,9 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
    // remains correct. The warning lives in the scrollable content area.
    IF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
       CCREPL_Out( CCUI_Color( "[no API key configured -- type /provider to " + ;
-                              "set up a backend (deepseek/glm/moonshot/openai), " + ;
-                              "or export DEEPSEEK_API_KEY before starting]", ;
+                              "set up a backend (deepseek/glm/moonshot/openai/" + ;
+                              "ollama), or export DEEPSEEK_API_KEY before " + ;
+                              "starting]", ;
                               "33" ) + Chr(10) )
    ENDIF
    DO WHILE .T.
@@ -213,6 +218,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_nLoopIntervalSec := 0
          s_lLoopActive := .F.
          s_aRewindStack := {}
+         s_lNoToolWarned := .F.
          s_lCompactNudged := .F.
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
@@ -405,6 +411,7 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
       CCREPL_ShowTokenBar( hRes[ "usage" ], nTurnMs )
       CCREPL_AccumUsage( hRes[ "usage" ] )
       CCREPL_MaybeWarnCompact( hRes[ "usage" ], cModel )
+      CCREPL_MaybeWarnNoToolCall( hRes, cModel )
    ELSE
       CCREPL_Out( Chr(10) )
    ENDIF
@@ -444,7 +451,10 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
                       "env"      => "MOONSHOT_API_KEY" }, ;
       "openai"   => { "base_url" => "https://api.openai.com/v1", ;
                       "model"    => "gpt-5", ;
-                      "env"      => "OPENAI_API_KEY" } }
+                      "env"      => "OPENAI_API_KEY" }, ;
+      "ollama"   => { "base_url" => "http://localhost:11434/v1", ;
+                      "model"    => "qwen2.5-coder:7b", ;
+                      "env"      => "" } }
    DO CASE
    CASE Empty( cMode )
       CCREPL_Out( CCUI_Color( "Current provider:", "1" ) + Chr(10) )
@@ -455,23 +465,37 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
               "(none -- run /provider key <secret>)", "(set)" ), "90" ) + Chr(10) )
       CCREPL_Out( Chr(10) + CCUI_Color( "Presets:", "1" ) + Chr(10) )
       CCREPL_Out( CCUI_Color( ;
-         "  /provider deepseek   -> api.deepseek.com  / deepseek-v4-flash" + Chr(10) + ;
-         "  /provider glm        -> open.bigmodel.cn  / glm-4.6" + Chr(10) + ;
-         "  /provider moonshot   -> api.moonshot.cn   / kimi-k2" + Chr(10) + ;
-         "  /provider openai     -> api.openai.com    / gpt-5" + Chr(10) + ;
+         "  /provider deepseek   -> api.deepseek.com    / deepseek-v4-flash" + Chr(10) + ;
+         "  /provider glm        -> open.bigmodel.cn    / glm-4.6" + Chr(10) + ;
+         "  /provider moonshot   -> api.moonshot.cn     / kimi-k2" + Chr(10) + ;
+         "  /provider openai     -> api.openai.com      / gpt-5" + Chr(10) + ;
+         "  /provider ollama     -> localhost:11434/v1  / qwen2.5-coder:7b" + Chr(10) + ;
          Chr(10) + ;
          "  /provider key <secret>   -- save the API key in settings.json" + Chr(10) + ;
          "  /provider model <name>   -- switch the model only" + Chr(10) + ;
          "  /provider clear          -- wipe the stored API key", "90" ) + Chr(10) )
    CASE hb_HHasKey( hPresets, cMode )
+      // model is about to change -- re-arm the "no tool calls" hint so
+      // the next backend gets a fair re-evaluation
+      s_lNoToolWarned := .F.
       hSet[ "base_url" ] := hPresets[ cMode ][ "base_url" ]
       hSet[ "model" ]    := hPresets[ cMode ][ "model" ]
+      // Ollama needs no real API key; the OpenAI-compatible endpoint
+      // ignores Authorization. Seed a placeholder so the agent loop
+      // does not block on the "no api key" branch.
+      IF cMode == "ollama" .AND. Empty( hb_HGetDef( hSet, "api_key", "" ) )
+         hSet[ "api_key" ] := "ollama"
+      ENDIF
       CCSETTINGS_Save( hSet )
       hUpd[ "model" ] := hSet[ "model" ]
       hUpd[ "rebuild_client" ] := .T.
       cMsg := "[provider -> " + cMode + "  (" + hSet[ "base_url" ] + " / " + ;
               hSet[ "model" ] + ")]"
-      IF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
+      IF cMode == "ollama"
+         cMsg += " -- make sure 'ollama serve' is running and the model is " + ;
+                 "pulled (ollama pull " + hSet[ "model" ] + "). Use a " + ;
+                 "tool-calling model (qwen2.5-coder, llama3.1+, mistral-nemo)."
+      ELSEIF Empty( CCCFG_Resolve( {=>} )[ "api_key" ] )
          cMsg += " -- now set the key with /provider key <secret> or " + ;
                  "export " + hPresets[ cMode ][ "env" ]
       ENDIF
@@ -492,6 +516,7 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
                                  CCUI_Pal( "error" ) ) + Chr(10) )
          RETURN NIL
       ENDIF
+      s_lNoToolWarned := .F.
       hSet[ "model" ] := cRest
       CCSETTINGS_Save( hSet )
       hUpd[ "model" ] := cRest
@@ -569,6 +594,56 @@ STATIC FUNCTION CCREPL_MaybeWarnCompact( hUsage, cModel )
       "summarise old turns and free up space]", ;
       CCUI_Pal( "warn" ) ) + Chr(10) )
    s_lCompactNudged := .T.
+   RETURN NIL
+
+// After every successful turn, check whether the model actually called
+// any tool. If the turn ended on a plain text reply AND that reply
+// contains a phrase suggesting the model wanted to act but could not
+// ("I would run...", "I cannot access...", "without access to tools"),
+// print a one-shot hint pointing at /provider model. Tool-calling
+// requires model support: qwen2.5-coder, llama3.1+, mistral-nemo for
+// Ollama; deepseek-v4-flash, gpt-5, kimi-k2, glm-4.6 for cloud. Cleared
+// once the model successfully calls a tool (proof of support) or by
+// /clear and /provider. The check fires at most once per session so
+// the hint never spams.
+STATIC FUNCTION CCREPL_MaybeWarnNoToolCall( hRes, cModel )
+   LOCAL nCalls, cText, cLow, aPhrases, cPhrase
+   nCalls := hb_HGetDef( hRes, "tool_call_count", 0 )
+   IF nCalls > 0
+      // model proved it supports tools -- mute the hint for the rest
+      // of the session even if a later turn happens to be conversational
+      s_lNoToolWarned := .T.
+      RETURN NIL
+   ENDIF
+   IF s_lNoToolWarned
+      RETURN NIL
+   ENDIF
+   cText := hb_CStr( hb_HGetDef( hRes, "content", "" ) )
+   IF Empty( cText )
+      RETURN NIL
+   ENDIF
+   cLow := Lower( cText )
+   aPhrases := { ;
+      "i would run", "i would use", "i would call", "i would invoke", ;
+      "i'll need to", "i'd need to", "i would need to", ;
+      "i cannot run", "i can't run", "i cannot execute", "i can't execute", ;
+      "i cannot access", "i can't access", "i do not have access", ;
+      "i don't have access", "without access to tool", ;
+      "i'm unable to run", "unable to execute", ;
+      "you can run", "you could run", "you would run" }
+   FOR EACH cPhrase IN aPhrases
+      IF cPhrase $ cLow
+         CCREPL_Out( CCUI_Color( ;
+            "[hint: 0 tool calls and reply reads like the model wants " + ;
+            "to act but cannot. If '" + cModel + "' lacks tool-calling, " + ;
+            "switch with /provider model <name>. Tested: qwen2.5-coder, " + ;
+            "llama3.1+, mistral-nemo (Ollama); deepseek-v4-flash, gpt-5, " + ;
+            "kimi-k2, glm-4.6 (cloud).]", ;
+            CCUI_Pal( "warn" ) ) + Chr(10) )
+         s_lNoToolWarned := .T.
+         RETURN NIL
+      ENDIF
+   NEXT
    RETURN NIL
 
 // Implements /compact -- ask the model to summarise the old part of
