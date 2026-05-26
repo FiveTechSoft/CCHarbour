@@ -143,12 +143,16 @@ how you set the backend at runtime.
 | `/provider model <name>` | Switch the model only (without changing `base_url`). |
 | `/provider clear` | Remove the stored API key. |
 
-### Ollama setup notes
+### Ollama setup notes (experimental)
 
-- **Start Ollama with a larger context.** The default `num_ctx` is 4096, which is too small for the CCHarbour system prompt + 16 tool schemas (~3500 tokens). The request will silently hang. Start the daemon with `OLLAMA_CONTEXT_LENGTH=16384 ollama serve` (Linux/macOS) or set the env var before launching the Ollama app on Windows.
-- **Pick a model that emits OpenAI `tool_calls`.** Not every Ollama model that lists `tools` in its capabilities actually routes tool calls through the OpenAI-compatible field. Confirmed working: `llama3.1:8b`, `mistral-nemo:12b`, `command-r:35b`. Confirmed broken at the time of writing: `qwen2.5-coder:7b` (and its abliterated variants) — the model emits bare JSON inside `message.content` and Ollama does not detect it, so the agent loop never sees a tool call and the `[hint: 0 tool calls...]` warning fires.
-- **Pull the model first.** `ollama pull llama3.1:8b`, then `/provider ollama` and the agent is ready to go.
-- **Streaming + tools quirk.** On Ollama 0.20.x with some models, `/v1/chat/completions` with `stream:true` and a populated `tools` array can hang; if you hit a 120 s timeout, try `/provider model <different-model>` or fall back to a cloud provider for that turn.
+Ollama is supported but works partially. Confirmed gotchas after local testing against Ollama 0.20.4 on Windows with `llama3.1:8b`:
+
+- **Authorization must not be a real cloud key.** Ollama silently hangs the request when `Authorization: Bearer sk-...` (a left-over DeepSeek / OpenAI key) is sent; it appears to treat the credential as a cloud-forward token and wait on a remote that never answers. CCHarbour now forces `Bearer ollama` for any `localhost:11434` URL on every request, regardless of the stored key, so the cloud key stays in `settings.json` for the next `/provider deepseek` switch.
+- **No `Accept: text/event-stream` header.** With it, Ollama collapses tool calls into a JSON blob inside `message.content` instead of populating `tool_calls`. CCHarbour drops the header for Ollama URLs; SSE still works because the body's `"stream": true` is what activates it.
+- **No `stream_options.include_usage`.** Ollama 0.20.x stalls when that field is present. CCHarbour omits it for Ollama URLs; `/cost` will simply not show token counts for Ollama turns.
+- **Context window.** Default `num_ctx=4096` is too small for the CCHarbour system prompt + 17 tool schemas. Start the daemon with `OLLAMA_CONTEXT_LENGTH=16384` (or higher) before launching.
+- **Tool count is the real bottleneck.** Even with `llama3.1:8b` + 16384 ctx, sending all 17 of CCHarbour's tool schemas (~15 KB JSON) takes Ollama > 90 s per turn on consumer GPUs and frequently times out at the curl 120 s deadline. Cutting tools down to 3-4 returns in seconds. For now Ollama is best used for short conversational turns, not the full agent loop.
+- **Model choice for tool-calling.** Confirmed broken: `qwen2.5-coder:7b` (and abliterated variants) — emits bare JSON inside `content`, not `tool_calls`. Confirmed working (small tool sets): `llama3.1:8b`, `mistral-nemo:12b`, `command-r:35b`. `command-r` is the only one that has both tool support and a large enough context for the full registry.
 
 The key is stored in plain text in `.ccharbour/settings.json`, the same
 way most OpenAI-compatible CLIs handle their credentials. That folder is

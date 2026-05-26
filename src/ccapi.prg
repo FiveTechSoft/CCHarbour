@@ -46,11 +46,26 @@ FUNCTION CC_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    ENDIF
 
    // 2. build request body
-   cBody := hb_jsonEncode( CC_BuildBody( cModel, aMessages, hParams ) )
+   cBody := hb_jsonEncode( CC_BuildBody( cModel, aMessages, hParams, ;
+                                         hCfg[ "base_url" ] ) )
+   // Ollama 0.20.x specifics, captured here so the rest of the stack is
+   // backend-agnostic:
+   //   - drop "Accept: text/event-stream" -- with it, Ollama collapses
+   //     tool calls into a JSON blob inside message.content instead of
+   //     populating tool_calls. SSE is still produced by "stream": true.
+   //   - force "Authorization: Bearer ollama" -- when the header carries
+   //     a real cloud key (e.g. "Bearer sk-..." left over from a prior
+   //     /provider deepseek session) Ollama silently hangs the request,
+   //     apparently treating it as a cloud-forward credential and waiting
+   //     on a remote that never answers. The stored cloud key is left
+   //     untouched in settings.json so /provider deepseek re-uses it.
    hReq  := { "url" => hCfg[ "base_url" ] + "/chat/completions", ;
-              "headers" => { "Content-Type: application/json", ;
-                             "Accept: text/event-stream", ;
-                             "Authorization: Bearer " + hCfg[ "api_key" ] }, ;
+              "headers" => iif( CC_IsOllamaUrl( hCfg[ "base_url" ] ), ;
+                                { "Content-Type: application/json", ;
+                                  "Authorization: Bearer ollama" }, ;
+                                { "Content-Type: application/json", ;
+                                  "Accept: text/event-stream", ;
+                                  "Authorization: Bearer " + hCfg[ "api_key" ] } ), ;
               "body" => cBody, ;
               "timeout" => oClient[ "timeout" ] }
 
@@ -106,10 +121,24 @@ FUNCTION CC_ChatCompletion( oClient, aMessages, hParams, bOnEvent )
    hResult[ "reasoning_content" ] := hState[ "reasoning" ]
    RETURN hResult
 
-STATIC FUNCTION CC_BuildBody( cModel, aMessages, hParams )
-   LOCAL hBody := { "model" => cModel, "messages" => aMessages, ;
-                    "stream" => .T., ;
-                    "stream_options" => { "include_usage" => .T. } }
+// Detects an Ollama-style base_url so callers can flip to Ollama-specific
+// request shape. Matches the standard "localhost:11434" / "127.0.0.1:11434"
+// daemon URL plus an explicit "ollama" path component for reverse-proxied
+// installs. Case-insensitive.
+STATIC FUNCTION CC_IsOllamaUrl( cUrl )
+   LOCAL cLow := Lower( hb_CStr( cUrl ) )
+   RETURN "11434" $ cLow .OR. "ollama" $ cLow
+
+STATIC FUNCTION CC_BuildBody( cModel, aMessages, hParams, cBaseUrl )
+   LOCAL hBody, lOllama := CC_IsOllamaUrl( cBaseUrl )
+   hBody := { "model" => cModel, "messages" => aMessages, ;
+              "stream" => .T. }
+   // Ollama 0.20.x does not support OpenAI's stream_options.include_usage
+   // and stalls when it is set. Cloud backends understand it and emit a
+   // final usage chunk we rely on for /cost.
+   IF !lOllama
+      hBody[ "stream_options" ] := { "include_usage" => .T. }
+   ENDIF
    IF hb_HHasKey( hParams, "temperature" )
       hBody[ "temperature" ] := hParams[ "temperature" ]
    ENDIF

@@ -480,9 +480,13 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       s_lNoToolWarned := .F.
       hSet[ "base_url" ] := hPresets[ cMode ][ "base_url" ]
       hSet[ "model" ]    := hPresets[ cMode ][ "model" ]
-      // Ollama needs no real API key; the OpenAI-compatible endpoint
-      // ignores Authorization. Seed a placeholder so the agent loop
-      // does not block on the "no api key" branch.
+      // Ollama needs no real API key, but the agent loop blocks when
+      // api_key is empty. Seed a placeholder only when there isn't one
+      // already; the runtime header override in ccapi.prg replaces the
+      // stored cloud key with "ollama" on every request to a
+      // localhost:11434 URL, so the user's real cloud key stays in
+      // settings.json for the next /provider switch back to deepseek
+      // / openai / etc.
       IF cMode == "ollama" .AND. Empty( hb_HGetDef( hSet, "api_key", "" ) )
          hSet[ "api_key" ] := "ollama"
       ENDIF

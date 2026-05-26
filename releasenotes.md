@@ -1,6 +1,37 @@
-CCHarbour v0.8.24 — Ollama preset default switched to llama3.1:8b + setup notes.
+CCHarbour v0.8.25 — Ollama-specific bug fixes uncovered by end-to-end testing.
 
-## New since v0.8.23
+## New since v0.8.24
+
+- **Ollama auth fix.** Ollama 0.20.4 silently hangs the request
+  when `Authorization: Bearer sk-...` (a left-over DeepSeek /
+  OpenAI key from a prior `/provider deepseek` session) is sent
+  -- it appears to treat the credential as a cloud-forward
+  token and waits on a remote that never answers. CCHarbour now
+  forces `Bearer ollama` on every request to a `localhost:11434`
+  URL via a `CC_IsOllamaUrl` check in `ccapi.prg`. The user's
+  stored cloud key stays untouched in `settings.json` so the
+  next `/provider deepseek` switch reuses it.
+- **`Accept: text/event-stream` dropped for Ollama.** With that
+  header set, Ollama collapses tool calls into a JSON blob
+  inside `message.content` instead of populating `tool_calls`.
+  CCHarbour now omits the header for Ollama URLs; SSE still
+  works because the body's `"stream": true` is what activates
+  streaming.
+- **`stream_options.include_usage` omitted for Ollama.** Ollama
+  0.20.x stalls when that field is present. `/cost` will not
+  show token counts for Ollama turns as a result; cloud
+  backends keep emitting the final usage chunk.
+- **Ollama setup notes rewritten in `pages/commands.md`.** The
+  three quirks above are now documented, plus the real
+  bottleneck: even after the fixes, sending all 17 of
+  CCHarbour's tool schemas (~15 KB JSON) to `llama3.1:8b`
+  takes Ollama > 90 s per turn on consumer GPUs and frequently
+  hits the curl 120 s deadline. Best used for short
+  conversational turns, not the full agent loop.
+
+## v0.8.24 — Ollama preset default switched to llama3.1:8b + setup notes.
+
+### New since v0.8.23
 
 - **`/provider ollama` default model is now `llama3.1:8b`.** Local
   testing showed `qwen2.5-coder:7b` (the previous default) emits

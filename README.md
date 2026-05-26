@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.24                    │ v0.8.24 — Ollama preset → llama3.1:8b + setup notes          │
+│                    CCHarbour  v0.8.25                    │ v0.8.25 — Ollama auth / Accept / stream_options fixes        │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -403,7 +403,29 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.24 — current.** Updates the `/provider ollama` preset
+**v0.8.25 — current.** Three Ollama-specific bug fixes uncovered
+by running the agent loop end-to-end against `llama3.1:8b` on
+Ollama 0.20.4. (1) Ollama silently hangs the entire request
+when `Authorization: Bearer sk-...` (a left-over real cloud
+key) is sent; CCHarbour now forces `Bearer ollama` on every
+request to a `localhost:11434` URL, leaving the stored cloud
+key untouched in `settings.json`. (2) `Accept: text/event-stream`
+makes Ollama collapse tool calls into a JSON blob inside
+`message.content` instead of populating `tool_calls`; the
+header is dropped for Ollama URLs and SSE still works through
+the body's `"stream": true`. (3) `stream_options.include_usage`
+stalls Ollama; it is now omitted for Ollama URLs (cloud
+backends keep emitting the final usage chunk that `/cost`
+relies on). Detection uses a single `CC_IsOllamaUrl` helper in
+`ccapi.prg` that matches `:11434` or `ollama` in the
+`base_url`. The "Ollama setup notes" section in
+`pages/commands.md` is rewritten to spell out these three
+quirks plus the real bottleneck (sending all 17 tool schemas
+to `llama3.1:8b` takes > 90 s per turn on consumer GPUs and
+hits the curl 120 s deadline -- Ollama is best used for short
+turns, not the full agent loop).
+
+**v0.8.24 — previous.** Updates the `/provider ollama` preset
 default model from `qwen2.5-coder:7b` to `llama3.1:8b` after
 local testing showed that `qwen2.5-coder:7b` (and its
 abliterated variants) emits bare JSON inside `message.content`
