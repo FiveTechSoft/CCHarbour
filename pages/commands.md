@@ -19,6 +19,8 @@ assistant.
 | `/goal [args]`  | set a goal — keep working until the condition is met |
 | `/tasks [args]` | inspect background subagent tasks (list / view / kill / clear) |
 | `/compact`      | summarise older turns to free context (last 4 + system kept verbatim) |
+| `/loop [args]`  | re-run a prompt on a fixed interval (`5m`, `30s`, `1h`); manage with `status`, `stop`, `clear` |
+| `/rewind [N]`   | undo the last conversation turn (or N turns); double-tap Esc triggers it |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
 | `/exit`         | quit (alias `/quit`)                            |
 
@@ -235,6 +237,51 @@ It NEVER auto-runs. The hint re-arms on `/clear` or after a successful
 model context sizes are read from a table inside `CCREPL_ModelContext`
 (deepseek-v4-flash / deepseek-v4-pro = 128k, kimi-k2 = 200k, gpt-5 =
 400k, fallback 32k).
+
+## /loop
+
+`/loop` re-runs a prompt on a fixed interval — Claude Code's
+fixed-interval form. After each turn finishes, the REPL sleeps the
+configured interval (interruptible by Esc) and re-issues the stored
+prompt as the next turn. Hooks in parallel to `/goal`, so the two can
+be armed at the same time. Intervals accept `s`, `m`, `h` suffixes
+(`30s`, `5m`, `1h`); a bare number is seconds.
+
+| Form                          | What it does |
+|-------------------------------|--------------|
+| `/loop <interval> <prompt>`   | arm the loop (e.g. `/loop 5m check CI`) |
+| `/loop`, `/loop status`       | show the active loop (or `(none)`) |
+| `/loop stop` (alias `/loop off`) | end the auto-rerun, keep the prompt text |
+| `/loop clear`                 | drop the loop entirely |
+
+Esc during the inter-turn sleep ends the loop with the same effect
+as `/loop stop`. The model-paced (self-scheduled) variant of Claude
+Code's `/loop` is not implemented in this release; the prompt loops
+on the configured wall-clock interval only.
+
+## /rewind
+
+`/rewind` undoes the last conversation turn — `aMsgs`, `/goal`,
+`/loop`, plan / lean mode, accumulated usage and the `/compact`
+warn-once flag are all snapshotted before each turn and rolled back
+on demand. **File modifications are NOT rewound** (only the
+conversation), so any `write` / `edit` / `shell` side effect from
+that turn stays on disk.
+
+| Form          | What it does |
+|---------------|--------------|
+| `/rewind`     | undo one turn |
+| `/rewind <N>` | undo N turns (clamped to the stack depth) |
+
+A **double-tap of Esc** (two presses within 600 ms) at the idle
+prompt is detected in `CCPROMPT_Poll` and converted into a
+`rewind` interrupt; `CCREPL_PromptIdle` then returns the literal
+`/rewind` so the standard dispatcher runs it. Mid-turn double-Esc
+still just interrupts the turn — to rewind after a turn finishes,
+either double-tap at the idle prompt or type `/rewind` explicitly.
+
+The snapshot stack is capped at 20 entries (oldest falls off the
+bottom). `/clear` and `/load` flush it.
 
 ## /btw
 

@@ -159,9 +159,9 @@ function handleSlashCommand(line) {
         "  /reset           alias of /clear\n" +
         "\n" +
         "Native binary only (download from Releases): /init, /save, /load,\n" +
-        "/caveman, /plan, /lean, /goal, /tasks, /btw, /exit, plus the\n" +
-        "shell, dispatch_agent, dispatch_agent_background, propose_agents\n" +
-        "and use_skill tools."
+        "/caveman, /plan, /lean, /goal, /tasks, /compact, /loop, /rewind,\n" +
+        "/btw, /exit, plus the shell, dispatch_agent,\n" +
+        "dispatch_agent_background, propose_agents and use_skill tools."
       );
       return true;
     case "/clear":

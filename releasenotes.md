@@ -1,6 +1,35 @@
-CCHarbour v0.8.20 — Ask-prompt deadlock fix: non-TTY auto-deny + `CCHARBOUR_ASK_TIMEOUT`.
+CCHarbour v0.8.21 — `/loop` fixed-interval rerun + `/rewind` (double-tap Esc).
 
-## New since v0.8.19
+## New since v0.8.20
+
+- **`/loop` slash command.** Re-run a prompt on a fixed interval,
+  matching Claude Code's fixed-interval `/loop`. `/loop 5m check CI`
+  arms a recurring turn every 5 minutes; intervals accept the `s`,
+  `m`, `h` suffixes (a bare number is seconds). `/loop` /
+  `/loop status` shows the active loop, `/loop stop` ends it while
+  keeping the prompt text, `/loop clear` drops both. The sleep
+  between turns is interruptible — pressing Esc ends the loop.
+  Hooks in parallel to the existing `/goal` auto-continue, so
+  `/loop` and `/goal` can be armed independently. Model-paced
+  (self-scheduled) variant is not implemented in this release.
+- **`/rewind` slash command + double-tap Esc.** Undo the last
+  conversation turn. `/rewind` pops one snapshot; `/rewind N` pops
+  N. A double-tap of Esc (≤ 600 ms apart) at the idle prompt is
+  detected in `CCPROMPT_Poll` and converted into a `rewind`
+  interrupt kind, which `CCREPL_PromptIdle` returns as the literal
+  `/rewind`. Snapshots are pushed before each user message,
+  `/init`, `/btw` drain message, and `/loop` runner turn; the
+  stack is capped at 20 entries (oldest falls off the bottom).
+  Restored state covers `aMsgs`, `s_cGoal`, `s_lGoalLooping`,
+  `s_cLoopPrompt`, `s_nLoopIntervalSec`, `s_lLoopActive`,
+  `s_lPlanMode`, `s_lLeanMode`, `s_hSessionUsage`, and
+  `s_lCompactNudged`. `/clear` and `/load` flush the stack. File
+  modifications made by `write` / `edit` / `shell` are NOT rolled
+  back — only the conversation.
+
+## v0.8.20 — Ask-prompt deadlock fix: non-TTY auto-deny + `CCHARBOUR_ASK_TIMEOUT`.
+
+### New since v0.8.19
 
 - **Non-TTY auto-deny on `ask` prompts.** When a tool gated `ask`
   fires and `stdin` is not a TTY (piped input, `script -c`, a

@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.20                    │ v0.8.20 — ask-prompt timeout + non-TTY auto-deny             │
+│                    CCHarbour  v0.8.21                    │ v0.8.21 — /loop fixed-interval rerun + /rewind (double-Esc)  │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -51,6 +51,8 @@
 - 🎯 **Subagents with a user gate** — `propose_agents` lets you review and approve batches of subagents before any of them runs.
 - 🧵 **Background subagents** — `dispatch_agent_background` spawns a subagent on a worker thread and returns a task-id immediately; inspect with `/tasks`, view with `/tasks view <id>`, cancel with `/tasks kill <id>`.
 - 🎯 **/goal** — pin an objective and the agent keeps working until it emits `GOAL COMPLETE` (auto-continue capped at 25 turns).
+- 🔁 **/loop** — re-run a prompt every N seconds / minutes / hours (`/loop 5m check CI`); Esc or `/loop stop` ends it.
+- ⏪ **/rewind** — undo the last conversation turn (or N turns); a double-tap of Esc at the idle prompt triggers it.
 - 🪶 **Lean mode** — `/lean` trims the system prompt by ~500–800 tokens per turn for marathon sessions or pricey models.
 - ✂️ **Paste detection** — multi-line paste collapses to `[pasted N lines text]` so the box stays readable.
 
@@ -401,7 +403,22 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 
 ## Releases
 
-**v0.8.20 — current.** Ask-prompt deadlock fix. When a tool gated
+**v0.8.21 — current.** `/loop` re-runs a prompt on a fixed interval,
+matching Claude Code's fixed-interval form: `/loop 5m check CI`
+arms a recurring turn every 5 minutes, `/loop status` / `/loop stop`
+/ `/loop clear` manage it, and Esc during the sleep window ends the
+loop. The runner hooks in after each turn in parallel to the
+existing `/goal` auto-continue, so `/loop` and `/goal` can be armed
+independently. `/rewind` (and a double-tap of Esc at the idle
+prompt) undoes the last conversation turn — `aMsgs`, goal, loop,
+plan / lean mode, accumulated usage and the `/compact` warn-once
+flag are all snapshotted before each user message, `/init`, `/btw`
+drain, and `/loop` runner turn. `/rewind <N>` pops N turns; the
+stack is capped at 20 entries and cleared by `/clear` and `/load`.
+File-system changes are NOT rolled back — only the conversation
+state.
+
+**v0.8.20 — previous.** Ask-prompt deadlock fix. When a tool gated
 `ask` fires and `stdin` is not a TTY (piped input, `script -c`,
 background SSH `exec_command`, CI), `CCREPL_AskPerm` now
 short-circuits with `[non-interactive stdin -- '<tool>' denied]`
