@@ -8,6 +8,12 @@
 
 // Wall-clock of the previously processed key, used by paste detection.
 STATIC s_nLastKeyMs := 0
+// Wall-clock of the previous Esc, used by double-tap detection. Two Escs
+// within CCPROMPT_DBLESC_MS milliseconds emit a "rewind" interrupt
+// instead of a plain "esc" -- which the REPL turns into a /rewind
+// conversation undo. Reset every time a non-Esc key arrives.
+STATIC s_nLastEscMs := 0
+#define CCPROMPT_DBLESC_MS 600
 // Below this many rows there is no room for the box -> fallback mode.
 #define CCPROMPT_MIN_ROWS  8
 
@@ -305,6 +311,11 @@ FUNCTION CCPROMPT_Poll( oPrompt )
          lBurst := .T.
       ENDIF
       s_nLastKeyMs := nNow
+      // any non-Esc key cancels a pending first-Esc -- double-tap must
+      // be back-to-back, not Esc+other+Esc many seconds later
+      IF nKey != -13 .AND. s_nLastEscMs > 0
+         s_nLastEscMs := 0
+      ENDIF
       // Enter inside a paste burst becomes a newline: many editors send LF
       // mid-paste and the user does not want to submit half a paste
       IF lBurst .AND. nKey == -1
@@ -338,7 +349,17 @@ FUNCTION CCPROMPT_Poll( oPrompt )
       ENDIF
       DO CASE
       CASE nKey == -13                       // Esc -> interrupt, no message
-         oPrompt[ "interrupt" ] := { "kind" => "esc", "text" => "" }
+         // Double-tap detection: a second Esc within CCPROMPT_DBLESC_MS ms
+         // becomes "rewind" instead of plain "esc". The REPL converts
+         // that into a /rewind conversation undo at the idle prompt.
+         IF s_nLastEscMs > 0 .AND. ;
+            ( hb_milliseconds() - s_nLastEscMs ) <= CCPROMPT_DBLESC_MS
+            oPrompt[ "interrupt" ] := { "kind" => "rewind", "text" => "" }
+            s_nLastEscMs := 0
+         ELSE
+            oPrompt[ "interrupt" ] := { "kind" => "esc", "text" => "" }
+            s_nLastEscMs := hb_milliseconds()
+         ENDIF
          cAction := "interrupt"
       CASE nKey == -1                        // Enter -> classify the buffer
          // expand a paste placeholder back to its real content before

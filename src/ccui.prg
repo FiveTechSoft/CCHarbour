@@ -41,6 +41,10 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "tasks", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
    CASE cLow == "/compact" .OR. Left( cLow, 9 ) == "/compact "
       RETURN { "type" => "compact", "text" => AllTrim( SubStr( cTrim, 9 ) ) }
+   CASE cLow == "/loop" .OR. Left( cLow, 6 ) == "/loop "
+      RETURN { "type" => "loop", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
+   CASE cLow == "/rewind" .OR. Left( cLow, 8 ) == "/rewind "
+      RETURN { "type" => "rewind", "text" => AllTrim( SubStr( cTrim, 8 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that
@@ -1044,6 +1048,11 @@ FUNCTION CCUI_Help()
           "  /tasks kill <id>  request cancellation of a running task" + Chr(10) + ;
           "  /tasks clear   drop finished/failed/cancelled tasks from the list" + Chr(10) + ;
           "  /compact       summarise old turns to free up context" + Chr(10) + ;
+          "  /loop <int> <p>  re-run prompt <p> every <int> (e.g. 5m, 30s, 1h)" + Chr(10) + ;
+          "  /loop status   show the active loop (if any)" + Chr(10) + ;
+          "  /loop stop     stop the active loop" + Chr(10) + ;
+          "  /rewind        undo the last conversation turn (double-tap Esc)" + Chr(10) + ;
+          "  /rewind <N>    undo the last N turns" + Chr(10) + ;
           "  /btw <text>    interrupt the running turn; answer <text> next" + Chr(10) + ;
           "  /exit          quit (alias: /quit)" + Chr(10) + ;
           "Type anything else to talk to the assistant."

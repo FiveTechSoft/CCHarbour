@@ -20,6 +20,23 @@ STATIC s_nSessionTurnMs := 0
 // /goal stop pauses the auto-loop without dropping the goal text.
 STATIC s_cGoal := ""
 STATIC s_lGoalLooping := .F.
+// Recurring /loop state. When s_lLoopActive is .T., after each user turn
+// the REPL sleeps s_nLoopIntervalSec seconds (interruptible by Esc) then
+// re-injects s_cLoopPrompt as the next user message. /loop stop or Esc
+// during the sleep clears the flag; the prompt text is kept so /loop
+// status can still show it. Mirrors Claude Code's fixed-interval /loop.
+STATIC s_cLoopPrompt := ""
+STATIC s_nLoopIntervalSec := 0
+STATIC s_lLoopActive := .F.
+// Rewind snapshot stack. CCREPL_PushRewind saves { aMsgs, state } before
+// each model-bound turn (message / init / loop-rerun); /rewind or a
+// double-tap of Esc at the idle prompt pops the most recent snapshot
+// and restores it, undoing the conversation turn. Files touched during
+// the turn are NOT rolled back -- only the conversation state is.
+// Capped at CC_REWIND_MAX entries; older snapshots fall off the bottom
+// to bound memory in long sessions.
+STATIC s_aRewindStack := {}
+#define CC_REWIND_MAX 20
 // One-shot /compact nudge flag: set when MaybeWarnCompact prints the
 // "context X% full" warning; cleared by /clear and by a successful
 // /compact so the warning can fire again next time the threshold is
@@ -192,6 +209,10 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_nSessionTurnMs := 0
          s_cGoal := ""
          s_lGoalLooping := .F.
+         s_cLoopPrompt := ""
+         s_nLoopIntervalSec := 0
+         s_lLoopActive := .F.
+         s_aRewindStack := {}
          s_lCompactNudged := .F.
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
@@ -219,6 +240,9 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             IF hb_HHasKey( hLoaded, "state" )
                CCREPL_StateImport( hLoaded[ "state" ] )
             ENDIF
+            // a loaded session has its own history -- the previous in-memory
+            // rewind stack does not apply any more.
+            s_aRewindStack := {}
             cSuggest := hb_HGetDef( hLoaded, "suggest", "" )
          ENDIF
       CASE hAction[ "type" ] == "skill"
@@ -242,6 +266,10 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_HandleTasks( hAction[ "text" ] )
       CASE hAction[ "type" ] == "compact"
          aMsgs := CCREPL_HandleCompact( aMsgs, oClient, cModel )
+      CASE hAction[ "type" ] == "loop"
+         CCREPL_HandleLoop( hAction[ "text" ] )
+      CASE hAction[ "type" ] == "rewind"
+         aMsgs := CCREPL_HandleRewind( hAction[ "text" ], aMsgs )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -264,6 +292,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          ENDIF
          cMsg := iif( hAction[ "type" ] == "init", ;
                       CCUI_InitPrompt(), hAction[ "text" ] )
+         CCREPL_PushRewind( aMsgs, cMsg )
          CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
          aTurn := AClone( aMsgs )
          AAdd( aTurn, { "role" => "user", "content" => cMsg } )
@@ -302,6 +331,13 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             CCREPL_RunGoalLoop( @aMsgs, oClient, oReg, cModel, bGate, ;
                                 nMaxIter, oPrompt )
          ENDIF
+         // /loop auto-rerun: while a loop is armed, sleep the configured
+         // interval (interruptible) then re-issue the loop prompt. Each
+         // iteration is one full turn -- including any /btw drain below.
+         IF hRes[ "success" ] .AND. s_lLoopActive
+            CCREPL_RunLoopLoop( @aMsgs, oClient, oReg, cModel, bGate, ;
+                                nMaxIter, oPrompt )
+         ENDIF
          // a /btw interrupt carries the next message; an Esc interrupt just
          // returns to idle. Then drain any messages queued during the turn.
          DO WHILE oPrompt != NIL
@@ -321,6 +357,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             CCREPL_Out( CCUI_Color( "> " + cMsg, CCUI_Pal( "user" ) ) + Chr(10) )
             CCREPL_Out( CCUI_Color( "[handling: " + ;
                         CCUI_Summarize( cMsg, 60 ) + "]", "90" ) + Chr(10) )
+            CCREPL_PushRewind( aMsgs, cMsg )
             CCREPL_ApplyAutoSkills( cMsg, aMsgs, oPrompt )
             aTurn := AClone( aMsgs )
             AAdd( aTurn, { "role" => "user", "content" => cMsg } )
@@ -967,6 +1004,284 @@ FUNCTION CCREPL_GoalDone( cReply )
    cTrim := AllTrim( hb_CStr( cReply ) )
    RETURN ( CC_GOAL_SENTINEL $ cTrim )
 
+// True when /loop is armed -- the main loop reruns the prompt on the
+// configured interval after each turn. Public for CCPROMPT_Redraw to
+// optionally show a [loop] badge.
+FUNCTION CCREPL_LoopActive()
+   RETURN s_lLoopActive
+
+// Parses a duration like "30s", "5m", "1h", or a bare number (seconds).
+// Returns the duration in seconds, or 0 on parse failure / non-positive.
+STATIC FUNCTION CCREPL_ParseInterval( cArg )
+   LOCAL cTrim := Lower( AllTrim( hb_CStr( cArg ) ) )
+   LOCAL cUnit, cNum, nVal
+   IF Empty( cTrim )
+      RETURN 0
+   ENDIF
+   cUnit := Right( cTrim, 1 )
+   IF cUnit $ "smh"
+      cNum := Left( cTrim, Len( cTrim ) - 1 )
+   ELSE
+      cUnit := "s"
+      cNum  := cTrim
+   ENDIF
+   IF Empty( cNum ) .OR. ! CCREPL_IsAllDigits( cNum )
+      RETURN 0
+   ENDIF
+   nVal := Val( cNum )
+   DO CASE
+   CASE cUnit == "s" ; RETURN nVal
+   CASE cUnit == "m" ; RETURN nVal * 60
+   CASE cUnit == "h" ; RETURN nVal * 3600
+   ENDCASE
+   RETURN 0
+
+STATIC FUNCTION CCREPL_IsAllDigits( cStr )
+   LOCAL i
+   IF Empty( cStr )
+      RETURN .F.
+   ENDIF
+   FOR i := 1 TO Len( cStr )
+      IF !IsDigit( SubStr( cStr, i, 1 ) )
+         RETURN .F.
+      ENDIF
+   NEXT
+   RETURN .T.
+
+// Formats nSec back into the compact "5m", "30s", "1h" form used in
+// /loop status output. Picks the largest exact-divisor unit; falls back
+// to seconds when none divide evenly.
+STATIC FUNCTION CCREPL_FormatInterval( nSec )
+   IF nSec >= 3600 .AND. ( nSec % 3600 ) == 0
+      RETURN LTrim( Str( Int( nSec / 3600 ) ) ) + "h"
+   ELSEIF nSec >= 60 .AND. ( nSec % 60 ) == 0
+      RETURN LTrim( Str( Int( nSec / 60 ) ) ) + "m"
+   ENDIF
+   RETURN LTrim( Str( nSec ) ) + "s"
+
+// Implements /loop — fixed-interval prompt rerun, like Claude Code.
+//   /loop <interval> <prompt>  arm the loop (e.g. /loop 5m check CI)
+//   /loop                      show the active loop (or "(none)")
+//   /loop status               same as bare /loop
+//   /loop stop|off             stop the auto-rerun, keep the prompt text
+//   /loop clear                drop the prompt text entirely
+// Interval suffixes: s (default), m, h. Bare numbers = seconds.
+STATIC FUNCTION CCREPL_HandleLoop( cArg )
+   LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
+   LOCAL cLow  := Lower( cTrim )
+   LOCAL nSpace, cFirst, cRest, nSec
+   DO CASE
+   CASE Empty( cTrim ) .OR. cLow == "status"
+      IF Empty( s_cLoopPrompt )
+         CCREPL_Out( CCUI_Color( "[no loop -- /loop <interval> <prompt> to " + ;
+                                 "arm (e.g. /loop 5m check CI)]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         CCREPL_Out( CCUI_Color( "[loop: every " + ;
+                                 CCREPL_FormatInterval( s_nLoopIntervalSec ) + ;
+                                 " -> " + s_cLoopPrompt + ;
+                                 iif( s_lLoopActive, "  (ON)", ;
+                                                     "  (stopped)" ) + "]", ;
+                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+      ENDIF
+   CASE cLow == "stop" .OR. cLow == "off"
+      IF !s_lLoopActive
+         CCREPL_Out( CCUI_Color( "[loop already stopped]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         s_lLoopActive := .F.
+         CCREPL_Out( CCUI_Color( "[loop stopped]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ENDIF
+   CASE cLow == "clear"
+      IF Empty( s_cLoopPrompt )
+         CCREPL_Out( CCUI_Color( "[no loop to clear]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ELSE
+         s_cLoopPrompt := ""
+         s_nLoopIntervalSec := 0
+         s_lLoopActive := .F.
+         CCREPL_Out( CCUI_Color( "[loop cleared]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+      ENDIF
+   OTHERWISE
+      nSpace := At( " ", cTrim )
+      IF nSpace == 0
+         CCREPL_Out( CCUI_Color( "[/loop needs <interval> <prompt> -- e.g. " + ;
+                                 "/loop 5m check CI]", CCUI_Pal( "warn" ) ) + ;
+                     Chr(10) )
+         RETURN NIL
+      ENDIF
+      cFirst := Left( cTrim, nSpace - 1 )
+      cRest  := AllTrim( SubStr( cTrim, nSpace + 1 ) )
+      nSec   := CCREPL_ParseInterval( cFirst )
+      IF nSec <= 0
+         CCREPL_Out( CCUI_Color( "[bad interval '" + cFirst + "' -- use " + ;
+                                 "30s / 5m / 1h]", CCUI_Pal( "warn" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      IF Empty( cRest )
+         CCREPL_Out( CCUI_Color( "[/loop needs a prompt after the interval]", ;
+                                 CCUI_Pal( "warn" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      s_cLoopPrompt      := cRest
+      s_nLoopIntervalSec := nSec
+      s_lLoopActive      := .T.
+      CCREPL_Out( CCUI_Color( "[loop armed: every " + ;
+                              CCREPL_FormatInterval( nSec ) + " -> " + ;
+                              cRest + " -- Esc or /loop stop to end]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   ENDCASE
+   RETURN NIL
+
+// Sleeps nSec seconds in 0.2s slices while polling oPrompt for Esc.
+// Returns .T. when the full interval elapsed, .F. when interrupted.
+STATIC FUNCTION CCREPL_LoopSleep( nSec, oPrompt )
+   LOCAL nStart := hb_MilliSeconds(), nElapsed
+   DO WHILE .T.
+      IF oPrompt != NIL .AND. CCPROMPT_Interrupted( oPrompt )
+         oPrompt[ "interrupt" ] := NIL
+         RETURN .F.
+      ENDIF
+      nElapsed := ( hb_MilliSeconds() - nStart ) / 1000.0
+      IF nElapsed >= nSec
+         EXIT
+      ENDIF
+      hb_idleSleep( 0.2 )
+   ENDDO
+   RETURN .T.
+
+// Runs the /loop auto-rerun: after the user turn that armed the loop
+// finishes, sleep the interval (interruptible by Esc) then issue the
+// stored prompt as the next turn. Repeats until /loop stop or Esc.
+STATIC FUNCTION CCREPL_RunLoopLoop( aMsgs, oClient, oReg, cModel, bGate, nMaxIter, oPrompt )
+   LOCAL aTurn, hTurn, hRes
+   DO WHILE s_lLoopActive
+      CCREPL_Out( CCUI_Color( "[loop: sleeping " + ;
+                              CCREPL_FormatInterval( s_nLoopIntervalSec ) + ;
+                              " -- Esc to stop]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      IF !CCREPL_LoopSleep( s_nLoopIntervalSec, oPrompt )
+         s_lLoopActive := .F.
+         CCREPL_Out( CCUI_Color( "[loop stopped by Esc -- " + ;
+                                 "/loop status to inspect, " + ;
+                                 "/loop <int> <prompt> to rearm]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         EXIT
+      ENDIF
+      IF !s_lLoopActive   // /loop stop may have fired during sleep
+         EXIT
+      ENDIF
+      CCREPL_Out( CCUI_Color( "> " + s_cLoopPrompt, CCUI_Pal( "user" ) ) + ;
+                  Chr(10) )
+      CCREPL_PushRewind( aMsgs, s_cLoopPrompt )
+      CCREPL_ApplyAutoSkills( s_cLoopPrompt, aMsgs, oPrompt )
+      aTurn := AClone( aMsgs )
+      AAdd( aTurn, { "role" => "user", "content" => s_cLoopPrompt } )
+      hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, ;
+                               aTurn, oPrompt )
+      hRes := hTurn[ "result" ]
+      IF !hRes[ "success" ]
+         CCREPL_Out( CCUI_Color( "[loop stopped: " + ;
+                                 hb_CStr( hb_HGetDef( hRes, "error_type", "?" ) ) + ;
+                                 "]", "33" ) + Chr(10) )
+         s_lLoopActive := .F.
+         EXIT
+      ENDIF
+      aMsgs := hRes[ "messages" ]
+      IF hRes[ "stop_reason" ] == "interrupted"
+         s_lLoopActive := .F.
+         CCREPL_Out( CCUI_Color( "[loop stopped by Esc]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         EXIT
+      ENDIF
+   ENDDO
+   RETURN NIL
+
+// Pushes the current conversation state onto the rewind stack just
+// before a user-issued turn modifies aMsgs. cPreview is a short label
+// (the user's prompt, summarised) shown in /rewind output. The stack
+// is capped at CC_REWIND_MAX -- when full, the oldest entry falls off
+// the bottom so memory stays bounded.
+FUNCTION CCREPL_PushRewind( aMsgs, cPreview )
+   LOCAL hSnap
+   IF ValType( aMsgs ) != "A"
+      RETURN NIL
+   ENDIF
+   hSnap := { ;
+      "msgs"        => AClone( aMsgs ), ;
+      "preview"     => CCUI_Summarize( hb_CStr( cPreview ), 60 ), ;
+      "goal"        => s_cGoal, ;
+      "goal_loop"   => s_lGoalLooping, ;
+      "loop_prompt" => s_cLoopPrompt, ;
+      "loop_int"    => s_nLoopIntervalSec, ;
+      "loop_active" => s_lLoopActive, ;
+      "plan_mode"   => s_lPlanMode, ;
+      "lean_mode"   => s_lLeanMode, ;
+      "usage"       => hb_HClone( s_hSessionUsage ), ;
+      "compact_nudged" => s_lCompactNudged }
+   AAdd( s_aRewindStack, hSnap )
+   DO WHILE Len( s_aRewindStack ) > CC_REWIND_MAX
+      hb_ADel( s_aRewindStack, 1, .T. )
+   ENDDO
+   RETURN NIL
+
+// Pops nCount snapshots off the rewind stack and restores the one at the
+// new top. Returns the restored aMsgs, or the input array unchanged when
+// the stack is empty / nCount exceeds the depth.
+FUNCTION CCREPL_PopRewind( aMsgs, nCount )
+   LOCAL hSnap, nPops, i
+   IF Empty( s_aRewindStack )
+      CCREPL_Out( CCUI_Color( "[no turns to rewind]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN aMsgs
+   ENDIF
+   IF ValType( nCount ) != "N" .OR. nCount < 1
+      nCount := 1
+   ENDIF
+   nPops := Min( nCount, Len( s_aRewindStack ) )
+   // discard nPops-1 entries on top, then restore the one underneath
+   FOR i := 1 TO nPops - 1
+      hb_ADel( s_aRewindStack, Len( s_aRewindStack ), .T. )
+   NEXT
+   hSnap := ATail( s_aRewindStack )
+   hb_ADel( s_aRewindStack, Len( s_aRewindStack ), .T. )
+   aMsgs            := AClone( hSnap[ "msgs" ] )
+   s_cGoal          := hSnap[ "goal" ]
+   s_lGoalLooping   := hSnap[ "goal_loop" ]
+   s_cLoopPrompt    := hSnap[ "loop_prompt" ]
+   s_nLoopIntervalSec := hSnap[ "loop_int" ]
+   s_lLoopActive    := hSnap[ "loop_active" ]
+   s_lPlanMode      := hSnap[ "plan_mode" ]
+   s_lLeanMode      := hSnap[ "lean_mode" ]
+   s_hSessionUsage  := hb_HClone( hSnap[ "usage" ] )
+   s_lCompactNudged := hSnap[ "compact_nudged" ]
+   CCREPL_Out( CCUI_Color( "[rewound " + LTrim( Str( nPops ) ) + " turn" + ;
+                           iif( nPops == 1, "", "s" ) + " -- restored before: " + ;
+                           hSnap[ "preview" ] + "]", ;
+                           CCUI_Pal( "accent" ) ) + Chr(10) )
+   RETURN aMsgs
+
+// Implements /rewind. Bare /rewind pops one turn; /rewind <N> pops N.
+// Also invoked by a double-tap of Esc at the idle prompt (the prompt
+// poll converts the second Esc into a "rewind" interrupt kind, which
+// CCREPL_PromptIdle returns as the literal "/rewind").
+STATIC FUNCTION CCREPL_HandleRewind( cArg, aMsgs )
+   LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
+   LOCAL nCount := 1
+   IF !Empty( cTrim )
+      IF CCREPL_IsAllDigits( cTrim )
+         nCount := Val( cTrim )
+         IF nCount < 1 ; nCount := 1 ; ENDIF
+      ELSE
+         CCREPL_Out( CCUI_Color( "[/rewind takes a count -- e.g. /rewind 3]", ;
+                                 CCUI_Pal( "warn" ) ) + Chr(10) )
+         RETURN aMsgs
+      ENDIF
+   ENDIF
+   RETURN CCREPL_PopRewind( aMsgs, nCount )
+
 // Implements /lean — toggles lean-mode. While on, CCUI_SystemPrompt returns
 // a minimal version of the prompt (no skills section, no CC.md, no
 // memory.md, no narration block), and a [lean] badge appears in the status
@@ -1141,6 +1456,11 @@ STATIC FUNCTION CCREPL_PromptIdle( oPrompt )
             cText := oPrompt[ "interrupt" ][ "text" ]
             oPrompt[ "interrupt" ] := NIL
             RETURN cText
+         ENDIF
+         // double-tap Esc at idle -> /rewind one conversation turn
+         IF oPrompt[ "interrupt" ][ "kind" ] == "rewind"
+            oPrompt[ "interrupt" ] := NIL
+            RETURN "/rewind"
          ENDIF
          oPrompt[ "interrupt" ] := NIL
       ENDIF
