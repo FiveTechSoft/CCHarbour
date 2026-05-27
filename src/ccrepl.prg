@@ -276,6 +276,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_HandleLoop( hAction[ "text" ] )
       CASE hAction[ "type" ] == "rewind"
          aMsgs := CCREPL_HandleRewind( hAction[ "text" ], aMsgs )
+      CASE hAction[ "type" ] == "hook"
+         CCREPL_HandleHook( hAction[ "text" ], oPrompt )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
          IF !Empty( cMsg )
@@ -584,6 +586,20 @@ STATIC FUNCTION CCREPL_HandleProvider( cArg, oPrompt )
       CCPROMPT_Redraw( oPrompt )
    ENDIF
    RETURN iif( Empty( hUpd ), NIL, hUpd )
+
+// Implements /hook -- thin REPL adapter that delegates to the pure
+// renderer CCHOOKS_Render. The renderer (in cchooks.prg) owns all the
+// subcommand parsing, settings.json writes, and output formatting; this
+// wrapper just pipes the text to the REPL and redraws the prompt box.
+// Co-locating the renderer with the rest of the hooks logic also keeps
+// it reachable from the test build (which excludes ccrepl.prg).
+STATIC FUNCTION CCREPL_HandleHook( cArg, oPrompt )
+   LOCAL cOut := CCHOOKS_Render( cArg )
+   CCREPL_Out( cOut )
+   IF oPrompt != NIL
+      CCPROMPT_Redraw( oPrompt )
+   ENDIF
+   RETURN NIL
 
 // Per-model context window (in tokens). Used by /compact to decide
 // when to suggest compaction and by CCREPL_HandleCompact to size the

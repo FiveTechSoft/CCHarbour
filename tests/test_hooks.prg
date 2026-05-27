@@ -5,6 +5,7 @@ FUNCTION Test_Hooks()
    LOCAL hSet
    LOCAL cOldCwd, cTmpDir
    LOCAL cTmpDir2, cMarker, cCmd, nDeadline
+   LOCAL cTmpDir3, cOut
 
    // CCHOOKS_ValidEvents
    T_Equal( hb_CStr( CCHOOKS_ValidEvents()[ 1 ] ), "turn_complete", ;
@@ -153,6 +154,81 @@ FUNCTION Test_Hooks()
    // Cleanup
    FErase( CCHOOKS_LogPath() )
    FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   hb_cwd( cOldCwd )
+
+   // ---- Handler tests (CCHOOKS_Render) --------------------------------
+   // The /hook REPL command is implemented as a thin wrapper around
+   // CCHOOKS_Render in cchooks.prg. We test the renderer directly so
+   // we can assert on the rendered text without going through the live
+   // REPL output path.
+
+   // Handler: list with no hooks renders an empty block (just header)
+   cTmpDir3 := hb_DirTemp() + "ccharbour_handler_test"
+   hb_DirBuild( cTmpDir3 )
+   hb_cwd( cTmpDir3 )
+   hb_DirBuild( ".ccharbour" )
+   hb_MemoWrit( ".ccharbour" + hb_ps() + "settings.json", "{}" )
+   cOut := CCHOOKS_Render( "list" )
+   T_Assert( "turn_complete" $ cOut, ;
+            "hooks-handler: list output names the event" )
+   T_Assert( "(none)" $ cOut .OR. "no hooks" $ Lower( cOut ), ;
+            "hooks-handler: list shows empty marker" )
+
+   // Handler: add valid event persists to settings.json
+   cOut := CCHOOKS_Render( "add turn_complete echo persisted" )
+   T_Assert( "echo persisted" $ ;
+             hb_MemoRead( ".ccharbour" + hb_ps() + "settings.json" ), ;
+            "hooks-handler: add persists cmd to settings.json" )
+
+   // Handler: add unknown event yields error containing valid event list
+   cOut := CCHOOKS_Render( "add foo bar" )
+   T_Assert( "foo" $ cOut .AND. "turn_complete" $ cOut, ;
+            "hooks-handler: add unknown event lists valid events" )
+
+   // Handler: remove valid idx pops the entry
+   cOut := CCHOOKS_Render( "remove turn_complete 1" )
+   T_Assert( !( "echo persisted" $ ;
+                hb_MemoRead( ".ccharbour" + hb_ps() + "settings.json" ) ), ;
+            "hooks-handler: remove drops the entry" )
+
+   // Handler: edit valid idx swaps the cmd
+   CCHOOKS_Render( "add turn_complete echo before" )
+   CCHOOKS_Render( "edit turn_complete 1 echo after" )
+   T_Assert( "echo after" $ ;
+             hb_MemoRead( ".ccharbour" + hb_ps() + "settings.json" ), ;
+            "hooks-handler: edit swaps the cmd" )
+
+   // Handler: log subcommand with hooks_log off prints the disabled hint
+   cOut := CCHOOKS_Render( "log" )
+   T_Assert( "disabled" $ Lower( cOut ), ;
+            "hooks-handler: log subcommand hints when disabled" )
+
+   // Handler: test subcommand dispatches CCHOOKS_Run with dummy env
+   FErase( cTmpDir3 + hb_ps() + "marker_t.txt" )
+#ifdef __PLATFORM__WINDOWS
+   cCmd := "cmd /c echo %CCHARBOUR_STATUS% > " + cTmpDir3 + hb_ps() + ;
+           "marker_t.txt"
+#else
+   cCmd := "sh -c 'echo $CCHARBOUR_STATUS > " + cTmpDir3 + hb_ps() + ;
+           "marker_t.txt'"
+#endif
+   CCHOOKS_Render( "remove turn_complete 1" )
+   CCHOOKS_Render( "add turn_complete " + cCmd )
+   cOut := CCHOOKS_Render( "test turn_complete" )
+   nDeadline := hb_MilliSeconds() + 2000
+   DO WHILE !hb_FileExists( cTmpDir3 + hb_ps() + "marker_t.txt" ) .AND. ;
+            hb_MilliSeconds() < nDeadline
+      hb_idleSleep( 0.05 )
+   ENDDO
+   T_Assert( hb_FileExists( cTmpDir3 + hb_ps() + "marker_t.txt" ), ;
+            "hooks-handler: test fires the hook" )
+   T_Assert( "success" $ ;
+             hb_MemoRead( cTmpDir3 + hb_ps() + "marker_t.txt" ), ;
+            "hooks-handler: test passes status=success" )
+
+   // Cleanup
+   FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   FErase( cTmpDir3 + hb_ps() + "marker_t.txt" )
    hb_cwd( cOldCwd )
 
    RETURN NIL

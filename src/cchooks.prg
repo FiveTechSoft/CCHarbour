@@ -143,3 +143,157 @@ FUNCTION CCHOOKS_Run( cEvent, hContext )
       END SEQUENCE
    NEXT
    RETURN NIL
+
+// Pure renderer for the /hook REPL command. Takes the raw arg string
+// (everything after "/hook ") and returns the text the REPL should
+// display. Also used by tests to assert on output without going through
+// the live REPL output path. All persistence side-effects (settings.json
+// writes) happen here; only the visible output is returned.
+// Subcommands:
+//   "" / "list" [event]            list hooks per event
+//   "add <event> <cmd...>"         append a hook
+//   "remove <event> <idx>"         remove the idx-th hook
+//   "edit <event> <idx> <cmd>"     replace the idx-th hook
+//   "test <event>"                 fire with dummy env
+//   "log"                          tail last 20 log lines or hint
+FUNCTION CCHOOKS_Render( cArg )
+   LOCAL cSub, cRest, cOut := "", hSet, aHooks, i, cEvent
+   LOCAL nIdx, cCmd, nSpace, cLog, aLines, nStart
+   cArg := AllTrim( hb_CStr( cArg ) )
+   nSpace := At( " ", cArg )
+   IF nSpace > 0
+      cSub  := Lower( Left( cArg, nSpace - 1 ) )
+      cRest := AllTrim( SubStr( cArg, nSpace + 1 ) )
+   ELSE
+      cSub  := Lower( cArg )
+      cRest := ""
+   ENDIF
+   IF Empty( cSub )
+      cSub := "list"
+   ENDIF
+   hSet := CCSETTINGS_Load()
+   DO CASE
+   CASE cSub == "list"
+      cOut += "Hooks:" + Chr(10)
+      FOR EACH cEvent IN CCHOOKS_ValidEvents()
+         IF !Empty( cRest ) .AND. cRest != cEvent
+            LOOP
+         ENDIF
+         aHooks := CCHOOKS_List( hSet, cEvent )
+         cOut += "  " + cEvent + ":" + Chr(10)
+         IF Len( aHooks ) == 0
+            cOut += "    (none)" + Chr(10)
+         ELSE
+            FOR i := 1 TO Len( aHooks )
+               cOut += "    " + LTrim( Str( i ) ) + ". " + aHooks[ i ] + Chr(10)
+            NEXT
+         ENDIF
+      NEXT
+   CASE cSub == "add"
+      nSpace := At( " ", cRest )
+      IF nSpace == 0
+         RETURN "usage: /hook add <event> <cmd>" + Chr(10)
+      ENDIF
+      cEvent := Lower( Left( cRest, nSpace - 1 ) )
+      cCmd   := AllTrim( SubStr( cRest, nSpace + 1 ) )
+      IF Empty( cCmd )
+         RETURN "error: command empty" + Chr(10)
+      ENDIF
+      IF !CCHOOKS_IsValidEvent( cEvent )
+         RETURN "error: unknown event '" + cEvent + ;
+                "'. Valid: " + CCHOOKS_EventList() + Chr(10)
+      ENDIF
+      CCHOOKS_Add( hSet, cEvent, cCmd )
+      CCSETTINGS_Save( hSet )
+      cOut := "[hook added -> " + cEvent + ": " + cCmd + "]" + Chr(10)
+   CASE cSub == "remove"
+      nSpace := At( " ", cRest )
+      IF nSpace == 0
+         RETURN "usage: /hook remove <event> <idx>" + Chr(10)
+      ENDIF
+      cEvent := Lower( Left( cRest, nSpace - 1 ) )
+      nIdx   := Val( AllTrim( SubStr( cRest, nSpace + 1 ) ) )
+      IF !CCHOOKS_IsValidEvent( cEvent )
+         RETURN "error: unknown event '" + cEvent + ;
+                "'. Valid: " + CCHOOKS_EventList() + Chr(10)
+      ENDIF
+      aHooks := CCHOOKS_List( hSet, cEvent )
+      IF nIdx < 1 .OR. nIdx > Len( aHooks )
+         RETURN "error: index " + LTrim( Str( nIdx ) ) + ;
+                " out of range (1.." + LTrim( Str( Len( aHooks ) ) ) + ")" + Chr(10)
+      ENDIF
+      CCHOOKS_Remove( hSet, cEvent, nIdx )
+      CCSETTINGS_Save( hSet )
+      cOut := "[hook removed -> " + cEvent + " #" + LTrim( Str( nIdx ) ) + "]" + Chr(10)
+   CASE cSub == "edit"
+      nSpace := At( " ", cRest )
+      IF nSpace == 0
+         RETURN "usage: /hook edit <event> <idx> <cmd>" + Chr(10)
+      ENDIF
+      cEvent := Lower( Left( cRest, nSpace - 1 ) )
+      cRest  := AllTrim( SubStr( cRest, nSpace + 1 ) )
+      nSpace := At( " ", cRest )
+      IF nSpace == 0
+         RETURN "usage: /hook edit <event> <idx> <cmd>" + Chr(10)
+      ENDIF
+      nIdx := Val( Left( cRest, nSpace - 1 ) )
+      cCmd := AllTrim( SubStr( cRest, nSpace + 1 ) )
+      IF Empty( cCmd )
+         RETURN "error: command empty" + Chr(10)
+      ENDIF
+      IF !CCHOOKS_IsValidEvent( cEvent )
+         RETURN "error: unknown event '" + cEvent + ;
+                "'. Valid: " + CCHOOKS_EventList() + Chr(10)
+      ENDIF
+      aHooks := CCHOOKS_List( hSet, cEvent )
+      IF nIdx < 1 .OR. nIdx > Len( aHooks )
+         RETURN "error: index " + LTrim( Str( nIdx ) ) + ;
+                " out of range (1.." + LTrim( Str( Len( aHooks ) ) ) + ")" + Chr(10)
+      ENDIF
+      CCHOOKS_Edit( hSet, cEvent, nIdx, cCmd )
+      CCSETTINGS_Save( hSet )
+      cOut := "[hook edited -> " + cEvent + " #" + LTrim( Str( nIdx ) ) + ": " + ;
+              cCmd + "]" + Chr(10)
+   CASE cSub == "test"
+      cEvent := iif( Empty( cRest ), "turn_complete", Lower( cRest ) )
+      IF !CCHOOKS_IsValidEvent( cEvent )
+         RETURN "error: unknown event '" + cEvent + ;
+                "'. Valid: " + CCHOOKS_EventList() + Chr(10)
+      ENDIF
+      CCHOOKS_Run( cEvent, { "status" => "success", ;
+         "model" => "test", "tokens" => 0, "duration_ms" => 0 } )
+      cOut := "[fired " + LTrim( Str( Len( CCHOOKS_List( hSet, cEvent ) ) ) ) + ;
+              " hook(s) -- check log if hooks_log enabled]" + Chr(10)
+   CASE cSub == "log"
+      IF !hb_HGetDef( hSet, "hooks_log", .F. )
+         RETURN "[hooks_log disabled -- set " + Chr(34) + "hooks_log" + ;
+                Chr(34) + ": true in " + ".ccharbour" + hb_ps() + ;
+                "settings.json]" + Chr(10)
+      ENDIF
+      cOut := "[log: " + CCHOOKS_LogPath() + "]" + Chr(10)
+      IF hb_FileExists( CCHOOKS_LogPath() )
+         cLog := hb_MemoRead( CCHOOKS_LogPath() )
+         aLines := hb_ATokens( cLog, Chr(10) )
+         nStart := Max( 1, Len( aLines ) - 19 )
+         FOR i := nStart TO Len( aLines )
+            IF !Empty( aLines[ i ] )
+               cOut += "  " + aLines[ i ] + Chr(10)
+            ENDIF
+         NEXT
+      ENDIF
+   OTHERWISE
+      RETURN "Unknown /hook subcommand. " + ;
+             "Use: list | add | remove | edit | test | log" + Chr(10)
+   ENDCASE
+   RETURN cOut
+
+// Comma-separated string of valid event names for error messages.
+FUNCTION CCHOOKS_EventList()
+   LOCAL aEv := CCHOOKS_ValidEvents(), cOut := "", i
+   FOR i := 1 TO Len( aEv )
+      cOut += aEv[ i ]
+      IF i < Len( aEv )
+         cOut += ", "
+      ENDIF
+   NEXT
+   RETURN cOut
