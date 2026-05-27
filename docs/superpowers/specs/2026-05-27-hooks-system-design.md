@@ -239,8 +239,12 @@ File: `tests/test_hooks.prg`, registered in `tests/run_tests.prg`.
 | Test | Verifies |
 |------|----------|
 | `test_handle_list` | Parses `/hook` (no args) → output lists hooks with 1-based indices. |
+| `test_handle_add_valid` | `/hook add turn_complete <cmd>` → settings.json gets the new entry, success echo printed. |
 | `test_handle_add_invalid_event` | Error message contains valid event list. |
+| `test_handle_remove_valid` | `/hook remove turn_complete 1` → entry removed from settings.json. |
+| `test_handle_edit_valid` | `/hook edit turn_complete 1 <newcmd>` → entry replaced. |
 | `test_handle_test_dispatches` | `/hook test turn_complete` → `CCHOOKS_Run` invoked with dummy env. |
+| `test_handle_log_disabled_hint` | `/hook log` with `hooks_log=false` → prints disabled hint, exit clean. |
 
 ### Cross-platform setup
 
