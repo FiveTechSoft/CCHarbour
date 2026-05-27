@@ -75,8 +75,10 @@ FUNCTION CCHOOKS_LogPath()
    RETURN ".ccharbour" + hb_ps() + "hooks.log"
 
 // Appends cLine + LF to CCHOOKS_LogPath() iff settings have hooks_log
-// set to .T.. Best-effort: writes are wrapped so a missing directory
-// or read-only filesystem cannot crash the REPL.
+// set to .T.. Best-effort, single-writer: writes are wrapped so a
+// missing directory or read-only filesystem cannot crash the REPL,
+// and concurrent CCHarbour processes sharing a cwd can clobber each
+// other's log lines (acceptable for the per-turn fire rate).
 FUNCTION CCHOOKS_Log( cLine )
    LOCAL hSet := CCSETTINGS_Load(), cTs, cPath, cDir
    IF !hb_HGetDef( hSet, "hooks_log", .F. )
@@ -93,4 +95,54 @@ FUNCTION CCHOOKS_Log( cLine )
    ENDIF
    hb_MemoWrit( cPath, hb_MemoRead( cPath ) + ;
                 "[" + cTs + "] " + cLine + Chr(10) )
+   RETURN NIL
+
+// Fires every hook registered under cEvent. hContext keys consumed:
+//   "status"       -> "success" | "error" | "interrupted"
+//   "model"        -> active model name (string)
+//   "tokens"       -> total turn tokens (numeric, 0 if unavailable)
+//   "duration_ms"  -> turn wall-clock duration (numeric, 0 if unavailable)
+// Each hook is spawned detached (fire-and-forget). Env vars are set on
+// the CCHarbour process before each spawn; the child inherits them.
+// Failures are logged when hooks_log is on and otherwise silenced.
+FUNCTION CCHOOKS_Run( cEvent, hContext )
+   LOCAL aHooks, cCmd, hSet, nProc
+   IF !CCHOOKS_IsValidEvent( cEvent )
+      CCHOOKS_Log( "event=" + hb_CStr( cEvent ) + " WARN unknown-event skip" )
+      RETURN NIL
+   ENDIF
+   hSet := CCSETTINGS_Load()
+   aHooks := CCHOOKS_List( hSet, cEvent )
+   IF Len( aHooks ) == 0
+      RETURN NIL
+   ENDIF
+   IF ValType( hContext ) != "H"
+      hContext := {=>}
+   ENDIF
+   hb_SetEnv( "CCHARBOUR_EVENT", cEvent )
+   hb_SetEnv( "CCHARBOUR_STATUS", ;
+      hb_CStr( hb_HGetDef( hContext, "status", "success" ) ) )
+   hb_SetEnv( "CCHARBOUR_MODEL", ;
+      hb_CStr( hb_HGetDef( hContext, "model", "" ) ) )
+   hb_SetEnv( "CCHARBOUR_TOKENS", ;
+      LTrim( Str( hb_HGetDef( hContext, "tokens", 0 ) ) ) )
+   hb_SetEnv( "CCHARBOUR_DURATION_MS", ;
+      LTrim( Str( hb_HGetDef( hContext, "duration_ms", 0 ) ) ) )
+   hb_SetEnv( "CCHARBOUR_CWD", hb_cwd() )
+   FOR EACH cCmd IN aHooks
+      BEGIN SEQUENCE WITH {| oErr | Break( oErr ) }
+         nProc := hb_processOpen( cCmd, NIL, NIL, NIL, .T. /* detach */ )
+         IF nProc == -1
+            CCHOOKS_Log( "event=" + cEvent + " ERROR spawn-failed cmd=" + cCmd )
+         ELSE
+            CCHOOKS_Log( "event=" + cEvent + ;
+                         " status=" + ;
+                         hb_CStr( hb_HGetDef( hContext, "status", "success" ) ) + ;
+                         " cmd=" + cCmd )
+         ENDIF
+         RECOVER USING oErr
+         CCHOOKS_Log( "event=" + cEvent + " ERROR exception cmd=" + cCmd )
+         HB_SYMBOL_UNUSED( oErr )
+      END SEQUENCE
+   NEXT
    RETURN NIL

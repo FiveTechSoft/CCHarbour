@@ -4,6 +4,7 @@
 FUNCTION Test_Hooks()
    LOCAL hSet
    LOCAL cOldCwd, cTmpDir
+   LOCAL cTmpDir2, cMarker, cCmd, nDeadline
 
    // CCHOOKS_ValidEvents
    T_Equal( hb_CStr( CCHOOKS_ValidEvents()[ 1 ] ), "turn_complete", ;
@@ -86,9 +87,54 @@ FUNCTION Test_Hooks()
            "hooks: Log writes when hooks_log enabled" )
    T_Assert( "test line" $ hb_MemoRead( CCHOOKS_LogPath() ), ;
             "hooks: Log appends the line" )
+   // Append, not overwrite
+   CCHOOKS_Log( "first" )
+   CCHOOKS_Log( "second" )
+   T_Assert( "first" $ hb_MemoRead( CCHOOKS_LogPath() ) .AND. ;
+             "second" $ hb_MemoRead( CCHOOKS_LogPath() ), ;
+            "hooks: Log appends, does not overwrite" )
    // Cleanup
    FErase( CCHOOKS_LogPath() )
    FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   hb_cwd( cOldCwd )
+
+   // Run: no-op when no hooks
+   cTmpDir2 := hb_DirTemp() + "ccharbour_run_test"
+   hb_DirBuild( cTmpDir2 )
+   hb_cwd( cTmpDir2 )
+   hb_DirBuild( ".ccharbour" )
+   hb_MemoWrit( ".ccharbour" + hb_ps() + "settings.json", "{}" )
+   CCHOOKS_Run( "turn_complete", { "status" => "success", ;
+      "model" => "m", "tokens" => 0, "duration_ms" => 0 } )
+   T_Assert( .T., "hooks: Run with no hooks does not crash" )
+
+   // Run spawns and sets env vars
+   cMarker := cTmpDir2 + hb_ps() + "marker.txt"
+   FErase( cMarker )
+#ifdef __PLATFORM__WINDOWS
+   cCmd := "cmd /c echo %CCHARBOUR_STATUS% > " + cMarker
+#else
+   cCmd := "sh -c 'echo $CCHARBOUR_STATUS > " + cMarker + "'"
+#endif
+   hb_MemoWrit( ".ccharbour" + hb_ps() + "settings.json", ;
+                '{"hooks":{"turn_complete":["' + StrTran( cCmd, "\", "\\" ) + ;
+                '"]},"hooks_log":false}' )
+   CCHOOKS_Run( "turn_complete", { "status" => "success", ;
+      "model" => "m", "tokens" => 1, "duration_ms" => 10 } )
+   // Give the spawned process up to 2 seconds to materialise the file.
+   nDeadline := hb_MilliSeconds() + 2000
+   DO WHILE !hb_FileExists( cMarker ) .AND. hb_MilliSeconds() < nDeadline
+      hb_idleSleep( 0.05 )
+   ENDDO
+   T_Assert( hb_FileExists( cMarker ), ;
+            "hooks: Run spawns hook process" )
+   T_Assert( "success" $ hb_MemoRead( cMarker ), ;
+            "hooks: Run sets CCHARBOUR_STATUS env var" )
+
+   // Cleanup
+   FErase( cMarker )
+   FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   FErase( CCHOOKS_LogPath() )
    hb_cwd( cOldCwd )
 
    RETURN NIL
