@@ -20,6 +20,7 @@ test_todo.prg
 test_settings.prg
 test_perm.prg
 test_diff.prg
+test_hooks.prg
 ../src/ccconfig.prg
 ../src/ccsse.prg
 ../src/cchttp.prg
@@ -48,4 +49,5 @@ test_diff.prg
 ../src/ccskill.prg
 ../src/ccconsole.c
 ../src/ccsettings.prg
+../src/cchooks.prg
 ../src/ccperm.prg

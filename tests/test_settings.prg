@@ -53,4 +53,11 @@ FUNCTION Test_Settings()
    T_Equal( hL[ "hooks" ][ "turn_complete" ][ 1 ], "echo hi", "settings: hook cmd preserved" )
    T_Equal( hL[ "hooks_log" ], .T., "settings: hooks_log merged" )
    FErase( cTmp )
+
+   // malformed hooks key -> defaults
+   cTmp := hb_DirTemp() + "ccharbour_bad_hooks.json"
+   hb_MemoWrit( cTmp, '{"hooks":"oops"}' )
+   hL := CCSETTINGS_Load( cTmp )
+   T_Equal( ValType( hL[ "hooks" ] ), "H", "settings: bad hooks falls back to default hash" )
+   FErase( cTmp )
    RETURN NIL
