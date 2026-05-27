@@ -31,7 +31,7 @@
 │                     ██║     ██║                          │ Tip: /caveman for ultra-compressed replies                   │
 │                     ╚██████╗╚██████╗                     │ ──────────────────────────────────────────────────────────── │
 │                      ╚═════╝ ╚═════╝                     │ What's new                                                   │
-│                    CCHarbour  v0.8.25                    │ v0.8.25 — Ollama auth / Accept / stream_options fixes        │
+│                    CCHarbour  v0.8.26                    │ v0.8.26 — hooks system: turn_complete fire-and-forget + /hook CRUD │
 │                 model: deepseek-v4-flash                 │ cwd: ~/projects/myrepo                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -146,9 +146,79 @@ end-to-end testing on real hardware:
 | `/lean [on\|off]` | toggle lean mode — trims system prompt to save tokens |
 | `/provider [args]` | configure the LLM backend at runtime (see below) |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
+| `/hook [args]`  | manage `turn_complete` shell hooks — `list`, `add`, `remove`, `edit`, `test`, `log` |
 | `/exit`         | quit (alias `/quit`)                            |
 
 Anything else is sent to the assistant.
+
+### `/hook` — shell hooks
+
+`/hook` registers shell commands that fire automatically after every
+turn (success, error, interrupted). The fire is `hb_processOpen` with
+`detach=.T.`, so CCHarbour never blocks waiting on the hook. Six
+`CCHARBOUR_*` environment variables (`EVENT`, `STATUS`, `MODEL`,
+`TOKENS`, `DURATION_MS`, `CWD`) reach the spawned child. Hooks live
+in `.ccharbour/settings.json` under a `hooks` hash and are reloaded
+on every fire, so JSON edits take effect on the next turn without
+restarting CCHarbour.
+
+**Subcommands:**
+
+```
+/hook                          list every hook (alias: /hook list)
+/hook list [event]             list, optionally filtered
+/hook add <event> <cmd...>     append (everything after <event> is the cmd verbatim)
+/hook remove <event> <idx>     drop the 1-based idx-th entry
+/hook edit <event> <idx> <cmd> replace at idx
+/hook test <event>             fire with dummy env (debug helper)
+/hook log                      tail .ccharbour/hooks.log (hooks_log=true) or print hint
+```
+
+**Examples — pick your side effect:**
+
+```
+# Windows: beep at the end of every turn
+/hook add turn_complete powershell -c "[console]::beep(800,200)"
+
+# macOS: native toast notification
+/hook add turn_complete osascript -e 'display notification "CC done" with title "CCHarbour"'
+
+# Linux desktop: libnotify popup (needs an active D-Bus session — fails on headless servers)
+/hook add turn_complete notify-send "CCHarbour" "turn $CCHARBOUR_STATUS in ${CCHARBOUR_DURATION_MS}ms"
+
+# Any shell: append per-turn usage to a CSV
+/hook add turn_complete sh -c 'echo $(date +%s),$CCHARBOUR_STATUS,$CCHARBOUR_TOKENS,$CCHARBOUR_DURATION_MS >> ~/cc-usage.csv'
+
+# Slack/Discord/Teams webhook on long turns
+/hook add turn_complete sh -c 'if [ $CCHARBOUR_DURATION_MS -gt 60000 ]; then curl -s -X POST -d "{\"text\":\"CC long turn ${CCHARBOUR_DURATION_MS}ms ($CCHARBOUR_STATUS)\"}" $WEBHOOK_URL; fi'
+
+# ntfy.sh push to phone
+/hook add turn_complete curl -s -d "CC turn $CCHARBOUR_STATUS" ntfy.sh/my-private-topic
+
+# Auto-stash WIP when a turn errors so the broken state is recoverable
+/hook add turn_complete sh -c '[ "$CCHARBOUR_STATUS" = "error" ] && git stash push -m "cc-error $(date +%s)"'
+
+# Refresh dev server (or any project script) after each turn
+/hook add turn_complete sh -c 'pm2 restart app'
+```
+
+**Enable the log** by setting `"hooks_log": true` in
+`.ccharbour/settings.json`. Each fire appends a timestamped line
+to `.ccharbour/hooks.log`; spawn failures show up as `ERROR
+spawn-failed` and exceptions as `ERROR exception`. Inspect with
+`/hook log`.
+
+**Debug a hook without finishing a real turn** with
+`/hook test turn_complete` — fires every registered hook with a
+dummy context (`status=success, model=test, tokens=0,
+duration_ms=0`).
+
+`turn_complete` is the only event in v0.8.26. More events
+(`session_start`, `pre_tool_use`, `post_tool_use`,
+`user_prompt_submit`, `session_end`), per-hook timeouts, hook
+conditions (`on_status: [...]`), and log rotation are documented
+as future work in
+`docs/superpowers/specs/2026-05-27-hooks-system-design.md`.
 
 ### `/clear`
 
@@ -417,14 +487,27 @@ See the [`LICENSE`](LICENSE) file for the full licence terms.
 - Parallel subagent dispatch (current `dispatch_agent` is synchronous)
 - Multi-provider support — DeepSeek by default; OpenAI-compatible only
 - `CC.md` discovery from parent and home directories
-- Hooks (`PreToolUse` / `PostToolUse` / `UserPromptSubmit`) configurable
-  in `settings.json`
+- More hook events (`PreToolUse` / `PostToolUse` / `UserPromptSubmit`) —
+  `turn_complete` shipped in v0.8.26
 - Conversation auto-compaction when context fills up
 - More commands — `/tools`, user-defined commands
 
 ## Releases
 
-**v0.8.25 — current.** Three Ollama-specific bug fixes uncovered
+**v0.8.26 — current.** Hooks system. Adds a fire-and-forget
+`turn_complete` hook so user-defined shell commands run after every
+turn (success, error, interrupted). Settings hold a `hooks` hash
+keyed by event with command arrays, plus an opt-in `hooks_log`
+flag. Six `CCHARBOUR_*` env vars (`EVENT`, `STATUS`, `MODEL`,
+`TOKENS`, `DURATION_MS`, `CWD`) reach the spawned child. The new
+`/hook` command provides CRUD: `list`, `add`, `remove`, `edit`,
+`test`, `log`. Settings are reloaded on every fire, so JSON edits
+take effect on the next turn without restarting. See
+`pages/commands.md` for the `/hook` reference and the spec at
+`docs/superpowers/specs/2026-05-27-hooks-system-design.md` for
+design rationale.
+
+**v0.8.25.** Three Ollama-specific bug fixes uncovered
 by running the agent loop end-to-end against `llama3.1:8b` on
 Ollama 0.20.4. (1) Ollama silently hangs the entire request
 when `Authorization: Bearer sk-...` (a left-over real cloud

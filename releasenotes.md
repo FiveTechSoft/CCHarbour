@@ -1,4 +1,51 @@
-CCHarbour v0.8.25 — Ollama-specific bug fixes uncovered by end-to-end testing.
+CCHarbour v0.8.26 — Hooks system: fire-and-forget `turn_complete` shell hooks with a `/hook` REPL command.
+
+## New since v0.8.25
+
+- **`/hook` command.** Full CRUD over hooks stored in
+  `.ccharbour/settings.json`: `/hook list`, `/hook add <event>
+  <cmd>`, `/hook remove <event> <idx>`, `/hook edit <event>
+  <idx> <cmd>`, `/hook test <event>`, `/hook log`. Missing
+  subcommand defaults to `list`. Unknown events echo the valid
+  event list; out-of-range indices report the actual range.
+- **`turn_complete` event.** Fires on every turn outcome
+  (success, error, interrupted) via `CCHOOKS_Run` from inside
+  `CCREPL_RunTurn`. The fire is `hb_processOpen` with
+  `detach=.T.`, so the REPL never blocks on a hook. Each hook
+  is wrapped in `BEGIN SEQUENCE / RECOVER` so a single bad
+  command cannot take out the REPL or other hooks for the same
+  fire.
+- **`CCHARBOUR_*` env vars.** Children inherit six env vars
+  set on the CCHarbour process before each spawn:
+  `CCHARBOUR_EVENT`, `CCHARBOUR_STATUS`
+  (`success`/`error`/`interrupted`), `CCHARBOUR_MODEL`,
+  `CCHARBOUR_TOKENS`, `CCHARBOUR_DURATION_MS`, `CCHARBOUR_CWD`.
+- **Opt-in `hooks_log`.** Set `"hooks_log": true` in
+  `.ccharbour/settings.json` to append-log every fire to
+  `.ccharbour/hooks.log` (`[YYYY-MM-DD HH:MM:SS] event=...
+  status=... cmd=...`). Spawn failures and exceptions show up
+  as `ERROR spawn-failed` / `ERROR exception` lines.
+- **Settings reload on every fire.** Editing the hooks block in
+  `.ccharbour/settings.json` takes effect on the next turn
+  without restarting CCHarbour (per-fire `CCSETTINGS_Load`).
+- **New module `src/cchooks.prg`.** Pure helpers
+  (`CCHOOKS_ValidEvents`, `IsValidEvent`, `List`, `Add`,
+  `Remove`, `Edit`), log writer (`LogPath`, `Log`), the runtime
+  fire path (`CCHOOKS_Run`), and the user-facing renderer
+  (`CCHOOKS_Render`, `CCHOOKS_EventList`). Registered in
+  `cc.hbp`, `cc_linux.hbp`, and `cc_mac.hbp` so it links on
+  every platform.
+- **42 new hooks assertions in `tests/test_hooks.prg`** plus 4
+  `/hook` parser tests in `tests/test_ui.prg` and a malformed-
+  hooks merge regression test in `tests/test_settings.prg`. Test
+  suite goes from 431 to 490 passing.
+- **Banner version bumped to v0.8.26.**
+
+Future work is documented in
+`docs/superpowers/specs/2026-05-27-hooks-system-design.md`:
+more events (`session_start`, `pre_tool_use`, ...), per-hook
+timeouts, JSON-on-stdin context, hook conditions
+(`on_status: [...]`), and log rotation.
 
 ## New since v0.8.24
 

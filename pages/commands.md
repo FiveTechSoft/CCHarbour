@@ -22,6 +22,7 @@ assistant.
 | `/loop [args]`  | re-run a prompt on a fixed interval (`5m`, `30s`, `1h`); manage with `status`, `stop`, `clear` |
 | `/rewind [N]`   | undo the last conversation turn (or N turns); double-tap Esc triggers it |
 | `/btw <text>`   | interrupt the running turn; answer `<text>` next |
+| `/hook [args]`  | manage `turn_complete` shell hooks (`list`, `add`, `remove`, `edit`, `test`, `log`) |
 | `/exit`         | quit (alias `/quit`)                            |
 
 ## Input box
@@ -294,6 +295,73 @@ either double-tap at the idle prompt or type `/rewind` explicitly.
 
 The snapshot stack is capped at 20 entries (oldest falls off the
 bottom). `/clear` and `/load` flush it.
+
+## /hook
+
+`/hook` manages shell commands that fire automatically when a turn
+finishes. CCHarbour stores them in `.ccharbour/settings.json` under
+a `hooks` hash keyed by event; the only event in v0.8.26 is
+`turn_complete`, which fires on every turn outcome (success, error,
+interrupted). Hooks are spawned detached (`hb_processOpen` with
+`detach=.T.`), so the REPL never blocks waiting on them.
+
+Each spawned child inherits six `CCHARBOUR_*` environment
+variables, all set on the CCHarbour process right before the
+spawn:
+
+| Variable | Value |
+|----------|-------|
+| `CCHARBOUR_EVENT` | `turn_complete` |
+| `CCHARBOUR_STATUS` | `success`, `error`, or `interrupted` |
+| `CCHARBOUR_MODEL` | active model name |
+| `CCHARBOUR_TOKENS` | `prompt_tokens + completion_tokens` for the turn (0 on early error) |
+| `CCHARBOUR_DURATION_MS` | turn wall-clock duration |
+| `CCHARBOUR_CWD` | CCHarbour working directory at fire time |
+
+Settings are reloaded on every fire, so editing
+`.ccharbour/settings.json` takes effect on the next turn without
+restarting CCHarbour.
+
+| Form | What it does |
+|------|--------------|
+| `/hook` | list every hook grouped by event (alias `/hook list`) |
+| `/hook list [event]` | list, optionally filtered to one event |
+| `/hook add <event> <cmd...>` | append a hook (everything after `<event>` is the command, no quoting needed at the REPL) |
+| `/hook remove <event> <idx>` | remove the 1-based idx-th hook from that event |
+| `/hook edit <event> <idx> <cmd...>` | replace the idx-th hook |
+| `/hook test <event>` | fire `<event>` with dummy env (`status=success`, `model=test`, tokens/duration 0) — useful for verifying a hook command without finishing a real turn |
+| `/hook log` | if `hooks_log: true` in settings, print the log path and the tail of the last 20 lines; otherwise print the disabled hint |
+
+Set `"hooks_log": true` in `.ccharbour/settings.json` to enable an
+append-only log at `.ccharbour/hooks.log`. Each fire writes a line
+like `[2026-05-27 18:42:09] event=turn_complete status=success
+cmd=<cmd>`. Spawn failures land as
+`event=turn_complete ERROR spawn-failed cmd=<cmd>` so a broken
+hook stays visible.
+
+Example — beep at the end of every turn on Windows:
+
+```
+/hook add turn_complete powershell -c "[console]::beep(800,200)"
+```
+
+Example — toast notification on macOS:
+
+```
+/hook add turn_complete osascript -e 'display notification "CC done"'
+```
+
+Example — log token usage to a CSV file (works on any shell):
+
+```
+/hook add turn_complete sh -c 'echo $CCHARBOUR_STATUS,$CCHARBOUR_TOKENS,$CCHARBOUR_DURATION_MS >> ~/cc-usage.csv'
+```
+
+Errors are spelled out at the REPL: an unknown event prints the
+valid event list, an out-of-range index reports the actual range,
+and an unknown subcommand prints the usage line. Each `/hook add`
+echoes back `[hook added -> turn_complete: <cmd>]` so the input
+is confirmed before the next turn.
 
 ## /btw
 

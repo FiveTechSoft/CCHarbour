@@ -120,6 +120,11 @@ Multi-line paste collapses to a tidy `[pasted N lines text]` placeholder. The fu
 `/save [name]` snapshots messages **plus** goal, modes, skills, timer and the pending suggestion to JSON. `/load` round-trips the whole session, not just the chat.
 </div>
 
+<div class="cc-card" markdown>
+### 🪝 Shell hooks
+`/hook add turn_complete <cmd>` fires a user-defined shell command after every turn (success, error, interrupted). Fire-and-forget, six `CCHARBOUR_*` env vars (status / model / tokens / duration_ms / cwd / event), opt-in append-only log. Beep, toast, Slack webhook — pick your own side effect.
+</div>
+
 </div>
 
 ## 30-second tour
