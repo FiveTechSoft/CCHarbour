@@ -45,6 +45,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "loop", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/rewind" .OR. Left( cLow, 8 ) == "/rewind "
       RETURN { "type" => "rewind", "text" => AllTrim( SubStr( cTrim, 8 ) ) }
+   CASE cLow == "/hook" .OR. Left( cLow, 6 ) == "/hook "
+      RETURN { "type" => "hook", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/btw" .OR. Left( cLow, 5 ) == "/btw "
       // /btw is the mid-turn interrupt classifier in the box (handled by
       // CCPROMPT_Classify); at the cooked prompt or any other path that

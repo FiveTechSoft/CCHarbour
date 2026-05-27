@@ -252,4 +252,15 @@ FUNCTION Test_UI()
    T_Assert( Chr(226) + Chr(150) + Chr(161) $ cTodoBlk, ;
              "ui: todo block has the pending glyph" )
    T_Assert( Right( cTodoBlk, 1 ) == Chr(10), "ui: todo block ends in LF" )
+
+   // /hook parser
+   T_Equal( CCUI_ParseCommand( "/hook" )[ "type" ], "hook", ;
+           "ui: /hook parsed as hook type" )
+   T_Equal( CCUI_ParseCommand( "/hook" )[ "text" ], "", ;
+           "ui: /hook (bare) text empty" )
+   T_Equal( CCUI_ParseCommand( "/hook list" )[ "type" ], "hook", ;
+           "ui: /hook list parsed as hook type" )
+   T_Equal( CCUI_ParseCommand( "/hook add turn_complete echo hi" )[ "text" ], ;
+           "add turn_complete echo hi", ;
+           "ui: /hook strips prefix, keeps rest verbatim" )
    RETURN NIL
