@@ -106,7 +106,7 @@ FUNCTION CCHOOKS_Log( cLine )
 // the CCHarbour process before each spawn; the child inherits them.
 // Failures are logged when hooks_log is on and otherwise silenced.
 FUNCTION CCHOOKS_Run( cEvent, hContext )
-   LOCAL aHooks, cCmd, hSet, nProc
+   LOCAL aHooks, cCmd, hSet, nProc, cStatus
    IF !CCHOOKS_IsValidEvent( cEvent )
       CCHOOKS_Log( "event=" + hb_CStr( cEvent ) + " WARN unknown-event skip" )
       RETURN NIL
@@ -119,9 +119,9 @@ FUNCTION CCHOOKS_Run( cEvent, hContext )
    IF ValType( hContext ) != "H"
       hContext := {=>}
    ENDIF
+   cStatus := hb_CStr( hb_HGetDef( hContext, "status", "success" ) )
    hb_SetEnv( "CCHARBOUR_EVENT", cEvent )
-   hb_SetEnv( "CCHARBOUR_STATUS", ;
-      hb_CStr( hb_HGetDef( hContext, "status", "success" ) ) )
+   hb_SetEnv( "CCHARBOUR_STATUS", cStatus )
    hb_SetEnv( "CCHARBOUR_MODEL", ;
       hb_CStr( hb_HGetDef( hContext, "model", "" ) ) )
    hb_SetEnv( "CCHARBOUR_TOKENS", ;
@@ -135,10 +135,7 @@ FUNCTION CCHOOKS_Run( cEvent, hContext )
          IF nProc == -1
             CCHOOKS_Log( "event=" + cEvent + " ERROR spawn-failed cmd=" + cCmd )
          ELSE
-            CCHOOKS_Log( "event=" + cEvent + ;
-                         " status=" + ;
-                         hb_CStr( hb_HGetDef( hContext, "status", "success" ) ) + ;
-                         " cmd=" + cCmd )
+            CCHOOKS_Log( "event=" + cEvent + " status=" + cStatus + " cmd=" + cCmd )
          ENDIF
          RECOVER USING oErr
          CCHOOKS_Log( "event=" + cEvent + " ERROR exception cmd=" + cCmd )

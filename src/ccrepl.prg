@@ -415,7 +415,43 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    ELSE
       CCREPL_Out( Chr(10) )
    ENDIF
+   CCHOOKS_Run( "turn_complete", { ;
+      "status"      => CCREPL_TurnStatus( hRes ), ;
+      "model"       => hb_CStr( cModel ), ;
+      "tokens"      => CCREPL_TurnTokens( hRes ), ;
+      "duration_ms" => nTurnMs } )
    RETURN { "result" => hRes, "render" => oRender }
+
+// Maps an agent result hash to the string status the hooks system
+// expects. interrupted > error precedence: an interrupted turn often
+// surfaces as success=.F. with error_type="cancelled" or as
+// stop_reason="interrupted" on success=.T..
+STATIC FUNCTION CCREPL_TurnStatus( hRes )
+   IF ValType( hRes ) != "H"
+      RETURN "error"
+   ENDIF
+   IF hb_HGetDef( hRes, "stop_reason", "" ) == "interrupted" .OR. ;
+      hb_CStr( hb_HGetDef( hRes, "error_type", "" ) ) == "cancelled"
+      RETURN "interrupted"
+   ENDIF
+   IF hb_HGetDef( hRes, "success", .F. )
+      RETURN "success"
+   ENDIF
+   RETURN "error"
+
+// Best-effort total-token extraction from an agent result hash. Returns
+// 0 when the turn errored before the model returned a usage block.
+STATIC FUNCTION CCREPL_TurnTokens( hRes )
+   LOCAL hU
+   IF ValType( hRes ) != "H" .OR. !hb_HHasKey( hRes, "usage" )
+      RETURN 0
+   ENDIF
+   hU := hRes[ "usage" ]
+   IF ValType( hU ) != "H"
+      RETURN 0
+   ENDIF
+   RETURN hb_HGetDef( hU, "prompt_tokens", 0 ) + ;
+          hb_HGetDef( hU, "completion_tokens", 0 )
 
 // Implements /provider — switches the active backend / model / API key.
 // Usage:

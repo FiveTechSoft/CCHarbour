@@ -137,4 +137,22 @@ FUNCTION Test_Hooks()
    FErase( CCHOOKS_LogPath() )
    hb_cwd( cOldCwd )
 
+   // Invalid event logs a WARN line when hooks_log is on
+   hb_DirBuild( cTmpDir2 )
+   hb_cwd( cTmpDir2 )
+   hb_DirBuild( ".ccharbour" )
+   FErase( CCHOOKS_LogPath() )
+   hb_MemoWrit( ".ccharbour" + hb_ps() + "settings.json", ;
+                '{"hooks_log":true}' )
+   CCHOOKS_Run( "bogus_event", { "status" => "success" } )
+   T_Assert( hb_FileExists( CCHOOKS_LogPath() ), ;
+            "hooks: Run invalid event creates log file" )
+   T_Assert( "unknown-event" $ hb_MemoRead( CCHOOKS_LogPath() ), ;
+            "hooks: Run invalid event logs WARN" )
+
+   // Cleanup
+   FErase( CCHOOKS_LogPath() )
+   FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   hb_cwd( cOldCwd )
+
    RETURN NIL
