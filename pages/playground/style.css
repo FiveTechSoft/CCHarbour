@@ -123,23 +123,8 @@ code, pre, .turn, .logo, #input {
   margin: 0;
   font-size: 18px;
   line-height: 1.0;
-  background: linear-gradient(135deg,
-    #f0abfc 0%,    /* fuchsia-300 (light magenta highlight) */
-    #d946ef 25%,   /* fuchsia-500 (magenta)                 */
-    #a855f7 60%,   /* purple-500                            */
-    #8b5cf6 85%,   /* violet-500                            */
-    #7c3aed 100%   /* violet-600 (deep violet)              */
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.35));
-  animation: shimmer 8s ease-in-out infinite;
-}
-@keyframes shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50%      { background-position: 100% 50%; }
+  color: var(--accent-bright);
+  text-shadow: 0 0 8px var(--accent-glow);
 }
 
 .banner-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
