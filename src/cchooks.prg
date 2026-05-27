@@ -67,3 +67,30 @@ FUNCTION CCHOOKS_Edit( hSet, cEvent, nIdx, cCmd )
    ENDIF
    aHooks[ nIdx ] := cCmd
    RETURN .T.
+
+// Path to the hooks log file, relative to the CCHarbour cwd. Matches
+// the location convention used by .ccharbour/settings.json so the log
+// sits next to the config that opted into it.
+FUNCTION CCHOOKS_LogPath()
+   RETURN ".ccharbour" + hb_ps() + "hooks.log"
+
+// Appends cLine + LF to CCHOOKS_LogPath() iff settings have hooks_log
+// set to .T.. Best-effort: writes are wrapped so a missing directory
+// or read-only filesystem cannot crash the REPL.
+FUNCTION CCHOOKS_Log( cLine )
+   LOCAL hSet := CCSETTINGS_Load(), cTs, cPath, cDir
+   IF !hb_HGetDef( hSet, "hooks_log", .F. )
+      RETURN NIL
+   ENDIF
+   cTs   := DToS( Date() ) + " " + Time()
+   // Normalise "20260527" -> "2026-05-27" for readability.
+   cTs := SubStr( cTs, 1, 4 ) + "-" + SubStr( cTs, 5, 2 ) + "-" + ;
+          SubStr( cTs, 7, 2 ) + " " + SubStr( cTs, 10 )
+   cPath := CCHOOKS_LogPath()
+   cDir  := hb_FNameDir( cPath )
+   IF !Empty( cDir ) .AND. !hb_DirExists( cDir )
+      hb_DirBuild( cDir )
+   ENDIF
+   hb_MemoWrit( cPath, hb_MemoRead( cPath ) + ;
+                "[" + cTs + "] " + cLine + Chr(10) )
+   RETURN NIL

@@ -2,7 +2,8 @@
 // Pure helpers tested in-process; spawn/log tests touch the filesystem
 // under hb_DirTemp() and clean up after themselves.
 FUNCTION Test_Hooks()
-   LOCAL hSet, aList, lOk
+   LOCAL hSet
+   LOCAL cOldCwd, cTmpDir
 
    // CCHOOKS_ValidEvents
    T_Equal( hb_CStr( CCHOOKS_ValidEvents()[ 1 ] ), "turn_complete", ;
@@ -60,5 +61,34 @@ FUNCTION Test_Hooks()
            "hooks: edit leaves other entries" )
    T_Equal( CCHOOKS_Edit( hSet, "turn_complete", 99, "x" ), .F., ;
            "hooks: edit out-of-range returns .F." )
+
+   // LogPath returns ".ccharbour/hooks.log" relative to cwd
+   T_Equal( CCHOOKS_LogPath(), ".ccharbour" + hb_ps() + "hooks.log", ;
+           "hooks: LogPath default" )
+
+   // Log writes only when hooks_log is .T.
+   // (use a temp cwd-relative path by stashing cwd, switching, restoring)
+   cOldCwd := hb_cwd()
+   cTmpDir := hb_DirTemp() + "ccharbour_log_test"
+   hb_DirBuild( cTmpDir )
+   hb_cwd( cTmpDir )
+   // Default settings -> hooks_log .F. -> no file
+   FErase( CCHOOKS_LogPath() )
+   CCHOOKS_Log( "test line" )
+   T_Equal( hb_FileExists( CCHOOKS_LogPath() ), .F., ;
+           "hooks: Log no-op when hooks_log disabled" )
+   // Enable hooks_log via a real settings.json under .ccharbour/
+   hb_DirBuild( ".ccharbour" )
+   hb_MemoWrit( ".ccharbour" + hb_ps() + "settings.json", ;
+                '{"hooks_log":true}' )
+   CCHOOKS_Log( "test line" )
+   T_Equal( hb_FileExists( CCHOOKS_LogPath() ), .T., ;
+           "hooks: Log writes when hooks_log enabled" )
+   T_Assert( "test line" $ hb_MemoRead( CCHOOKS_LogPath() ), ;
+            "hooks: Log appends the line" )
+   // Cleanup
+   FErase( CCHOOKS_LogPath() )
+   FErase( ".ccharbour" + hb_ps() + "settings.json" )
+   hb_cwd( cOldCwd )
 
    RETURN NIL
