@@ -21,6 +21,7 @@ src/cctools_propose.prg
 src/ccbg.prg
 src/ccdiff.prg
 src/ccsettings.prg
+src/cchooks.prg
 src/ccperm.prg
 src/ccui.prg
 src/ccmarkdown.prg
