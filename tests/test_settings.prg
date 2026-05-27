@@ -38,4 +38,19 @@ FUNCTION Test_Settings()
 
    hL := CCSETTINGS_Defaults()
    T_Equal( hL[ "permissions" ][ "memory" ], "allow", "settings: memory perm" )
+
+   // hooks defaults
+   hL := CCSETTINGS_Defaults()
+   T_Equal( ValType( hL[ "hooks" ] ), "H", "settings: default hooks is hash" )
+   T_Equal( Len( hb_HKeys( hL[ "hooks" ] ) ), 0, "settings: default hooks empty" )
+   T_Equal( hL[ "hooks_log" ], .F., "settings: default hooks_log false" )
+
+   // hooks merge from file
+   cTmp := hb_DirTemp() + "ccharbour_hooks_settings.json"
+   hb_MemoWrit( cTmp, '{"hooks":{"turn_complete":["echo hi"]},"hooks_log":true}' )
+   hL := CCSETTINGS_Load( cTmp )
+   T_Equal( Len( hL[ "hooks" ][ "turn_complete" ] ), 1, "settings: hooks array merged" )
+   T_Equal( hL[ "hooks" ][ "turn_complete" ][ 1 ], "echo hi", "settings: hook cmd preserved" )
+   T_Equal( hL[ "hooks_log" ], .T., "settings: hooks_log merged" )
+   FErase( cTmp )
    RETURN NIL

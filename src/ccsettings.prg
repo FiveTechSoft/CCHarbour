@@ -15,7 +15,9 @@ FUNCTION CCSETTINGS_Defaults()
                                      "edit"  => "ask",   "shell" => "ask", ;
                                      "web_search"   => "ask",   "web_fetch"    => "ask", ;
                                      "github_read"  => "allow", "github_write" => "ask", ;
-                                     "memory" => "allow" } }
+                                     "memory" => "allow" }, ;
+            "hooks"             => {=>}, ;
+            "hooks_log"         => .F. }
 
 // Loads settings.json merged over the defaults.
 // cPath omitted -> env CCHARBOUR_CONFIG, else .ccharbour/settings.json under cwd.
@@ -51,6 +53,10 @@ FUNCTION CCSETTINGS_Load( cPath )
             FOR EACH cTool IN hb_HKeys( xJson[ "permissions" ] )
                hSet[ "permissions" ][ cTool ] := xJson[ "permissions" ][ cTool ]
             NEXT
+         ENDIF
+      ELSEIF cKey == "hooks"
+         IF ValType( xJson[ "hooks" ] ) == "H"
+            hSet[ "hooks" ] := xJson[ "hooks" ]
          ENDIF
       ELSE
          hSet[ cKey ] := xJson[ cKey ]

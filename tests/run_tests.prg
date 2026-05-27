@@ -71,3 +71,27 @@ FUNCTION CCREPL_LeanMode()
 FUNCTION CCREPL_Cols()
    RETURN 124
 
+// Stubs so the test build links cctools_shell.prg, cctools_dispatch.prg, and
+// ccprompt.prg without pulling in ccrepl.prg / ccbg.prg (which define Main and
+// live state). Tests never exercise these code paths.
+FUNCTION CCREPL_OverwriteAtAnchor( cText )
+   HB_SYMBOL_UNUSED( cText )
+   RETURN NIL
+FUNCTION CCREPL_HasGoal()
+   RETURN .F.
+FUNCTION CCBG_NextId()
+   RETURN ""
+FUNCTION CCBG_Add( cId, cType, cPrompt, nTimeout )
+   HB_SYMBOL_UNUSED( cId )
+   HB_SYMBOL_UNUSED( cType )
+   HB_SYMBOL_UNUSED( cPrompt )
+   HB_SYMBOL_UNUSED( nTimeout )
+   RETURN NIL
+FUNCTION CCBG_Update( cId, hPatch )
+   HB_SYMBOL_UNUSED( cId )
+   HB_SYMBOL_UNUSED( hPatch )
+   RETURN NIL
+FUNCTION CCBG_CancelRequested( cId )
+   HB_SYMBOL_UNUSED( cId )
+   RETURN .F.
+
