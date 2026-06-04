@@ -2010,7 +2010,7 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
    cMsg := CCUI_Color( "●", "97" ) + " Thinking" + ;
            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
-   CCREPL_Out( cMsg + Chr(10) + Chr(10) )   // blank line separator
+   CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
 
 // Prints the trailing partial reasoning line (not yet terminated by \n)
