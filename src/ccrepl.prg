@@ -1944,9 +1944,10 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       IF !oRender[ "spinner" ]
          oRender[ "spinner" ] := .T.
          oRender[ "spinnerFrame" ] := 0
+         // no trailing newline — cursor stays on this line so blink
+         // overwrites in place without needing ESC[1A
          CCREPL_Out( Chr(10) + CCUI_Color( "●", "92" ) + " Working" + ;
-            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
-            Chr(10) )
+            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
       ENDIF
       CCREPL_ThinkShow( oRender )
 
@@ -2200,8 +2201,9 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
 // usage events during streaming to create a visible blink effect.
 STATIC FUNCTION CCREPL_WorkBlink( oRender )
    LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
-   // ESC[1A = up one line, then overwrite
-   CCREPL_Out( CCUI_VT( "1A" ) + CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+   // overwrite the same physical line (no ESC[1A needed —
+   // the initial line has no trailing newline)
+   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
       CCUI_Color( cBullet, "92" ) + " Working" + ;
       CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
    RETURN NIL
