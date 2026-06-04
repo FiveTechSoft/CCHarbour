@@ -1978,19 +1978,13 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 // Printed with a trailing newline so reasoning lines land below it.
 // Subsequent calls are no-ops — the header stays as first printed.
 STATIC FUNCTION CCREPL_ThinkShow( oRender )
-   LOCAL nNow := hb_MilliSeconds()
-   LOCAL nElapsed, cTime, cMsg
+   LOCAL cMsg
    IF oRender[ "thinkHeaderDone" ]
       RETURN NIL
    ENDIF
-   nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   cTime := iif( nElapsed == 0, "", ;
-             " for " + iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
-             LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
-             LTrim( Str( nElapsed % 60 ) ) + "s" ) )
    oRender[ "thinkHeaderDone" ] := .T.
-   cMsg := CCUI_Color( "●", "97" ) + " Thinking" + cTime
-   cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
+   cMsg := CCUI_Color( "●", "97" ) + " Thinking" + ;
+           CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
    CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
