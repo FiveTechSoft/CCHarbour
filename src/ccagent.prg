@@ -76,6 +76,16 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       AAdd( aMsgs, CC_AgentAsstMsg( hChat ) )
 
       IF Empty( hChat[ "tool_calls" ] )
+         // If the model consumed all tokens on reasoning and produced no
+         // visible content, auto-continue so it can still emit the tool
+         // call or response it was planning (common with gemma4).
+         IF Empty( hChat[ "content" ] ) .AND. ;
+            !Empty( hChat[ "reasoning_content" ] ) .AND. ;
+            nIter < nMax
+            AAdd( aMsgs, { "role" => "user", ;
+               "content" => "Continue." } )
+            LOOP
+         ENDIF
          hResult[ "stop_reason" ] := "stop"
          EXIT
       ENDIF
