@@ -287,7 +287,7 @@ FUNCTION CCPROMPT_Redraw( oPrompt )
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 3 ) ) + ";1H" + ;
       Chr(27) + "[2K" + CCUI_SkillsStatusLine( aBadges, hReg[ "cols" ] ) + ;
       Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ;
-              LTrim( Str( 5 + hW[ "col" ] ) ) + "H" )
+              LTrim( Str( 3 + hW[ "col" ] ) ) + "H" )
    RETURN oPrompt
 
 // Non-blocking: drains every pending key into the editor, then redraws the
