@@ -1925,13 +1925,15 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_ThinkShow( oRender )
 
    CASE cType == "text_delta"
-      // clear the working spinner before visible output
+      // clear the working spinner and flush any unfinished reasoning
+      // line before the visible response (only on first text_delta)
       IF oRender[ "spinner" ]
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
       ENDIF
-      // flush any unfinished reasoning line before the visible response
-      CCREPL_FlushReasoningTail( oRender )
+      IF oRender[ "reasoningBuf" ] != ""
+         CCREPL_FlushReasoningTail( oRender )
+      ENDIF
       // accumulate text without streaming it live -- the next tool_call
       // event will fold the buffered text into its block as the explanation
       // line, and any tail (the final answer) is flushed at end of turn
@@ -1952,8 +1954,10 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
       ENDIF
-      // flush reasoning, then show the tool with bullet format
-      CCREPL_FlushReasoningTail( oRender )
+      // flush reasoning (only if buffer still has content)
+      IF oRender[ "reasoningBuf" ] != ""
+         CCREPL_FlushReasoningTail( oRender )
+      ENDIF
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
