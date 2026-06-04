@@ -1943,6 +1943,11 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    CASE cType == "usage"
       // store the usage hash for display after the turn
       oRender[ "lastUsage" ] := hEv[ "usage" ]
+      // toggle the working bullet to create a blink effect
+      IF oRender[ "spinner" ]
+         oRender[ "spinnerFrame" ]++
+         CCREPL_WorkBlink( oRender )
+      ENDIF
 
    CASE cType == "tool_call"
       // clear the working spinner before the tool block
@@ -2033,15 +2038,18 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    CCREPL_ThinkDone( oRender )
    oRender[ "reasoningBuf" ]   := ""
    oRender[ "reasoningLines" ] := 0
-   // show a "Working…" indicator so the user knows the agent is still
-   // active after thinking completes. This is a static line, not animated,
-   // to avoid the VT-overwrite complexity that caused blank-line spam.
+   // Show a blinking "Working…" indicator so the user knows the agent
+   // is still active. The bullet toggles between filled and hollow on
+   // each usage event to create a blink effect.
    IF !oRender[ "spinner" ]
       oRender[ "spinner" ] := .T.
-      CCREPL_Out( Chr(10) + CCUI_Color( "●", "92" ) + " Working" + ;
-         CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
-         Chr(10) )   // … (ellipsis)
+      oRender[ "spinnerFrame" ] := 0
    ENDIF
+   // overwrite the same line: ESC[1G ESC[K bullet Working…
+   LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
+   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+      CCUI_Color( cBullet, "92" ) + " Working" + ;
+      CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
    RETURN NIL
 
 // Reprints the thinking summary line with a green bullet (completed).
@@ -2150,44 +2158,18 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
    ENDDO
    RETURN NIL
 
-// Compatibility stubs — spinner functions are no longer used but the
-// render state still carries the fields for other code paths.
-STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
-   LOCAL cFrame, cAction, nNow, nElapsed, cTime, cTokens, cStatus, nTok
-   HB_SYMBOL_UNUSED( cExtra )
-   nNow := hb_MilliSeconds()
-   IF nNow - oRender[ "lastFrameTime" ] >= 200
-      oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < Len( s_aWorkFrames ), ;
-                                        oRender[ "spinnerFrame" ] + 1, 1 )
-      oRender[ "lastFrameTime" ] := nNow
-      s_nWorkAction := Int( hb_Random() * Len( s_aWorkActions ) ) + 1
-   ENDIF
-   cFrame  := s_aWorkFrames[ oRender[ "spinnerFrame" ] ]
-   cAction := s_aWorkActions[ s_nWorkAction ]
-   nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   IF nElapsed < 60
-      cTime := LTrim( Str( nElapsed ) ) + "s"
-   ELSE
-      cTime := LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
-               LTrim( Str( nElapsed % 60 ) ) + "s"
-   ENDIF
-   nTok := Int( oRender[ "reasoningChars" ] / 4 )
-   cTokens := ""
-   IF nTok >= 1000
-      cTokens := " · ↓ " + LTrim( Str( Int( nTok / 100 ) / 10 ) ) + "k tokens"
-   ELSEIF nTok > 0
-      cTokens := " · ↓ " + LTrim( Str( nTok ) ) + " tokens"
-   ENDIF
-   IF oRender[ "thinkHeaderDone" ]
-      cStatus := ""
-   ELSE
-      cStatus := " · thinking"
-   ENDIF
-   // Use CCREPL_Out so the box prompt's cursor save/restore keeps the
-   // spinner on the correct row. The trailing ESC[K (appended by CCREPL_Out
-   // for non-LF text) is harmless — it just clears to end of line.
+// Toggles the working bullet between filled (●) and hollow (○) on each
+// call, overwriting the same physical line via ESC[1G ESC[K. Called from
+// usage events during streaming to create a visible blink effect.
+STATIC FUNCTION CCREPL_WorkBlink( oRender )
+   LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
    CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
-      CCUI_Color( cFrame + " " + cAction + " " + cTime + cTokens + cStatus, "90" ) )
+      CCUI_Color( cBullet, "92" ) + " Working" + ;
+      CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
+   RETURN NIL
+
+STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
+   HB_SYMBOL_UNUSED( oRender ) ; HB_SYMBOL_UNUSED( cExtra )
    RETURN NIL
 
 STATIC FUNCTION CCREPL_SpinnerClear()
