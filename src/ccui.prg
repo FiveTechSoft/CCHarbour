@@ -337,8 +337,7 @@ FUNCTION CCUI_ResultSummary( cToolName, cContent )
       ENDCASE
    ENDIF
 
-   RETURN CCUI_Color( "  " + Chr(226)+Chr(142)+Chr(191) + "  " + cSum, ;
-                      CCUI_Pal( "dim" ) ) + Chr(10)
+   RETURN CCUI_Color( "     " + cSum, CCUI_Pal( "dim" ) ) + Chr(10)
 
 // Detects a diff line ("<6-wide number> <+|-|space> <text>"); returns the
 // marker "+" or "-", or "" when the line is not a diff line.
