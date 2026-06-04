@@ -2066,7 +2066,7 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
 // transitions to visible output (text_delta or tool_call).
 STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    LOCAL cTail := CCREPL_ThinkPending( oRender )
-   LOCAL cPrefix, cBullet
+   LOCAL cPrefix
    IF !Empty( cTail )
       IF !oRender[ "thinkCornerUsed" ]
          cPrefix := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
@@ -2076,22 +2076,11 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
       ENDIF
       CCREPL_Out( CCUI_Color( cPrefix + cTail, "38;2;225;150;170" ) + Chr(10) )
    ENDIF
-   // Reprint the summary with a green bullet to mark thinking as done
+   // Reprint the summary with a green bullet to mark thinking as done.
+   // The working indicator is already running from iteration_start.
    CCREPL_ThinkDone( oRender )
    oRender[ "reasoningBuf" ]   := ""
    oRender[ "reasoningLines" ] := 0
-   // Show a blinking "Working…" indicator so the user knows the agent
-   // is still active. The bullet toggles between filled and hollow on
-   // each usage event to create a blink effect.
-   IF !oRender[ "spinner" ]
-      oRender[ "spinner" ] := .T.
-      oRender[ "spinnerFrame" ] := 0
-   ENDIF
-   // overwrite the same line: ESC[1G ESC[K bullet Working…
-   cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
-   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
-      CCUI_Color( cBullet, "92" ) + " Working" + ;
-      CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
    RETURN NIL
 
 // Reprints the thinking summary line with a green bullet (completed).
