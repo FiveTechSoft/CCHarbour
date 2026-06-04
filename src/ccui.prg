@@ -41,6 +41,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "tasks", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
    CASE cLow == "/compact" .OR. Left( cLow, 9 ) == "/compact "
       RETURN { "type" => "compact", "text" => AllTrim( SubStr( cTrim, 9 ) ) }
+   CASE cLow == "/ctx" .OR. Left( cLow, 5 ) == "/ctx "
+      RETURN { "type" => "ctx", "text" => AllTrim( SubStr( cTrim, 5 ) ) }
    CASE cLow == "/loop" .OR. Left( cLow, 6 ) == "/loop "
       RETURN { "type" => "loop", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/rewind" .OR. Left( cLow, 8 ) == "/rewind "
@@ -1055,6 +1057,9 @@ FUNCTION CCUI_Help()
           "  /tasks kill <id>  request cancellation of a running task" + Chr(10) + ;
           "  /tasks clear   drop finished/failed/cancelled tasks from the list" + Chr(10) + ;
           "  /compact       summarise old turns to free up context" + Chr(10) + ;
+          "  /ctx           show model context window size and usage" + Chr(10) + ;
+          "  /ctx <N>       set context window to N tokens (affects /compact)" + Chr(10) + ;
+          "  /ctx auto      reset to auto-detected from the model" + Chr(10) + ;
           "  /loop <int> <p>  re-run prompt <p> every <int> (e.g. 5m, 30s, 1h)" + Chr(10) + ;
           "  /loop status   show the active loop (if any)" + Chr(10) + ;
           "  /loop stop     stop the active loop" + Chr(10) + ;

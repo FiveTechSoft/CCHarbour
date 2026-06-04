@@ -41,6 +41,11 @@ STATIC s_aRewindStack := {}
 // (or the model successfully calls a tool, so the model clearly supports
 // tools). Cleared by /clear and /provider so the next session re-evaluates.
 STATIC s_lNoToolWarned := .F.
+// User override for the model context window (tokens). 0 means "use the
+// auto-detected value from CCREPL_ModelContext". Set via /ctx <N> and
+// reset via /ctx auto or /clear.
+STATIC s_nContextOverride := 0
+
 // One-shot /compact nudge flag: set when MaybeWarnCompact prints the
 // "context X% full" warning; cleared by /clear and by a successful
 // /compact so the warning can fire again next time the threshold is
@@ -220,6 +225,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_aRewindStack := {}
          s_lNoToolWarned := .F.
          s_lCompactNudged := .F.
+         s_nContextOverride := 0
          CCREPL_Out( CCUI_Color( "[conversation reset]", "90" ) + Chr(10) )
       CASE hAction[ "type" ] == "model"
          IF Empty( hAction[ "text" ] )
@@ -270,6 +276,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_HandleGoal( hAction[ "text" ], aMsgs, oPrompt )
       CASE hAction[ "type" ] == "tasks"
          CCREPL_HandleTasks( hAction[ "text" ] )
+      CASE hAction[ "type" ] == "ctx"
+         CCREPL_HandleCtx( hAction[ "text" ], cModel )
       CASE hAction[ "type" ] == "compact"
          aMsgs := CCREPL_HandleCompact( aMsgs, oClient, cModel )
       CASE hAction[ "type" ] == "loop"
@@ -608,6 +616,9 @@ STATIC FUNCTION CCREPL_HandleHook( cArg, oPrompt )
 // conservative 32k when the model id is not in the table.
 STATIC FUNCTION CCREPL_ModelContext( cModel )
    LOCAL cLow := Lower( hb_CStr( cModel ) )
+   IF s_nContextOverride > 0
+      RETURN s_nContextOverride
+   ENDIF
    DO CASE
    CASE "deepseek-v4-pro"   $ cLow ; RETURN 1000000
    CASE "deepseek-v4-flash" $ cLow ; RETURN 1000000
@@ -1090,6 +1101,65 @@ FUNCTION CCREPL_StopGoalLoop()
    s_lGoalLooping := .F.
    RETURN NIL
 
+// /ctx handler: show or set the context window size override.
+//   /ctx          -> display current context window + usage
+//   /ctx <N>      -> set override to N tokens (must be >= 1024)
+//   /ctx auto     -> reset to auto-detected from the model table
+STATIC FUNCTION CCREPL_HandleCtx( cArg, cModel )
+   LOCAL nAuto, nCur, nUsed, nPct
+   nAuto := CCREPL_AutoContext( cModel )
+   nCur  := CCREPL_ModelContext( cModel )   // respects override
+   IF Empty( cArg )
+      // display current context info
+      CCREPL_Out( CCUI_Color( "[context: " + ;
+         LTrim( Str( nCur ) ) + " tokens (" + cModel + ;
+         iif( s_nContextOverride > 0, ", override, auto=" + ;
+              LTrim( Str( nAuto ) ), "" ) + ")]", "90" ) + Chr(10) )
+      nUsed := 0
+      AEval( hb_HKeys( s_hSessionUsage ), {| cKey | ;
+         nUsed += hb_HGetDef( s_hSessionUsage, cKey, 0 ) } )
+      IF nUsed > 0
+         nPct := Int( nUsed / nCur * 100 )
+         CCREPL_Out( CCUI_Color( "[session usage: " + ;
+            LTrim( Str( nUsed ) ) + " tokens (" + LTrim( Str( nPct ) ) + ;
+            "%)]", "90" ) + Chr(10) )
+      ENDIF
+      CCREPL_Out( CCUI_Color( "[override: /ctx <N> to set, /ctx auto to reset]", ;
+         "90" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   IF Lower( cArg ) == "auto"
+      s_nContextOverride := 0
+      CCREPL_Out( CCUI_Color( "[context: auto-detected from model (" + ;
+         LTrim( Str( nAuto ) ) + " tokens)]", "90" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   IF IsDigit( Left( cArg, 1 ) )
+      s_nContextOverride := Val( cArg )
+      IF s_nContextOverride < 1024
+         s_nContextOverride := 0
+         CCREPL_Out( CCUI_Color( "[context must be >= 1024 tokens]", "33" ) + ;
+            Chr(10) )
+         RETURN NIL
+      ENDIF
+      CCREPL_Out( CCUI_Color( "[context override: " + ;
+         LTrim( Str( s_nContextOverride ) ) + " tokens " + ;
+         "(auto would be " + LTrim( Str( nAuto ) ) + ")]", "90" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   CCREPL_Out( CCUI_Color( "[usage: /ctx, /ctx <N>, or /ctx auto]", "33" ) + ;
+      Chr(10) )
+   RETURN NIL
+
+// Like CCREPL_ModelContext but ignores the override so HandleCtx can
+// show the auto-detected value alongside the override.
+STATIC FUNCTION CCREPL_AutoContext( cModel )
+   LOCAL nSave := s_nContextOverride, nResult
+   s_nContextOverride := 0
+   nResult := CCREPL_ModelContext( cModel )
+   s_nContextOverride := nSave
+   RETURN nResult
+
 // Returns a hash of every REPL-level static that /save needs to persist,
 // so /load can restore the full session state (not just messages + model
 // + usage). Skills are returned as the array of active names; the
@@ -1356,7 +1426,8 @@ FUNCTION CCREPL_PushRewind( aMsgs, cPreview )
       "plan_mode"   => s_lPlanMode, ;
       "lean_mode"   => s_lLeanMode, ;
       "usage"       => hb_HClone( s_hSessionUsage ), ;
-      "compact_nudged" => s_lCompactNudged }
+      "compact_nudged" => s_lCompactNudged, ;
+      "ctx_override"   => s_nContextOverride }
    AAdd( s_aRewindStack, hSnap )
    DO WHILE Len( s_aRewindStack ) > CC_REWIND_MAX
       hb_ADel( s_aRewindStack, 1, .T. )
@@ -1393,6 +1464,7 @@ FUNCTION CCREPL_PopRewind( aMsgs, nCount )
    s_lLeanMode      := hSnap[ "lean_mode" ]
    s_hSessionUsage  := hb_HClone( hSnap[ "usage" ] )
    s_lCompactNudged := hSnap[ "compact_nudged" ]
+   s_nContextOverride := hb_HGetDef( hSnap, "ctx_override", 0 )
    CCREPL_Out( CCUI_Color( "[rewound " + LTrim( Str( nPops ) ) + " turn" + ;
                            iif( nPops == 1, "", "s" ) + " -- restored before: " + ;
                            hSnap[ "preview" ] + "]", ;
