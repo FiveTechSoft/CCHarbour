@@ -2003,7 +2003,7 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
       ELSE
          cPrefix := "     "
       ENDIF
-      CCREPL_Out( CCUI_Color( cPrefix + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( cPrefix + cTail, "38;2;225;150;170" ) + Chr(10) )
    ENDIF
    // Reprint the summary with a green bullet to mark thinking as done
    CCREPL_ThinkDone( oRender )
@@ -2100,7 +2100,7 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
       cText := AllTrim( cText )
       nLen := hb_BLen( cText )
       IF nLen <= nWrap
-         CCREPL_Out( CCUI_Color( cPrefix + cText, CCUI_Pal( "dim" ) ) + Chr(10) )
+         CCREPL_Out( CCUI_Color( cPrefix + cText, "38;2;225;150;170" ) + Chr(10) )
          RETURN NIL
       ENDIF
       cLine := hb_BLeft( cText, nWrap )
@@ -2112,7 +2112,7 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
          cLine := hb_BLeft( cText, nSpace - 1 )
          cText := hb_BSubStr( cText, nSpace + 1 )
       ENDIF
-      CCREPL_Out( CCUI_Color( cPrefix + cLine, CCUI_Pal( "dim" ) ) + Chr(10) )
+      CCREPL_Out( CCUI_Color( cPrefix + cLine, "38;2;225;150;170" ) + Chr(10) )
       cPrefix := cPCont   // continuation lines use plain spaces
    ENDDO
    RETURN NIL
