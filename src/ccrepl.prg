@@ -609,17 +609,17 @@ STATIC FUNCTION CCREPL_HandleHook( cArg, oPrompt )
 STATIC FUNCTION CCREPL_ModelContext( cModel )
    LOCAL cLow := Lower( hb_CStr( cModel ) )
    DO CASE
-   CASE "deepseek-v4-pro"   $ cLow ; RETURN 128000
-   CASE "deepseek-v4-flash" $ cLow ; RETURN 128000
-   CASE "deepseek-reasoner" $ cLow ; RETURN  64000
-   CASE "deepseek"          $ cLow ; RETURN 128000
-   CASE "glm-4.6"           $ cLow ; RETURN 128000
-   CASE "glm"               $ cLow ; RETURN 128000
-   CASE "kimi-k2"           $ cLow ; RETURN 200000
-   CASE "moonshot"          $ cLow ; RETURN 200000
-   CASE "gpt-5"             $ cLow ; RETURN 400000
-   CASE "gpt-4o"            $ cLow ; RETURN 128000
-   CASE "gpt-4"             $ cLow ; RETURN 128000
+   CASE "deepseek-v4-pro"   $ cLow ; RETURN 1000000
+   CASE "deepseek-v4-flash" $ cLow ; RETURN 1000000
+   CASE "deepseek-reasoner" $ cLow ; RETURN   64000
+   CASE "deepseek"          $ cLow ; RETURN 1000000
+   CASE "glm-4.6"           $ cLow ; RETURN  128000
+   CASE "glm"               $ cLow ; RETURN  128000
+   CASE "kimi-k2"           $ cLow ; RETURN  200000
+   CASE "moonshot"          $ cLow ; RETURN  200000
+   CASE "gpt-5"             $ cLow ; RETURN  400000
+   CASE "gpt-4o"            $ cLow ; RETURN  128000
+   CASE "gpt-4"             $ cLow ; RETURN  128000
    ENDCASE
    RETURN 32000
 
