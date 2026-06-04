@@ -1918,16 +1918,20 @@ STATIC FUNCTION CCREPL_RenderNew()
 
 // Renders one agent event into the terminal, using the render state oRender.
 STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
-   LOCAL cType, cId, cSpinner, nPrompt, nComp, cMsg, cThinking, cTokenPart
+   LOCAL cType, cId, cSpinner, nPrompt, nComp, cMsg, cThinking, cTokenPart, nNow
    IF ValType( hEv ) != "H" .OR. !hb_HHasKey( hEv, "type" )
       RETURN NIL
    ENDIF
    cType := hEv[ "type" ]
-   // blink the working bullet on every event so the user sees activity
-   // even when usage events are sparse (Ollama doesn't send them)
+   // blink the working bullet on events, throttled to 300ms so it
+   // doesn't flicker too fast during rapid streaming
    IF oRender[ "spinner" ] .AND. cType != "iteration_start"
-      oRender[ "spinnerFrame" ]++
-      CCREPL_WorkBlink( oRender )
+      nNow := hb_MilliSeconds()
+      IF nNow - oRender[ "lastFrameTime" ] >= 300
+         oRender[ "spinnerFrame" ]++
+         oRender[ "lastFrameTime" ] := nNow
+         CCREPL_WorkBlink( oRender )
+      ENDIF
    ENDIF
    DO CASE
 
