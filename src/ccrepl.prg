@@ -1877,6 +1877,7 @@ STATIC FUNCTION CCREPL_RenderNew()
    RETURN { "md" => CCMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
             "reasoningChars" => 0, "reasoningBuf" => "", ;
+            "reasoningLines" => 0, ;   // count of complete lines already printed
             "lastUsage" => {=>}, ;
             "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
@@ -1896,18 +1897,22 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "spinnerFrame" ] := 1
       oRender[ "reasoningChars" ] := 0
       oRender[ "reasoningBuf" ]   := ""
+      oRender[ "reasoningLines" ] := 0
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
       CCREPL_SpinnerShow( oRender, "" )
 
    CASE cType == "reasoning_delta"
-      // accumulate reasoning text, advance the spinner showing the trailing
-      // portion of the model's internal monologue so the user can see what
-      // it is thinking about in real time.
+      // accumulate reasoning text, print complete lines as dimmed persistent
+      // output, and keep the spinner only for the trailing partial line so
+      // every thought stays visible instead of being overwritten.
       oRender[ "reasoningBuf" ]   += hb_CStr( hEv[ "text" ] )
       oRender[ "reasoningChars" ] += Len( hb_CStr( hEv[ "text" ] ) )
+      CCREPL_FlushReasoningLines( oRender )
       CCREPL_SpinnerShow( oRender, CCREPL_ReasoningLabel( oRender ) )
 
    CASE cType == "text_delta"
+      // flush any unfinished reasoning line before the visible response
+      CCREPL_FlushReasoningTail( oRender )
       // accumulate text without streaming it live -- the next tool_call
       // event will fold the buffered text into its block as the explanation
       // line, and any tail (the final answer) is flushed at end of turn
@@ -1919,6 +1924,8 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "lastUsage" ] := hEv[ "usage" ]
 
    CASE cType == "tool_call"
+      // flush any unfinished reasoning line before the tool block
+      CCREPL_FlushReasoningTail( oRender )
       IF oRender[ "spinner" ]
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
@@ -1965,39 +1972,89 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 
 // ── Spinner helpers (animated reasoning indicator) ──────────────────────
 
-// Returns a label for the spinner line formed from the trailing portion of
-// the accumulated reasoning buffer. When the buffer is empty it falls back
-// to "Thinking...". Truncates to leave room for the spinner frame, token
-// count, and elapsed time.
-STATIC FUNCTION CCREPL_ReasoningLabel( oRender )
-   LOCAL cText := oRender[ "reasoningBuf" ]
-   LOCAL nMax := CCREPL_Cols() - 22   // spinner(2) + tok(10) + time(5) + spaces(5)
-   LOCAL nLen, cOut, nCut
-   // normalise newlines and repeated spaces so the spinner stays on one line
-   cText := StrTran( cText, Chr(13), "" )
-   cText := StrTran( cText, Chr(10), " " )
-   DO WHILE "  " $ cText
-      cText := StrTran( cText, "  ", " " )
+// Prints the trailing partial reasoning line (not yet terminated by \n)
+// as a final dimmed line, then clears the buffer state. Called when
+// thinking transitions to visible output (text_delta or tool_call).
+STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
+   LOCAL cBuf := oRender[ "reasoningBuf" ]
+   LOCAL nPos := hb_RAt( Chr(10), cBuf )
+   LOCAL cTail
+   IF nPos > 0
+      cTail := SubStr( cBuf, nPos + 1 )
+   ELSE
+      cTail := cBuf
+   ENDIF
+   cTail := StrTran( cTail, Chr(13), "" )
+   IF !Empty( cTail )
+      CCREPL_Out( CCUI_Color( "  " + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
+   ENDIF
+   oRender[ "reasoningBuf" ]   := ""
+   oRender[ "reasoningLines" ] := 0
+   RETURN NIL
+
+// Prints complete reasoning lines accumulated since the last flush. Each
+// full line is output dimmed and indented; the trailing partial line
+// (not yet terminated by \n) stays in the buffer for the spinner.
+STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
+   LOCAL cBuf := oRender[ "reasoningBuf" ]
+   LOCAL nPrinted := oRender[ "reasoningLines" ]
+   LOCAL nPos, nStart, nTotal, cLine, nLine
+   // count total newlines in the buffer
+   nTotal := 0 ; nStart := 1
+   DO WHILE ( nPos := hb_At( Chr(10), cBuf, nStart ) ) > 0
+      nTotal++
+      nStart := nPos + 1
    ENDDO
-   IF Empty( cText )
+   // nothing new to print
+   IF nTotal <= nPrinted
+      RETURN NIL
+   ENDIF
+   // print each new complete line (dimmed, indented)
+   nStart := 1 ; nLine := 0
+   DO WHILE ( nPos := hb_At( Chr(10), cBuf, nStart ) ) > 0
+      nLine++
+      IF nLine > nPrinted
+         cLine := SubStr( cBuf, nStart, nPos - nStart )
+         cLine := StrTran( cLine, Chr(13), "" )   // strip stray CR
+         IF !Empty( cLine )
+            CCREPL_Out( CCUI_Color( "  " + cLine, CCUI_Pal( "dim" ) ) + Chr(10) )
+         ENDIF
+      ENDIF
+      nStart := nPos + 1
+   ENDDO
+   oRender[ "reasoningLines" ] := nTotal
+   RETURN NIL
+
+// Returns a label for the spinner line formed from the trailing unprinted
+// portion of the reasoning buffer (everything after the last newline).
+// Falls back to "Thinking..." when the buffer is empty.
+STATIC FUNCTION CCREPL_ReasoningLabel( oRender )
+   LOCAL cBuf := oRender[ "reasoningBuf" ]
+   LOCAL nPos := hb_RAt( Chr(10), cBuf )
+   LOCAL cTail, nMax, nLen, cOut, nCut
+   // extract the trailing partial line
+   IF nPos > 0
+      cTail := SubStr( cBuf, nPos + 1 )
+   ELSE
+      cTail := cBuf
+   ENDIF
+   cTail := StrTran( cTail, Chr(13), "" )
+   IF Empty( cTail )
       RETURN "Thinking..."
    ENDIF
+   nMax := CCREPL_Cols() - 22   // spinner(2) + tok(10) + time(5) + spaces(5)
    IF nMax < 20
       nMax := 20
    ENDIF
-   nLen := hb_BLen( cText )
+   nLen := hb_BLen( cTail )
    IF nLen <= nMax
-      RETURN cText
+      RETURN cTail
    ENDIF
-   // Show the trailing portion — the model's most recent thought — with a
-   // "…" prefix to mark the truncation. Try to cut at a space so the first
-   // visible word is whole.
-   cOut := hb_BRight( cText, nMax - 1 )
-   // skip leading partial UTF-8 byte from the cut
+   // Show the trailing portion with "…" prefix, cut at a word boundary
+   cOut := hb_BRight( cTail, nMax - 1 )
    IF hb_BCode( hb_BLeft( cOut, 1 ) ) >= 128 .AND. hb_BCode( hb_BLeft( cOut, 1 ) ) < 192
       cOut := hb_BSubStr( cOut, 2 )
    ENDIF
-   // skip to the first space so we don't show a partial word at the start
    nCut := hb_At( " ", cOut, 1 )
    IF nCut > 0 .AND. nCut < 20
       cOut := hb_BSubStr( cOut, nCut + 1 )
