@@ -56,6 +56,16 @@ STATIC s_lCompactNudged := .F.
 
 // Braille-pattern spinner frames for the animated "thinking" indicator.
 STATIC s_aSpinnerFrames := { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+STATIC s_aWorkFrames := { "✻", "✼", "✽", "✾", "✿" }
+STATIC s_aWorkActions := { ;
+   "Brewing coffee…", "Chasing bits…", "Counting tokens…", ;
+   "Petting the GPU…", "Polishing answers…", "Untangling thoughts…", ;
+   "Warming up neurons…", "Dusting the cache…", "Feeding the hamsters…", ;
+   "Aligning pixels…", "Folding spacetime…", "Consulting the oracle…", ;
+   "Sharpening pencils…", "Calibrating wit…", "Herding electrons…", ;
+   "Buffering brilliance…", "Defragging ideas…", "Recharging wit…", ;
+   "Polishing syntax…", "Synthesising genius…" }
+STATIC s_nWorkAction := 0
 
 // The active persistent prompt box, when one is mounted. While set, CCREPL_Out
 // writes agent output at a saved scroll-region anchor and returns the cursor
@@ -1915,6 +1925,11 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_ThinkShow( oRender )
 
    CASE cType == "text_delta"
+      // clear the working spinner before visible output
+      IF oRender[ "spinner" ]
+         CCREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       // flush any unfinished reasoning line before the visible response
       CCREPL_FlushReasoningTail( oRender )
       // accumulate text without streaming it live -- the next tool_call
@@ -1926,8 +1941,17 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    CASE cType == "usage"
       // store the usage hash for display after the turn
       oRender[ "lastUsage" ] := hEv[ "usage" ]
+      // animate the working spinner while the model streams
+      IF oRender[ "spinner" ]
+         CCREPL_SpinnerShow( oRender, "" )
+      ENDIF
 
    CASE cType == "tool_call"
+      // clear the working spinner before the tool block
+      IF oRender[ "spinner" ]
+         CCREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       // flush reasoning, then show the tool with bullet format
       CCREPL_FlushReasoningTail( oRender )
       IF hb_HHasKey( hEv, "id" )
@@ -2009,6 +2033,10 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    CCREPL_ThinkDone( oRender )
    oRender[ "reasoningBuf" ]   := ""
    oRender[ "reasoningLines" ] := 0
+   // start the working spinner so the user knows the agent is still active
+   oRender[ "spinner" ] := .T.
+   oRender[ "spinnerFrame" ] := 1
+   CCREPL_SpinnerShow( oRender, "" )
    RETURN NIL
 
 // Reprints the thinking summary line with a green bullet (completed).
@@ -2120,9 +2148,46 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
 // Compatibility stubs — spinner functions are no longer used but the
 // render state still carries the fields for other code paths.
 STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
-   HB_SYMBOL_UNUSED( oRender ) ; HB_SYMBOL_UNUSED( cExtra )
+   LOCAL cFrame, cAction, nNow, nElapsed, cTime, cTokens, cStatus, nTok
+   HB_SYMBOL_UNUSED( cExtra )
+   nNow := hb_MilliSeconds()
+   IF nNow - oRender[ "lastFrameTime" ] >= 200
+      oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < Len( s_aWorkFrames ), ;
+                                        oRender[ "spinnerFrame" ] + 1, 1 )
+      oRender[ "lastFrameTime" ] := nNow
+      s_nWorkAction := Int( hb_Random() * Len( s_aWorkActions ) ) + 1
+   ENDIF
+   cFrame  := s_aWorkFrames[ oRender[ "spinnerFrame" ] ]
+   cAction := s_aWorkActions[ s_nWorkAction ]
+   nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+   IF nElapsed < 60
+      cTime := LTrim( Str( nElapsed ) ) + "s"
+   ELSE
+      cTime := LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
+               LTrim( Str( nElapsed % 60 ) ) + "s"
+   ENDIF
+   nTok := Int( oRender[ "reasoningChars" ] / 4 )
+   cTokens := ""
+   IF nTok >= 1000
+      cTokens := " · ↓ " + LTrim( Str( Int( nTok / 100 ) / 10 ) ) + "k tokens"
+   ELSEIF nTok > 0
+      cTokens := " · ↓ " + LTrim( Str( nTok ) ) + " tokens"
+   ENDIF
+   IF oRender[ "thinkHeaderDone" ]
+      cStatus := ""
+   ELSE
+      cStatus := " · thinking"
+   ENDIF
+   IF CCUI_ColorOn()
+      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+         CCUI_Color( cFrame + " " + cAction + " " + cTime + cTokens + cStatus, "90" ) )
+   ENDIF
    RETURN NIL
+
 STATIC FUNCTION CCREPL_SpinnerClear()
+   IF CCUI_ColorOn()
+      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
+   ENDIF
    RETURN NIL
 
 // After a turn completes, optionally prints a compact token-usage bar when
