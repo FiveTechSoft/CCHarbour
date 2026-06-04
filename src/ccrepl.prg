@@ -2010,7 +2010,7 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
    cMsg := CCUI_Color( "●", "97" ) + " Thinking" + ;
            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
-   CCREPL_Out( cMsg + Chr(10) )
+   CCREPL_Out( cMsg + Chr(10) + Chr(10) )   // blank line separator
    RETURN NIL
 
 // Prints the trailing partial reasoning line (not yet terminated by \n)
@@ -2057,7 +2057,7 @@ STATIC FUNCTION CCREPL_ThinkDone( oRender )
    cMsg := CCUI_Color( "●", "92" ) + " Thinking" + cTime
    cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
-   CCREPL_Out( cMsg + Chr(10) )
+   CCREPL_Out( cMsg + Chr(10) + Chr(10) )   // blank line separator
    RETURN NIL
 
 // Returns the trailing unprinted portion of the reasoning buffer
@@ -2186,7 +2186,7 @@ STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
 
 STATIC FUNCTION CCREPL_SpinnerClear()
    IF CCUI_ColorOn()
-      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
+      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + Chr(10) )
    ENDIF
    RETURN NIL
 
