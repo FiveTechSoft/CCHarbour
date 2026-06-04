@@ -1971,40 +1971,30 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 
 // ── Thinking display helpers ─────────────────────────────────────────
 
-// Draws the thinking summary line:
+// Draws the thinking summary line once per turn:
 //   ● Thinking for Ns, <first reasoning words>…
-// In VT mode the line is overwritten in-place so elapsed time and activity
-// update live. In non-VT mode (piped input) only the first summary is
-// printed to avoid visual noise from repeated overwrite attempts.
+// Printed with a trailing newline so reasoning lines land below it.
+// Subsequent calls are no-ops — the header stays as first printed.
 STATIC FUNCTION CCREPL_ThinkShow( oRender )
    LOCAL nNow := hb_MilliSeconds()
-   LOCAL nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   LOCAL cTime := iif( nElapsed == 0, "0s", ;
-                  iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
-                  LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
-                  LTrim( Str( nElapsed % 60 ) ) + "s" ) )
-   LOCAL cSummary := CCREPL_ThinkActivity( oRender )
-   LOCAL cMsg, lVT := CCUI_ColorOn()
-   // Throttle: update the header at most once every 2 seconds.
-   // In VT mode we overwrite in place so rapid updates are cheap
-   // but still unnecessary; in non-VT mode each update is a new line.
+   LOCAL nElapsed, cTime, cSummary, cMsg
    IF oRender[ "thinkHeaderDone" ]
-      IF !lVT ; RETURN NIL ; ENDIF
-      IF nNow - oRender[ "thinkLastUpdate" ] < 2000 ; RETURN NIL ; ENDIF
+      RETURN NIL
    ENDIF
+   nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+   cTime := iif( nElapsed == 0, "0s", ;
+             iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+             LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
+             LTrim( Str( nElapsed % 60 ) ) + "s" ) )
+   cSummary := CCREPL_ThinkActivity( oRender )
    oRender[ "thinkHeaderDone" ] := .T.
-   oRender[ "thinkLastUpdate" ] := nNow
    cMsg := CCUI_Color( "●", "97" ) + " Thinking for " + cTime
    IF !Empty( cSummary )
       cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
    ENDIF
    cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                               CCUI_Pal( "dim" ) )   // … (ellipsis)
-   IF lVT
-      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + cMsg )
-   ELSE
-      CCREPL_Out( cMsg + Chr(10) )
-   ENDIF
+   CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
 
 // Extracts a short activity summary from the first ~50 chars of the
@@ -2053,23 +2043,27 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
 // Reprints the thinking summary line with a green bullet (completed).
 STATIC FUNCTION CCREPL_ThinkDone( oRender )
    LOCAL nNow := hb_MilliSeconds()
-   LOCAL nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   LOCAL cTime := iif( nElapsed == 0, "0s", ;
-                  iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
-                  LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
-                  LTrim( Str( nElapsed % 60 ) ) + "s" ) )
-   LOCAL cSummary := CCREPL_ThinkActivity( oRender )
-   LOCAL cMsg
+   LOCAL nElapsed, cTime, cSummary, cMsg
    IF oRender[ "reasoningChars" ] == 0
       RETURN NIL   // never had any reasoning — nothing to mark as done
    ENDIF
+   // Already printed the done line for this reasoning round
+   IF oRender[ "thinkHeaderDone" ] .AND. oRender[ "reasoningBuf" ] == ""
+      RETURN NIL
+   ENDIF
+   nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+   cTime := iif( nElapsed == 0, "0s", ;
+             iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+             LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
+             LTrim( Str( nElapsed % 60 ) ) + "s" ) )
+   cSummary := CCREPL_ThinkActivity( oRender )
    cMsg := CCUI_Color( "●", "92" ) + " Thinking for " + cTime
    IF !Empty( cSummary )
       cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
    ENDIF
    cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                               CCUI_Pal( "dim" ) )   // … (ellipsis)
-   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + cMsg + Chr(10) )
+   CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
 
 // Returns the trailing unprinted portion of the reasoning buffer
