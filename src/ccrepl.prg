@@ -2181,15 +2181,18 @@ STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
    ELSE
       cStatus := " · thinking"
    ENDIF
+   // Write directly to stdout (bypass CCREPL_Out) so the box prompt's
+   // content_row anchor does not advance — each spinner update overwrites
+   // the same physical line without creating blank rows.
    IF CCUI_ColorOn()
-      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+      FWrite( hb_GetStdOut(), CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
          CCUI_Color( cFrame + " " + cAction + " " + cTime + cTokens + cStatus, "90" ) )
    ENDIF
    RETURN NIL
 
 STATIC FUNCTION CCREPL_SpinnerClear()
    IF CCUI_ColorOn()
-      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
+      FWrite( hb_GetStdOut(), CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
    ENDIF
    RETURN NIL
 
