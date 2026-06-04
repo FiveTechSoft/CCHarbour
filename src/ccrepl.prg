@@ -1819,6 +1819,11 @@ STATIC FUNCTION CCREPL_FlushPending( oRender )
       RETURN NIL
    ENDIF
    IF !oRender[ "inText" ]
+      // clear the working spinner before showing the response
+      IF oRender[ "spinner" ]
+         CCREPL_SpinnerClear()
+         oRender[ "spinner" ] := .F.
+      ENDIF
       CCREPL_Out( Chr(10) + ;
          CCUI_Color( Chr(226)+Chr(143)+Chr(186), CCUI_Pal( "accent" ) ) + "  " )
       oRender[ "inText" ] := .T.
@@ -1925,18 +1930,13 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_ThinkShow( oRender )
 
    CASE cType == "text_delta"
-      // clear the working spinner and flush any unfinished reasoning
-      // line before the visible response (only on first text_delta)
-      IF oRender[ "spinner" ]
-         CCREPL_SpinnerClear()
-         oRender[ "spinner" ] := .F.
-      ENDIF
+      // flush any unfinished reasoning on the first text_delta,
+      // then let the spinner keep running while text accumulates.
+      // The spinner clears only when output is ready to display
+      // (tool_call, tool_result, or final flush at turn end).
       IF oRender[ "reasoningBuf" ] != ""
          CCREPL_FlushReasoningTail( oRender )
       ENDIF
-      // accumulate text without streaming it live -- the next tool_call
-      // event will fold the buffered text into its block as the explanation
-      // line, and any tail (the final answer) is flushed at end of turn
       oRender[ "pendingText" ] += ;
          CCMD_Feed( oRender[ "md" ], hb_CStr( hEv[ "text" ] ) )
 
