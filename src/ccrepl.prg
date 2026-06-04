@@ -1932,7 +1932,6 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    DO CASE
 
    CASE cType == "iteration_start"
-      // show the thinking bullet header, no spinner
       oRender[ "reasoningChars" ] := 0
       oRender[ "reasoningBuf" ]   := ""
       oRender[ "reasoningLines" ] := 0
@@ -1940,7 +1939,15 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "thinkCornerUsed" ] := .F.
       oRender[ "thinkLastUpdate" ] := 0
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
-      oRender[ "spinner" ] := .F.
+      // start the working indicator immediately so activity is visible
+      // even before the first reasoning token arrives
+      IF !oRender[ "spinner" ]
+         oRender[ "spinner" ] := .T.
+         oRender[ "spinnerFrame" ] := 0
+         CCREPL_Out( Chr(10) + CCUI_Color( "●", "92" ) + " Working" + ;
+            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
+            Chr(10) )
+      ENDIF
       CCREPL_ThinkShow( oRender )
 
    CASE cType == "reasoning_delta"
@@ -2193,7 +2200,8 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
 // usage events during streaming to create a visible blink effect.
 STATIC FUNCTION CCREPL_WorkBlink( oRender )
    LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
-   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+   // ESC[1A = up one line, then overwrite
+   CCREPL_Out( CCUI_VT( "1A" ) + CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
       CCUI_Color( cBullet, "92" ) + " Working" + ;
       CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
    RETURN NIL
