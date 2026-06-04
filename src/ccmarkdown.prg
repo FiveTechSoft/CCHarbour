@@ -88,14 +88,21 @@ FUNCTION CCMD_Suggestion( oSt )
 
 // Renders one line (no trailing newline supplied); the result ends in LF.
 STATIC FUNCTION CCMD_RenderLine( oSt, cLine )
-   LOCAL cTrim, cRest, nH, cList
+   LOCAL cTrim, cRest, nH, cList, nSuggest
    cLine := StrTran( cLine, Chr(13), "" )
    cTrim := AllTrim( cLine )
 
-   // suggested-prompt marker -> captured, never printed
+   // suggested-prompt marker -> captured, never printed.
+   // Some models emit it on the same line as the final sentence
+   // (no leading newline), so also check for a mid-line occurrence.
    IF Len( cTrim ) >= 15 .AND. Lower( Left( cTrim, 15 ) ) == "suggested next:"
       oSt[ "suggestion" ] := AllTrim( SubStr( cTrim, 16 ) )
       RETURN ""
+   ENDIF
+   nSuggest := hb_At( "suggested next:", Lower( cTrim ) )
+   IF nSuggest > 1
+      oSt[ "suggestion" ] := AllTrim( SubStr( cTrim, nSuggest + 15 ) )
+      RETURN Left( cTrim, nSuggest - 1 )   // keep text before the marker
    ENDIF
 
    // fenced code block toggle (``` optionally followed by a language tag)
