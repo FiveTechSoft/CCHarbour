@@ -1923,6 +1923,12 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       RETURN NIL
    ENDIF
    cType := hEv[ "type" ]
+   // blink the working bullet on every event so the user sees activity
+   // even when usage events are sparse (Ollama doesn't send them)
+   IF oRender[ "spinner" ] .AND. cType != "iteration_start"
+      oRender[ "spinnerFrame" ]++
+      CCREPL_WorkBlink( oRender )
+   ENDIF
    DO CASE
 
    CASE cType == "iteration_start"
@@ -1959,11 +1965,6 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    CASE cType == "usage"
       // store the usage hash for display after the turn
       oRender[ "lastUsage" ] := hEv[ "usage" ]
-      // toggle the working bullet to create a blink effect
-      IF oRender[ "spinner" ]
-         oRender[ "spinnerFrame" ]++
-         CCREPL_WorkBlink( oRender )
-      ENDIF
 
    CASE cType == "tool_call"
       // clear the working spinner before the tool block
