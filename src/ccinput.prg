@@ -242,7 +242,7 @@ FUNCTION CCIN_ReadLine( cInitial )
       // left border, then a space, then "> " -> text starts at column 5.
       hW := CCIN_Window( oSt, CCUI_InputInnerWidth() )
       CCREPL_Out( CCUI_VT( "1G" ) + ;
-                  CCUI_VT( LTrim( Str( 5 + hW[ "col" ] ) ) + "G" ) )
+                  CCUI_VT( LTrim( Str( 3 + hW[ "col" ] ) ) + "G" ) )
       nKey := CCCON_ReadKey()
       // paste detection: if keys arrive faster than 50ms apart, it's a paste
       nNow := hb_MilliSeconds()

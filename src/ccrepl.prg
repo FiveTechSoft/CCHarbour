@@ -2294,7 +2294,7 @@ FUNCTION CCREPL_BoxCursorSeq()
    LOCAL hReg := s_oBoxPrompt[ "region" ], hW
    hW := CCIN_Window( s_oBoxPrompt[ "editor" ], CCUI_InputInnerWidth() )
    RETURN Chr(27) + "[" + LTrim( Str( hReg[ "box_top" ] + 1 ) ) + ";" + ;
-          LTrim( Str( 5 + hW[ "col" ] ) ) + "H"
+          LTrim( Str( 3 + hW[ "col" ] ) ) + "H"
 
 // Sets the Windows console to the UTF-8 code page (65001) so the model's
 // UTF-8 output renders, and enables virtual-terminal mode so ANSI colours
