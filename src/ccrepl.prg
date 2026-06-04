@@ -2036,6 +2036,9 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    // start the working spinner so the user knows the agent is still active
    oRender[ "spinner" ] := .T.
    oRender[ "spinnerFrame" ] := 1
+   IF CCUI_ColorOn()
+      CCREPL_Out( Chr(10) )   // blank line before spinner
+   ENDIF
    CCREPL_SpinnerShow( oRender, "" )
    RETURN NIL
 
