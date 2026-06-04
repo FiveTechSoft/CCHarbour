@@ -2187,19 +2187,15 @@ STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
    ELSE
       cStatus := " · thinking"
    ENDIF
-   // Write directly to stdout (bypass CCREPL_Out) so the box prompt's
-   // content_row anchor does not advance — each spinner update overwrites
-   // the same physical line without creating blank rows.
-   IF CCUI_ColorOn()
-      FWrite( hb_GetStdOut(), CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
-         CCUI_Color( cFrame + " " + cAction + " " + cTime + cTokens + cStatus, "90" ) )
-   ENDIF
+   // Use CCREPL_Out so the box prompt's cursor save/restore keeps the
+   // spinner on the correct row. The trailing ESC[K (appended by CCREPL_Out
+   // for non-LF text) is harmless — it just clears to end of line.
+   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
+      CCUI_Color( cFrame + " " + cAction + " " + cTime + cTokens + cStatus, "90" ) )
    RETURN NIL
 
 STATIC FUNCTION CCREPL_SpinnerClear()
-   IF CCUI_ColorOn()
-      FWrite( hb_GetStdOut(), CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
-   ENDIF
+   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
    RETURN NIL
 
 // After a turn completes, optionally prints a compact token-usage bar when
@@ -2335,20 +2331,20 @@ FUNCTION CCREPL_Out( cText )
          // those rows in the count leaves the box overlapping the
          // wrapped content. Once content_row + 1 reaches the floor the
          // region becomes pinned and the LF-driven scroll takes over.
-         IF !hb_HGetDef( s_oBoxPrompt[ "region" ], "pinned", .F. )
-            nNL := CCREPL_VisualRows( cText, CCREPL_Cols() )
-            IF nNL > 0
-               // Stash the write-row range so Redraw's wipe can avoid
-               // erasing rows that just received content. write_start is
-               // the anchor row (= old content_row); write_trailing_lf
-               // distinguishes "cursor landed on a blank new row" from
-               // "cursor landed on the last written text row".
-               s_oBoxPrompt[ "last_write_start" ] := ;
-                  hb_HGetDef( s_oBoxPrompt, "content_row", 1 )
-               s_oBoxPrompt[ "last_write_trailing_lf" ] := lTrailingLF
-               s_oBoxPrompt[ "content_row" ] := ;
-                  hb_HGetDef( s_oBoxPrompt, "content_row", 1 ) + nNL
-               CCPROMPT_Redraw( s_oBoxPrompt )
+         // Spinner updates (ESC[1G ESC[K prefix) overwrite the same
+         // physical row — skip content_row advance so the box doesn't
+         // drift down with every animation frame.
+         IF !( Left( cText, 7 ) == Chr(27) + "[1G" + Chr(27) + "[K" )
+            IF !hb_HGetDef( s_oBoxPrompt[ "region" ], "pinned", .F. )
+               nNL := CCREPL_VisualRows( cText, CCREPL_Cols() )
+               IF nNL > 0
+                  s_oBoxPrompt[ "last_write_start" ] := ;
+                     hb_HGetDef( s_oBoxPrompt, "content_row", 1 )
+                  s_oBoxPrompt[ "last_write_trailing_lf" ] := lTrailingLF
+                  s_oBoxPrompt[ "content_row" ] := ;
+                     hb_HGetDef( s_oBoxPrompt, "content_row", 1 ) + nNL
+                  CCPROMPT_Redraw( s_oBoxPrompt )
+               ENDIF
             ENDIF
          ENDIF
       ELSE
