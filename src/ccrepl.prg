@@ -2033,11 +2033,13 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    CCREPL_ThinkDone( oRender )
    oRender[ "reasoningBuf" ]   := ""
    oRender[ "reasoningLines" ] := 0
-   // start the working spinner so the user knows the agent is still active
-   oRender[ "spinner" ] := .T.
-   oRender[ "spinnerFrame" ] := 1
-   IF CCUI_ColorOn()
-      CCREPL_Out( Chr(10) )   // blank line before spinner
+   // start the working spinner once per thinking round
+   IF !oRender[ "spinner" ]
+      oRender[ "spinner" ] := .T.
+      oRender[ "spinnerFrame" ] := 1
+      IF CCUI_ColorOn()
+         CCREPL_Out( Chr(10) )   // blank line before spinner
+      ENDIF
    ENDIF
    CCREPL_SpinnerShow( oRender, "" )
    RETURN NIL
