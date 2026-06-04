@@ -41,6 +41,14 @@ STATIC FUNCTION CCSSE_Line( cLine, bEmit )
             Eval( bEmit, { "type" => "reasoning_delta", ;
                            "text" => hDelta[ "reasoning_content" ] } )
          ENDIF
+         // Gemma (and other Google-origin models via Ollama) emit "reasoning"
+         // instead of OpenAI's "reasoning_content" key.
+         IF hb_HHasKey( hDelta, "reasoning" ) .AND. ;
+            ValType( hDelta[ "reasoning" ] ) == "C" .AND. ;
+            !Empty( hDelta[ "reasoning" ] )
+            Eval( bEmit, { "type" => "reasoning_delta", ;
+                           "text" => hDelta[ "reasoning" ] } )
+         ENDIF
          IF hb_HHasKey( hDelta, "tool_calls" )
             CCSSE_ToolCalls( hDelta[ "tool_calls" ], bEmit )
          ENDIF
