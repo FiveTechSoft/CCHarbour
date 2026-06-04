@@ -425,6 +425,10 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    // followed) -- print it now with the assistant bullet
    oRender[ "pendingText" ] += CCMD_Flush( oRender[ "md" ] )
    CCREPL_FlushPending( oRender )
+   // tip line right after the response so the user sees it immediately
+   IF oRender[ "inText" ]
+      CCREPL_Out( CCUI_TipLine( CCUI_TipAt( ++s_nTipIdx ) ) )
+   ENDIF
    nTurnMs := hb_MilliSeconds() - nTurnStartMs
    s_nSessionTurnMs += nTurnMs
    IF hRes[ "success" ]
