@@ -1943,10 +1943,6 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    CASE cType == "usage"
       // store the usage hash for display after the turn
       oRender[ "lastUsage" ] := hEv[ "usage" ]
-      // animate the working spinner while the model streams
-      IF oRender[ "spinner" ]
-         CCREPL_SpinnerShow( oRender, "" )
-      ENDIF
 
    CASE cType == "tool_call"
       // clear the working spinner before the tool block
@@ -2037,15 +2033,15 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    CCREPL_ThinkDone( oRender )
    oRender[ "reasoningBuf" ]   := ""
    oRender[ "reasoningLines" ] := 0
-   // start the working spinner once per thinking round
+   // show a "Working…" indicator so the user knows the agent is still
+   // active after thinking completes. This is a static line, not animated,
+   // to avoid the VT-overwrite complexity that caused blank-line spam.
    IF !oRender[ "spinner" ]
       oRender[ "spinner" ] := .T.
-      oRender[ "spinnerFrame" ] := 1
-      IF CCUI_ColorOn()
-         CCREPL_Out( Chr(10) )   // blank line before spinner
-      ENDIF
+      CCREPL_Out( Chr(10) + CCUI_Color( "●", "92" ) + " Working" + ;
+         CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
+         Chr(10) )   // … (ellipsis)
    ENDIF
-   CCREPL_SpinnerShow( oRender, "" )
    RETURN NIL
 
 // Reprints the thinking summary line with a green bullet (completed).
