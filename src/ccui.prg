@@ -929,6 +929,24 @@ FUNCTION CCUI_SkillsStatusLine( aActive, nCols )
 // the full terminal width, the tool's display label ("Bash command", "Edit",
 // "Read", ...) on its own line, a blank, then the tool's primary content
 // (the command / path / pattern) in green, then the model's narration on a
+// Tool content without the old separator bar — just command + explanation,
+// indented 3 spaces. Used with the new bullet-based tool header.
+FUNCTION CCUI_ToolContentBlock( cArgsJson, cExplain, nCols )
+   LOCAL cContent, cLine, cOut := ""
+   IF ValType( nCols ) != "N" .OR. nCols < 20
+      nCols := 100
+   ENDIF
+   cContent := CCUI_ToolContent( cArgsJson )
+   FOR EACH cLine IN hb_ATokens( hb_CStr( cContent ), Chr(10) )
+      cOut += CCUI_Color( "   " + cLine, CCUI_Pal( "bash_command" ) ) + Chr(10)
+   NEXT
+   IF !Empty( cExplain )
+      FOR EACH cLine IN hb_ATokens( hb_CStr( cExplain ), Chr(10) )
+         cOut += CCUI_Color( "   " + cLine, CCUI_Pal( "bash_explain" ) ) + Chr(10)
+      NEXT
+   ENDIF
+   RETURN cOut
+
 // soft-white line. Every line is plain (no border) and indented three
 // spaces to match Claude Code's tool-call style.
 FUNCTION CCUI_ToolBlock( cHeader, cContent, cExplain, nCols )

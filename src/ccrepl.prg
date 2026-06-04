@@ -1924,22 +1924,22 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "lastUsage" ] := hEv[ "usage" ]
 
    CASE cType == "tool_call"
-      // flush any unfinished reasoning line before the tool block
+      // flush reasoning, then show the tool with bullet format
       CCREPL_FlushReasoningTail( oRender )
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
-      // ask_user and propose_agents own their own rendering (CCSEL_Paint /
-      // CCPROPOSE_Paint paint separator, header and body as one
-      // absolute-positioned block). Nothing to print from here; just
-      // drain the markdown buffer.
       IF Lower( hb_CStr( hEv[ "name" ] ) ) == "ask_user" .OR. ;
          Lower( hb_CStr( hEv[ "name" ] ) ) == "propose_agents"
          CCMD_Flush( oRender[ "md" ] )
       ELSE
-         CCREPL_Out( CCUI_ToolBlock( ;
-            CCUI_ToolHeader( hEv[ "name" ] ), ;
-            CCUI_ToolContent( hEv[ "arguments" ] ), ;
+         // bullet line: ● Running <name>… (white, active)
+         CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + ;
+            " Running " + hb_CStr( hEv[ "name" ] ) + ;
+            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
+            Chr(10) )
+         // tool content below (command + explanation, no separator)
+         CCREPL_Out( CCUI_ToolContentBlock( hEv[ "arguments" ], ;
             oRender[ "pendingText" ] + CCMD_Flush( oRender[ "md" ] ), ;
             CCREPL_Cols() ) )
       ENDIF
@@ -1950,6 +1950,11 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_FlushPending( oRender )
       oRender[ "inText" ] := .F.
       cId := hb_CStr( hb_HGetDef( hEv, "id", "" ) )
+      // bullet line: ● <name> <summary> (green, completed)
+      CCREPL_Out( CCUI_Color( "●", "92" ) + " " + ;
+         hb_HGetDef( oRender[ "tools" ], cId, "" ) + " " + ;
+         CCUI_Color( CCUI_Summarize( hb_CStr( hEv[ "content" ] ), 60 ), ;
+                     CCUI_Pal( "dim" ) ) + Chr(10) )
       CCREPL_Out( CCUI_ResultSummary( ;
          hb_HGetDef( oRender[ "tools" ], cId, "" ), ;
          hb_CStr( hEv[ "content" ] ) ) )
