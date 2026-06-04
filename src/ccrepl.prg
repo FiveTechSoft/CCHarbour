@@ -2024,7 +2024,7 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
 // transitions to visible output (text_delta or tool_call).
 STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    LOCAL cTail := CCREPL_ThinkPending( oRender )
-   LOCAL cPrefix
+   LOCAL cPrefix, cBullet
    IF !Empty( cTail )
       IF !oRender[ "thinkCornerUsed" ]
          cPrefix := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
@@ -2046,7 +2046,7 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
       oRender[ "spinnerFrame" ] := 0
    ENDIF
    // overwrite the same line: ESC[1G ESC[K bullet Working…
-   LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
+   cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
    CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
       CCUI_Color( cBullet, "92" ) + " Working" + ;
       CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
