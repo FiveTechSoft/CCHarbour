@@ -1804,7 +1804,8 @@ FUNCTION CCREPL_Cols()
 STATIC FUNCTION CCREPL_RenderNew()
    RETURN { "md" => CCMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
-            "reasoningChars" => 0, "lastUsage" => {=>}, ;
+            "reasoningChars" => 0, "reasoningBuf" => "", ;
+            "lastUsage" => {=>}, ;
             "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
 
@@ -1822,13 +1823,17 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "spinner" ] := .T.
       oRender[ "spinnerFrame" ] := 1
       oRender[ "reasoningChars" ] := 0
+      oRender[ "reasoningBuf" ]   := ""
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
       CCREPL_SpinnerShow( oRender, "" )
 
    CASE cType == "reasoning_delta"
-      // advance the spinner, count chars, show "Thinking..." with estimated token count
+      // accumulate reasoning text, advance the spinner showing the trailing
+      // portion of the model's internal monologue so the user can see what
+      // it is thinking about in real time.
+      oRender[ "reasoningBuf" ]   += hb_CStr( hEv[ "text" ] )
       oRender[ "reasoningChars" ] += Len( hb_CStr( hEv[ "text" ] ) )
-      CCREPL_SpinnerShow( oRender, "Thinking..." )
+      CCREPL_SpinnerShow( oRender, CCREPL_ReasoningLabel( oRender ) )
 
    CASE cType == "text_delta"
       // accumulate text without streaming it live -- the next tool_call
@@ -1888,9 +1893,49 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 
 // ── Spinner helpers (animated reasoning indicator) ──────────────────────
 
+// Returns a label for the spinner line formed from the trailing portion of
+// the accumulated reasoning buffer. When the buffer is empty it falls back
+// to "Thinking...". Truncates to leave room for the spinner frame, token
+// count, and elapsed time.
+STATIC FUNCTION CCREPL_ReasoningLabel( oRender )
+   LOCAL cText := oRender[ "reasoningBuf" ]
+   LOCAL nMax := CCREPL_Cols() - 22   // spinner(2) + tok(10) + time(5) + spaces(5)
+   LOCAL nLen, cOut, nCut
+   // normalise newlines and repeated spaces so the spinner stays on one line
+   cText := StrTran( cText, Chr(13), "" )
+   cText := StrTran( cText, Chr(10), " " )
+   DO WHILE "  " $ cText
+      cText := StrTran( cText, "  ", " " )
+   ENDDO
+   IF Empty( cText )
+      RETURN "Thinking..."
+   ENDIF
+   IF nMax < 20
+      nMax := 20
+   ENDIF
+   nLen := hb_BLen( cText )
+   IF nLen <= nMax
+      RETURN cText
+   ENDIF
+   // Show the trailing portion — the model's most recent thought — with a
+   // "…" prefix to mark the truncation. Try to cut at a space so the first
+   // visible word is whole.
+   cOut := hb_BRight( cText, nMax - 1 )
+   // skip leading partial UTF-8 byte from the cut
+   IF hb_BCode( hb_BLeft( cOut, 1 ) ) >= 128 .AND. hb_BCode( hb_BLeft( cOut, 1 ) ) < 192
+      cOut := hb_BSubStr( cOut, 2 )
+   ENDIF
+   // skip to the first space so we don't show a partial word at the start
+   nCut := hb_At( " ", cOut, 1 )
+   IF nCut > 0 .AND. nCut < 20
+      cOut := hb_BSubStr( cOut, nCut + 1 )
+   ENDIF
+   RETURN "…" + cOut
+
 // Draws the spinner line at the current cursor position. cExtra is an
-// optional label like "Thinking...". The frame advances at most every
-// 100ms so the spinner turns at a relaxed pace regardless of token speed.
+// optional label like "Thinking..." or the trailing reasoning text.
+// The frame advances at most every 100ms so the spinner turns at a
+// relaxed pace regardless of token speed.
 STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
    LOCAL cFrame, cMsg, nEst, nNow, nElapsed
    // throttle: only advance the frame if at least 100ms have passed
