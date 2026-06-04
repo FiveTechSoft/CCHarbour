@@ -528,13 +528,13 @@ FUNCTION CCUI_MemoryContext()
 FUNCTION CCUI_Glyph( cName )
    DO CASE
    CASE cName == "tl"
-      RETURN Chr(226)+Chr(149)+Chr(173)   // ╭
+      RETURN Chr(226)+Chr(148)+Chr(140)   // ┌
    CASE cName == "tr"
-      RETURN Chr(226)+Chr(149)+Chr(174)   // ╮
+      RETURN Chr(226)+Chr(148)+Chr(144)   // ┐
    CASE cName == "bl"
-      RETURN Chr(226)+Chr(149)+Chr(176)   // ╰
+      RETURN Chr(226)+Chr(148)+Chr(148)   // └
    CASE cName == "br"
-      RETURN Chr(226)+Chr(149)+Chr(175)   // ╯
+      RETURN Chr(226)+Chr(148)+Chr(152)   // ┘
    CASE cName == "h"
       RETURN Chr(226)+Chr(148)+Chr(128)   // ─
    CASE cName == "v"
