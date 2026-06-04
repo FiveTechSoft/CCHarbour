@@ -834,19 +834,16 @@ FUNCTION CCUI_Banner( cModel, cCwd, cUser )
            CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)
    RETURN cOut
 
-// The rounded top border of the input frame, 99 columns wide.
+// The top border of the input frame — a plain horizontal rule with no
+// corner glyphs, matching the open-edge look requested by the user.
 FUNCTION CCUI_FrameTop()
-   LOCAL nFill := CCUI_InputInnerWidth() + 4
-   RETURN CCUI_Color( CCUI_Glyph( "tl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), nFill ) + CCUI_Glyph( "tr" ), ;
-          CCUI_Pal( "dim" ) )
+   LOCAL nFill := CCUI_InputInnerWidth() + 2
+   RETURN CCUI_Color( Replicate( CCUI_Glyph( "h" ), nFill ), CCUI_Pal( "dim" ) )
 
-// The rounded bottom border of the input frame. Same width as the top.
+// The bottom border of the input frame. Same width as the top.
 FUNCTION CCUI_FrameBottom()
-   LOCAL nFill := CCUI_InputInnerWidth() + 4
-   RETURN CCUI_Color( CCUI_Glyph( "bl" ) + ;
-          Replicate( CCUI_Glyph( "h" ), nFill ) + CCUI_Glyph( "br" ), ;
-          CCUI_Pal( "dim" ) )
+   LOCAL nFill := CCUI_InputInnerWidth() + 2
+   RETURN CCUI_Color( Replicate( CCUI_Glyph( "h" ), nFill ), CCUI_Pal( "dim" ) )
 
 // The dim hint line shown beneath the input frame.
 // nLines (optional) shows the line count for multi-line input.
@@ -866,7 +863,7 @@ FUNCTION CCUI_InputInnerWidth()
    LOCAL nCols := CCREPL_Cols() - 1
    IF nCols < 76 ; nCols := 76 ; ENDIF
    IF nCols > 200 ; nCols := 200 ; ENDIF
-   RETURN nCols - 6
+   RETURN nCols - 3   // "> " (2 chars) + 1 char right margin
 
 // Renders the propose_agents selector body: a short intro line, one row per
 // proposal with a checkbox / index / type / truncated prompt, and a hint
@@ -998,19 +995,14 @@ FUNCTION CCUI_ToolContent( cArgsJson )
 // One framed input-box prompt line with the text rendered in the suggestion
 // (light-green) colour.
 FUNCTION CCUI_InputBoxSuggestion( cText )
-   LOCAL cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
-   RETURN cV + " " + CCUI_Color( "> ", "1;36" ) + ;
+   RETURN CCUI_Color( "> ", "1;36" ) + ;
           CCUI_Color( CCUI_PadCell( hb_CStr( cText ), CCUI_InputInnerWidth(), "L" ), ;
-                     CCUI_Pal( "suggestion" ) ) + ;
-          " " + cV
+                     CCUI_Pal( "suggestion" ) )
 
-// One framed input-box prompt line: side borders, the "> " prompt, and cText
-// padded (or truncated) to the inner width. 99 display columns wide.
+// One input-box prompt line: the "> " prompt and cText, no side borders.
 FUNCTION CCUI_InputBoxLine( cText )
-   LOCAL cV := CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) )
-   RETURN cV + " " + CCUI_Color( "> ", "1;36" ) + ;
-          CCUI_PadCell( hb_CStr( cText ), CCUI_InputInnerWidth(), "L" ) + ;
-          " " + cV
+   RETURN CCUI_Color( "> ", "1;36" ) + ;
+          CCUI_PadCell( hb_CStr( cText ), CCUI_InputInnerWidth(), "L" )
 
 // Prompt shown when the user presses Esc to pause tool execution.
 // Options: Enter=continue, c=skip remaining tools, a=abort turn.

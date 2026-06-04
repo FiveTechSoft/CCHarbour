@@ -85,12 +85,12 @@ FUNCTION Test_UI()
    T_Assert( CCUI_Glyph( "tl" ) $ CCUI_Banner( "m", "c", "u" ), ;
              "ui: banner has a rounded top-left corner" )
 
-   // input frame helpers
+   // input frame helpers (open-box: no corners, no side borders)
    CCUI_SetColor( .F. )
-   T_Equal( hb_UTF8Len( CCUI_FrameTop() ), 123, "ui: frame top is 123 columns" )
-   T_Equal( hb_UTF8Len( CCUI_FrameBottom() ), 123, "ui: frame bottom is 123 columns" )
-   T_Assert( CCUI_Glyph( "tl" ) $ CCUI_FrameTop(), "ui: frame top rounded corner" )
-   T_Assert( CCUI_Glyph( "bl" ) $ CCUI_FrameBottom(), "ui: frame bottom rounded corner" )
+   T_Equal( hb_UTF8Len( CCUI_FrameTop() ), 122, "ui: frame top is 122 columns" )
+   T_Equal( hb_UTF8Len( CCUI_FrameBottom() ), 122, "ui: frame bottom is 122 columns" )
+   T_Assert( !( CCUI_Glyph( "tl" ) $ CCUI_FrameTop() ), "ui: frame top has no corner glyph" )
+   T_Assert( !( CCUI_Glyph( "bl" ) $ CCUI_FrameBottom() ), "ui: frame bottom has no corner glyph" )
    T_Assert( "/help" $ CCUI_InputHint(), "ui: input hint mentions /help" )
 
    // system prompt asks for a suggested next prompt
@@ -135,10 +135,10 @@ FUNCTION Test_UI()
 
    // input box: inner width and the framed prompt line
    CCUI_SetColor( .F. )
-   T_Equal( CCUI_InputInnerWidth(), 117, "ui: input inner width" )
-   T_Equal( hb_UTF8Len( CCUI_InputBoxLine( "hi" ) ), 123, "ui: input box line is 123 columns" )
+   T_Equal( CCUI_InputInnerWidth(), 120, "ui: input inner width" )
+   T_Equal( hb_UTF8Len( CCUI_InputBoxLine( "hi" ) ), 122, "ui: input box line is 122 columns" )
    T_Assert( "> hi" $ CCUI_InputBoxLine( "hi" ), "ui: input box line has the prompt + text" )
-   T_Assert( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ), "ui: input box line has side borders" )
+   T_Assert( !( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ) ), "ui: input box line has no side borders" )
 
    // version + banner
    T_Equal( CCUI_Version(), "0.8.26", "ui: version string" )

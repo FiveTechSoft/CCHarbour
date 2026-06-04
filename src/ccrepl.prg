@@ -1877,7 +1877,8 @@ STATIC FUNCTION CCREPL_RenderNew()
    RETURN { "md" => CCMD_New(), "tools" => {=>}, "inText" => .F., ;
             "spinner" => .F., "spinnerFrame" => 1, ;
             "reasoningChars" => 0, "reasoningBuf" => "", ;
-            "reasoningLines" => 0, ;   // count of complete lines already printed
+            "reasoningLines" => 0, ;
+            "thinkHeaderDone" => .F., ;   // .T. after first summary printed
             "lastUsage" => {=>}, ;
             "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
@@ -1892,23 +1893,22 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    DO CASE
 
    CASE cType == "iteration_start"
-      // start the spinner on the first frame
-      oRender[ "spinner" ] := .T.
-      oRender[ "spinnerFrame" ] := 1
+      // show the thinking bullet header, no spinner
       oRender[ "reasoningChars" ] := 0
       oRender[ "reasoningBuf" ]   := ""
       oRender[ "reasoningLines" ] := 0
+      oRender[ "thinkHeaderDone" ] := .F.
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
-      CCREPL_SpinnerShow( oRender, "" )
+      oRender[ "spinner" ] := .F.
+      CCREPL_ThinkShow( oRender )
 
    CASE cType == "reasoning_delta"
-      // accumulate reasoning text, print complete lines as dimmed persistent
-      // output, and keep the spinner only for the trailing partial line so
-      // every thought stays visible instead of being overwritten.
+      // accumulate reasoning text, print wrapped lines with ⎿ prefix
+      // as they become complete, update the summary header in-place
       oRender[ "reasoningBuf" ]   += hb_CStr( hEv[ "text" ] )
       oRender[ "reasoningChars" ] += Len( hb_CStr( hEv[ "text" ] ) )
       CCREPL_FlushReasoningLines( oRender )
-      CCREPL_SpinnerShow( oRender, CCREPL_ReasoningLabel( oRender ) )
+      CCREPL_ThinkShow( oRender )
 
    CASE cType == "text_delta"
       // flush any unfinished reasoning line before the visible response
@@ -1926,10 +1926,6 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    CASE cType == "tool_call"
       // flush any unfinished reasoning line before the tool block
       CCREPL_FlushReasoningTail( oRender )
-      IF oRender[ "spinner" ]
-         CCREPL_SpinnerClear()
-         oRender[ "spinner" ] := .F.
-      ENDIF
       IF hb_HHasKey( hEv, "id" )
          oRender[ "tools" ][ hb_CStr( hEv[ "id" ] ) ] := hb_CStr( hEv[ "name" ] )
       ENDIF
@@ -1959,10 +1955,6 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
          hb_CStr( hEv[ "content" ] ) ) )
 
    OTHERWISE
-      IF oRender[ "spinner" ]
-         CCREPL_SpinnerClear()
-         oRender[ "spinner" ] := .F.
-      ENDIF
       CCREPL_FlushPending( oRender )
       oRender[ "inText" ] := .F.
       CCREPL_Out( CCUI_RenderEvent( hEv ) )
@@ -1970,12 +1962,110 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
    ENDCASE
    RETURN NIL
 
-// ── Spinner helpers (animated reasoning indicator) ──────────────────────
+// ── Thinking display helpers ─────────────────────────────────────────
+
+// Draws the thinking summary line:
+//   ● Thinking for Ns, <first reasoning words>…
+// In VT mode the line is overwritten in-place so elapsed time and activity
+// update live. In non-VT mode (piped input) only the first summary is
+// printed to avoid visual noise from repeated overwrite attempts.
+STATIC FUNCTION CCREPL_ThinkShow( oRender )
+   LOCAL nNow := hb_MilliSeconds()
+   LOCAL nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+   LOCAL cTime := iif( nElapsed == 0, "0s", ;
+                  iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+                  LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
+                  LTrim( Str( nElapsed % 60 ) ) + "s" ) )
+   LOCAL cSummary := CCREPL_ThinkActivity( oRender )
+   LOCAL cMsg, lVT := CCUI_ColorOn()
+   // In non-VT mode only print the summary once; subsequent updates
+   // would each land on a new line and create visual noise.
+   IF !lVT .AND. oRender[ "thinkHeaderDone" ]
+      RETURN NIL
+   ENDIF
+   oRender[ "thinkHeaderDone" ] := .T.
+   cMsg := CCUI_Color( "●", "97" ) + " Thinking for " + cTime
+   IF !Empty( cSummary )
+      cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
+   ENDIF
+   cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
+                              CCUI_Pal( "dim" ) )   // … (ellipsis)
+   IF lVT
+      CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + cMsg )
+   ELSE
+      CCREPL_Out( cMsg + Chr(10) )
+   ENDIF
+   RETURN NIL
+
+// Extracts a short activity summary from the first ~50 chars of the
+// reasoning buffer (first line only, stripped of punctuation noise).
+STATIC FUNCTION CCREPL_ThinkActivity( oRender )
+   LOCAL cBuf := oRender[ "reasoningBuf" ]
+   LOCAL nPos := hb_At( Chr(10), cBuf )
+   LOCAL cFirst, cOut
+   IF Empty( cBuf )
+      RETURN ""
+   ENDIF
+   IF nPos > 0
+      cFirst := Left( cBuf, nPos - 1 )
+   ELSE
+      cFirst := cBuf
+   ENDIF
+   cFirst := StrTran( cFirst, Chr(13), "" )
+   cFirst := AllTrim( cFirst )
+   IF hb_BLen( cFirst ) <= 60
+      RETURN cFirst
+   ENDIF
+   // truncate at a word boundary
+   cOut := hb_BLeft( cFirst, 57 )
+   nPos := hb_RAt( " ", cOut )
+   IF nPos > 30
+      cOut := hb_BLeft( cOut, nPos - 1 )
+   ENDIF
+   RETURN cOut
 
 // Prints the trailing partial reasoning line (not yet terminated by \n)
-// as a final dimmed line, then clears the buffer state. Called when
-// thinking transitions to visible output (text_delta or tool_call).
+// as a final indented line, then reprints the summary header with a green
+// bullet to signal that thinking completed. Called when thinking
+// transitions to visible output (text_delta or tool_call).
 STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
+   LOCAL cTail := CCREPL_ThinkPending( oRender )
+   IF !Empty( cTail )
+      CCREPL_Out( CCUI_Color( "  " + Chr( 226 ) + Chr( 143 ) + Chr( 191 ) + ;
+                  "  " + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
+   ENDIF
+   // Reprint the summary with a green bullet to mark thinking as done
+   CCREPL_ThinkDone( oRender )
+   oRender[ "reasoningBuf" ]   := ""
+   oRender[ "reasoningLines" ] := 0
+   RETURN NIL
+
+// Reprints the thinking summary line with a green bullet (completed).
+STATIC FUNCTION CCREPL_ThinkDone( oRender )
+   LOCAL nNow := hb_MilliSeconds()
+   LOCAL nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
+   LOCAL cTime := iif( nElapsed == 0, "0s", ;
+                  iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+                  LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
+                  LTrim( Str( nElapsed % 60 ) ) + "s" ) )
+   LOCAL cSummary := CCREPL_ThinkActivity( oRender )
+   LOCAL cMsg
+   IF oRender[ "reasoningChars" ] == 0
+      RETURN NIL   // never had any reasoning — nothing to mark as done
+   ENDIF
+   cMsg := CCUI_Color( "●", "92" ) + " Thinking for " + cTime
+   IF !Empty( cSummary )
+      cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
+   ENDIF
+   cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
+                              CCUI_Pal( "dim" ) )   // … (ellipsis)
+   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + cMsg + Chr(10) )
+   RETURN NIL
+
+// Returns the trailing unprinted portion of the reasoning buffer
+// (everything after the last newline). Used for the partial line at
+// the end of thinking.
+STATIC FUNCTION CCREPL_ThinkPending( oRender )
    LOCAL cBuf := oRender[ "reasoningBuf" ]
    LOCAL nPos := hb_RAt( Chr(10), cBuf )
    LOCAL cTail
@@ -1985,117 +2075,76 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
       cTail := cBuf
    ENDIF
    cTail := StrTran( cTail, Chr(13), "" )
-   IF !Empty( cTail )
-      CCREPL_Out( CCUI_Color( "  " + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
-   ENDIF
-   oRender[ "reasoningBuf" ]   := ""
-   oRender[ "reasoningLines" ] := 0
-   RETURN NIL
+   RETURN cTail
 
 // Prints complete reasoning lines accumulated since the last flush. Each
-// full line is output dimmed and indented; the trailing partial line
-// (not yet terminated by \n) stays in the buffer for the spinner.
+// line is output dimmed with a "  ⎿  " prefix (the ⎿ glyph is U+23BF).
+// Lines are wrapped at terminal width so the full text is visible without
+// horizontal scrolling.
 STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
    LOCAL cBuf := oRender[ "reasoningBuf" ]
    LOCAL nPrinted := oRender[ "reasoningLines" ]
-   LOCAL nPos, nStart, nTotal, cLine, nLine
-   // count total newlines in the buffer
+   LOCAL nTotal, nStart, nPos, cLine, nLine
+   LOCAL nWrap := CCREPL_Cols() - 6   // indent(4) + ⎿ glyph(2) ≈ 6
+   // Count newlines (complete segments)
    nTotal := 0 ; nStart := 1
    DO WHILE ( nPos := hb_At( Chr(10), cBuf, nStart ) ) > 0
-      nTotal++
-      nStart := nPos + 1
+      nTotal++ ; nStart := nPos + 1
    ENDDO
-   // nothing new to print
-   IF nTotal <= nPrinted
+   IF nTotal <= nPrinted .AND. Empty( CCREPL_ThinkPending( oRender ) )
       RETURN NIL
    ENDIF
-   // print each new complete line (dimmed, indented)
+   // Print each new complete segment, word-wrapped
    nStart := 1 ; nLine := 0
    DO WHILE ( nPos := hb_At( Chr(10), cBuf, nStart ) ) > 0
       nLine++
       IF nLine > nPrinted
          cLine := SubStr( cBuf, nStart, nPos - nStart )
-         cLine := StrTran( cLine, Chr(13), "" )   // strip stray CR
-         IF !Empty( cLine )
-            CCREPL_Out( CCUI_Color( "  " + cLine, CCUI_Pal( "dim" ) ) + Chr(10) )
-         ENDIF
+         cLine := StrTran( cLine, Chr(13), "" )
+         CCREPL_ThinkPrintWrapped( cLine, nWrap )
       ENDIF
       nStart := nPos + 1
    ENDDO
    oRender[ "reasoningLines" ] := nTotal
    RETURN NIL
 
-// Returns a label for the spinner line formed from the trailing unprinted
-// portion of the reasoning buffer (everything after the last newline).
-// Falls back to "Thinking..." when the buffer is empty.
-STATIC FUNCTION CCREPL_ReasoningLabel( oRender )
-   LOCAL cBuf := oRender[ "reasoningBuf" ]
-   LOCAL nPos := hb_RAt( Chr(10), cBuf )
-   LOCAL cTail, nMax, nLen, cOut, nCut
-   // extract the trailing partial line
-   IF nPos > 0
-      cTail := SubStr( cBuf, nPos + 1 )
-   ELSE
-      cTail := cBuf
+// Prints a single reasoning line, word-wrapped to nWrap chars per visual
+// line. Each visual line gets the "  ⎿  " dimmed prefix.
+STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap )
+   LOCAL cPrefix := "  " + Chr( 226 ) + Chr( 143 ) + Chr( 191 ) + "  "
+   LOCAL cLine, nLen, nSpace
+   IF nWrap < 20 ; nWrap := 20 ; ENDIF
+   IF Empty( cText )
+      RETURN NIL
    ENDIF
-   cTail := StrTran( cTail, Chr(13), "" )
-   IF Empty( cTail )
-      RETURN "Thinking..."
-   ENDIF
-   nMax := CCREPL_Cols() - 22   // spinner(2) + tok(10) + time(5) + spaces(5)
-   IF nMax < 20
-      nMax := 20
-   ENDIF
-   nLen := hb_BLen( cTail )
-   IF nLen <= nMax
-      RETURN cTail
-   ENDIF
-   // Show the trailing portion with "…" prefix, cut at a word boundary
-   cOut := hb_BRight( cTail, nMax - 1 )
-   IF hb_BCode( hb_BLeft( cOut, 1 ) ) >= 128 .AND. hb_BCode( hb_BLeft( cOut, 1 ) ) < 192
-      cOut := hb_BSubStr( cOut, 2 )
-   ENDIF
-   nCut := hb_At( " ", cOut, 1 )
-   IF nCut > 0 .AND. nCut < 20
-      cOut := hb_BSubStr( cOut, nCut + 1 )
-   ENDIF
-   RETURN "…" + cOut
-
-// Draws the spinner line at the current cursor position. cExtra is an
-// optional label like "Thinking..." or the trailing reasoning text.
-// The frame advances at most every 100ms so the spinner turns at a
-// relaxed pace regardless of token speed.
-STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
-   LOCAL cFrame, cMsg, nEst, nNow, nElapsed
-   // throttle: only advance the frame if at least 100ms have passed
-   nNow := hb_MilliSeconds()
-   IF nNow - oRender[ "lastFrameTime" ] >= 100
-      oRender[ "spinnerFrame" ] := iif( oRender[ "spinnerFrame" ] < ;
-                                        Len( s_aSpinnerFrames ), ;
-                                        oRender[ "spinnerFrame" ] + 1, 1 )
-      oRender[ "lastFrameTime" ] := nNow
-   ENDIF
-   cFrame := s_aSpinnerFrames[ oRender[ "spinnerFrame" ] ]
-   cMsg := cFrame + " " + iif( Empty( cExtra ), "", cExtra + " " )
-   // show estimated token count from reasoning chars (rough: ~4 chars/token)
-   IF oRender[ "reasoningChars" ] > 0
-      nEst := Int( oRender[ "reasoningChars" ] / 4 )
-      cMsg += CCUI_Color( "[" + LTrim( Str( nEst ) ) + " tok]", "90" )
-   ENDIF
-   // append elapsed time since the turn began so the user can see the
-   // wall-clock cost growing in real time
-   IF oRender[ "spinnerStartMs" ] > 0
-      nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-      cMsg += CCUI_Color( " " + LTrim( Str( nElapsed ) ) + "s", "90" )
-   ENDIF
-   // overwrite the current line with the spinner
-   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
-               CCUI_Color( cMsg, CCUI_Pal( "dim" ) ) )
+   DO WHILE .T.
+      cText := AllTrim( cText )
+      nLen := hb_BLen( cText )
+      IF nLen <= nWrap
+         CCREPL_Out( CCUI_Color( cPrefix + cText, CCUI_Pal( "dim" ) ) + Chr(10) )
+         RETURN NIL
+      ENDIF
+      // find the last space within nWrap chars
+      cLine := hb_BLeft( cText, nWrap )
+      nSpace := hb_RAt( " ", cLine )
+      IF nSpace < 20
+         // no good break — hard-cut at nWrap
+         cLine := hb_BLeft( cText, nWrap )
+         cText := hb_BSubStr( cText, nWrap + 1 )
+      ELSE
+         cLine := hb_BLeft( cText, nSpace - 1 )
+         cText := hb_BSubStr( cText, nSpace + 1 )
+      ENDIF
+      CCREPL_Out( CCUI_Color( cPrefix + cLine, CCUI_Pal( "dim" ) ) + Chr(10) )
+   ENDDO
    RETURN NIL
 
-// Clears the spinner line (erases it so normal output can follow).
+// Compatibility stubs — spinner functions are no longer used but the
+// render state still carries the fields for other code paths.
+STATIC FUNCTION CCREPL_SpinnerShow( oRender, cExtra )
+   HB_SYMBOL_UNUSED( oRender ) ; HB_SYMBOL_UNUSED( cExtra )
+   RETURN NIL
 STATIC FUNCTION CCREPL_SpinnerClear()
-   CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) )
    RETURN NIL
 
 // After a turn completes, optionally prints a compact token-usage bar when
