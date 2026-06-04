@@ -1879,7 +1879,8 @@ STATIC FUNCTION CCREPL_RenderNew()
             "reasoningChars" => 0, "reasoningBuf" => "", ;
             "reasoningLines" => 0, ;
             "thinkHeaderDone" => .F., ;
-            "thinkLastUpdate" => 0, ;   // ms timestamp of last header update
+            "thinkCornerUsed" => .F., ;  // .T. after first ⎿ line printed
+            "thinkLastUpdate" => 0, ;
             "lastUsage" => {=>}, ;
             "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
@@ -1899,6 +1900,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "reasoningBuf" ]   := ""
       oRender[ "reasoningLines" ] := 0
       oRender[ "thinkHeaderDone" ] := .F.
+      oRender[ "thinkCornerUsed" ] := .F.
       oRender[ "thinkLastUpdate" ] := 0
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
       oRender[ "spinner" ] := .F.
@@ -1977,7 +1979,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 // Subsequent calls are no-ops — the header stays as first printed.
 STATIC FUNCTION CCREPL_ThinkShow( oRender )
    LOCAL nNow := hb_MilliSeconds()
-   LOCAL nElapsed, cTime, cSummary, cMsg
+   LOCAL nElapsed, cTime, cMsg
    IF oRender[ "thinkHeaderDone" ]
       RETURN NIL
    ENDIF
@@ -1986,43 +1988,12 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
              iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
              LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
              LTrim( Str( nElapsed % 60 ) ) + "s" ) )
-   cSummary := CCREPL_ThinkActivity( oRender )
    oRender[ "thinkHeaderDone" ] := .T.
    cMsg := CCUI_Color( "●", "97" ) + " Thinking for " + cTime
-   IF !Empty( cSummary )
-      cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
-   ENDIF
-   cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
-                              CCUI_Pal( "dim" ) )   // … (ellipsis)
+   cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
+                        CCUI_Pal( "dim" ) )   // … (ellipsis)
    CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
-
-// Extracts a short activity summary from the first ~50 chars of the
-// reasoning buffer (first line only, stripped of punctuation noise).
-STATIC FUNCTION CCREPL_ThinkActivity( oRender )
-   LOCAL cBuf := oRender[ "reasoningBuf" ]
-   LOCAL nPos := hb_At( Chr(10), cBuf )
-   LOCAL cFirst, cOut
-   IF Empty( cBuf )
-      RETURN ""
-   ENDIF
-   IF nPos > 0
-      cFirst := Left( cBuf, nPos - 1 )
-   ELSE
-      cFirst := cBuf
-   ENDIF
-   cFirst := StrTran( cFirst, Chr(13), "" )
-   cFirst := AllTrim( cFirst )
-   IF hb_BLen( cFirst ) <= 60
-      RETURN cFirst
-   ENDIF
-   // truncate at a word boundary
-   cOut := hb_BLeft( cFirst, 57 )
-   nPos := hb_RAt( " ", cOut )
-   IF nPos > 30
-      cOut := hb_BLeft( cOut, nPos - 1 )
-   ENDIF
-   RETURN cOut
 
 // Prints the trailing partial reasoning line (not yet terminated by \n)
 // as a final indented line, then reprints the summary header with a green
@@ -2030,9 +2001,15 @@ STATIC FUNCTION CCREPL_ThinkActivity( oRender )
 // transitions to visible output (text_delta or tool_call).
 STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    LOCAL cTail := CCREPL_ThinkPending( oRender )
+   LOCAL cPrefix
    IF !Empty( cTail )
-      CCREPL_Out( CCUI_Color( "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + ;
-                  "  " + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
+      IF !oRender[ "thinkCornerUsed" ]
+         cPrefix := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
+         oRender[ "thinkCornerUsed" ] := .T.
+      ELSE
+         cPrefix := "     "
+      ENDIF
+      CCREPL_Out( CCUI_Color( cPrefix + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
    ENDIF
    // Reprint the summary with a green bullet to mark thinking as done
    CCREPL_ThinkDone( oRender )
@@ -2043,11 +2020,10 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
 // Reprints the thinking summary line with a green bullet (completed).
 STATIC FUNCTION CCREPL_ThinkDone( oRender )
    LOCAL nNow := hb_MilliSeconds()
-   LOCAL nElapsed, cTime, cSummary, cMsg
+   LOCAL nElapsed, cTime, cMsg
    IF oRender[ "reasoningChars" ] == 0
       RETURN NIL   // never had any reasoning — nothing to mark as done
    ENDIF
-   // Already printed the done line for this reasoning round
    IF oRender[ "thinkHeaderDone" ] .AND. oRender[ "reasoningBuf" ] == ""
       RETURN NIL
    ENDIF
@@ -2056,13 +2032,9 @@ STATIC FUNCTION CCREPL_ThinkDone( oRender )
              iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
              LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
              LTrim( Str( nElapsed % 60 ) ) + "s" ) )
-   cSummary := CCREPL_ThinkActivity( oRender )
    cMsg := CCUI_Color( "●", "92" ) + " Thinking for " + cTime
-   IF !Empty( cSummary )
-      cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
-   ENDIF
-   cMsg += " " + CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
-                              CCUI_Pal( "dim" ) )   // … (ellipsis)
+   cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
+                        CCUI_Pal( "dim" ) )   // … (ellipsis)
    CCREPL_Out( cMsg + Chr(10) )
    RETURN NIL
 
@@ -2105,7 +2077,7 @@ STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
       IF nLine > nPrinted
          cLine := SubStr( cBuf, nStart, nPos - nStart )
          cLine := StrTran( cLine, Chr(13), "" )
-         CCREPL_ThinkPrintWrapped( cLine, nWrap )
+         CCREPL_ThinkPrintWrapped( cLine, nWrap, oRender )
       ENDIF
       nStart := nPos + 1
    ENDDO
@@ -2114,12 +2086,21 @@ STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
 
 // Prints a single reasoning line, word-wrapped to nWrap chars per visual
 // line. Each visual line gets the "  ⎿  " dimmed prefix.
-STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap )
-   LOCAL cPrefix := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
-   LOCAL cLine, nLen, nSpace
+STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
+   LOCAL cPFirst := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
+   LOCAL cPCont  := "     "   // 5 spaces to align with text after first prefix
+   LOCAL cPrefix, cLine, nLen, nSpace
    IF nWrap < 20 ; nWrap := 20 ; ENDIF
    IF Empty( cText )
       RETURN NIL
+   ENDIF
+   // first reasoning line of the turn gets the corner glyph;
+   // all subsequent lines (including wraps) use plain spaces
+   IF !oRender[ "thinkCornerUsed" ]
+      cPrefix := cPFirst
+      oRender[ "thinkCornerUsed" ] := .T.
+   ELSE
+      cPrefix := cPCont
    ENDIF
    DO WHILE .T.
       cText := AllTrim( cText )
@@ -2128,11 +2109,9 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap )
          CCREPL_Out( CCUI_Color( cPrefix + cText, CCUI_Pal( "dim" ) ) + Chr(10) )
          RETURN NIL
       ENDIF
-      // find the last space within nWrap chars
       cLine := hb_BLeft( cText, nWrap )
       nSpace := hb_RAt( " ", cLine )
       IF nSpace < 20
-         // no good break — hard-cut at nWrap
          cLine := hb_BLeft( cText, nWrap )
          cText := hb_BSubStr( cText, nWrap + 1 )
       ELSE
@@ -2140,6 +2119,7 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap )
          cText := hb_BSubStr( cText, nSpace + 1 )
       ENDIF
       CCREPL_Out( CCUI_Color( cPrefix + cLine, CCUI_Pal( "dim" ) ) + Chr(10) )
+      cPrefix := cPCont   // continuation lines use plain spaces
    ENDDO
    RETURN NIL
 
