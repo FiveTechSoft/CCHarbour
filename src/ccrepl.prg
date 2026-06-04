@@ -180,7 +180,6 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          IF CCTODO_HasOpen()
             CCREPL_Out( CCUI_TodoBlock( CCTODO_Get() ) )
          ENDIF
-         CCREPL_Out( CCUI_TipLine( CCUI_TipAt( ++s_nTipIdx ) ) )
          // seed the box editor with the model's "Suggested next:" so it shows
          // as a green translucent prompt the user can Tab-accept or replace
          IF !Empty( cSuggest )
