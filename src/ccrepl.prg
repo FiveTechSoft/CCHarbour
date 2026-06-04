@@ -407,6 +407,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
 // accumulates usage, and returns { result, render }.
 STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessages, oPrompt )
    LOCAL hRes, oRender, hOpts, nTurnStartMs, nTurnMs
+   LOCAL aWithGoal, nUser
    oRender := CCREPL_RenderNew()
    hOpts := { "model" => cModel, ;
               "tools" => CCTOOLS_Schemas( oReg ), ;
@@ -415,9 +416,21 @@ STATIC FUNCTION CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, aMessage
    IF oPrompt != NIL
       hOpts[ "interrupt_check" ] := {|| CCPROMPT_Interrupted( oPrompt ) }
    ENDIF
+   // Help small/local models stay on task: when the conversation has
+   // tool calls (multi-turn), inject the original user request as a
+   // goal reminder right after the system prompt.
+   aWithGoal := aMessages
+   nUser := CCREPL_FirstUserMsg( aMessages )
+   IF Len( aMessages ) > 3 .AND. nUser > 0
+      aWithGoal := AClone( aMessages )
+      hb_AIns( aWithGoal, 2, { "role" => "system", ;
+         "content" => "IMPORTANT: Your task is: " + ;
+         hb_CStr( aMessages[ nUser ][ "content" ] ) + ;
+         ". Work on this until it is DONE. Do NOT ask what to do next." }, .T. )
+   ENDIF
    CCTool_DispatchResetCount()   // reset per-turn dispatch_agent counter
    nTurnStartMs := hb_MilliSeconds()
-   hRes := CC_AgentRun( oClient, aMessages, hOpts, ;
+   hRes := CC_AgentRun( oClient, aWithGoal, hOpts, ;
       {| hEv | CCREPL_RenderEv( hEv, oRender ), ;
                iif( oPrompt != NIL, CCPROMPT_Poll( oPrompt ), NIL ) } )
    // any narration left in the buffer was the final answer (no tool call
@@ -2002,6 +2015,19 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
 
    ENDCASE
    RETURN NIL
+
+// Returns the 1-based index of the first "user" role message in the
+// array, or 0 when none is found. Used to extract the original task
+// for goal injection.
+STATIC FUNCTION CCREPL_FirstUserMsg( aMsgs )
+   LOCAL i
+   FOR i := 1 TO Len( aMsgs )
+      IF ValType( aMsgs[ i ] ) == "H" .AND. ;
+         hb_HGetDef( aMsgs[ i ], "role", "" ) == "user"
+         RETURN i
+      ENDIF
+   NEXT
+   RETURN 0
 
 // ── Thinking display helpers ─────────────────────────────────────────
 
