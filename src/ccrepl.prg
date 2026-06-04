@@ -1923,16 +1923,8 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       RETURN NIL
    ENDIF
    cType := hEv[ "type" ]
-   // blink the working bullet on events, throttled to 300ms so it
-   // doesn't flicker too fast during rapid streaming
-   IF oRender[ "spinner" ] .AND. cType != "iteration_start"
-      nNow := hb_MilliSeconds()
-      IF nNow - oRender[ "lastFrameTime" ] >= 300
-         oRender[ "spinnerFrame" ]++
-         oRender[ "lastFrameTime" ] := nNow
-         CCREPL_WorkBlink( oRender )
-      ENDIF
-   ENDIF
+   // blink removed — static working line is simpler and more reliable
+   // than VT-overwrite animation with the box prompt cursor system
    DO CASE
 
    CASE cType == "iteration_start"
@@ -1948,10 +1940,11 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       IF !oRender[ "spinner" ]
          oRender[ "spinner" ] := .T.
          oRender[ "spinnerFrame" ] := 0
-         // no trailing newline — cursor stays on this line so blink
-         // overwrites in place without needing ESC[1A
+         // trailing newline so the next CCREPL_Out (ThinkShow, etc.)
+         // starts on the line below, not on the same line
          CCREPL_Out( Chr(10) + CCUI_Color( "●", "92" ) + " Working" + ;
-            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
+            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
+            Chr(10) )
       ENDIF
       CCREPL_ThinkShow( oRender )
 
@@ -2194,8 +2187,6 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
 // usage events during streaming to create a visible blink effect.
 STATIC FUNCTION CCREPL_WorkBlink( oRender )
    LOCAL cBullet := iif( oRender[ "spinnerFrame" ] % 2 == 0, "●", "○" )
-   // overwrite the same physical line (no ESC[1A needed —
-   // the initial line has no trailing newline)
    CCREPL_Out( CCUI_VT( "1G" ) + CCUI_VT( "K" ) + ;
       CCUI_Color( cBullet, "92" ) + " Working" + ;
       CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) )
