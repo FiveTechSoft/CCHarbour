@@ -1878,7 +1878,8 @@ STATIC FUNCTION CCREPL_RenderNew()
             "spinner" => .F., "spinnerFrame" => 1, ;
             "reasoningChars" => 0, "reasoningBuf" => "", ;
             "reasoningLines" => 0, ;
-            "thinkHeaderDone" => .F., ;   // .T. after first summary printed
+            "thinkHeaderDone" => .F., ;
+            "thinkLastUpdate" => 0, ;   // ms timestamp of last header update
             "lastUsage" => {=>}, ;
             "lastFrameTime" => 0, "spinnerStartMs" => 0, ;
             "pendingText" => "" }   // narration buffered for the next tool block
@@ -1898,6 +1899,7 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "reasoningBuf" ]   := ""
       oRender[ "reasoningLines" ] := 0
       oRender[ "thinkHeaderDone" ] := .F.
+      oRender[ "thinkLastUpdate" ] := 0
       oRender[ "spinnerStartMs" ] := hb_MilliSeconds()
       oRender[ "spinner" ] := .F.
       CCREPL_ThinkShow( oRender )
@@ -1983,12 +1985,15 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
                   LTrim( Str( nElapsed % 60 ) ) + "s" ) )
    LOCAL cSummary := CCREPL_ThinkActivity( oRender )
    LOCAL cMsg, lVT := CCUI_ColorOn()
-   // In non-VT mode only print the summary once; subsequent updates
-   // would each land on a new line and create visual noise.
-   IF !lVT .AND. oRender[ "thinkHeaderDone" ]
-      RETURN NIL
+   // Throttle: update the header at most once every 2 seconds.
+   // In VT mode we overwrite in place so rapid updates are cheap
+   // but still unnecessary; in non-VT mode each update is a new line.
+   IF oRender[ "thinkHeaderDone" ]
+      IF !lVT ; RETURN NIL ; ENDIF
+      IF nNow - oRender[ "thinkLastUpdate" ] < 2000 ; RETURN NIL ; ENDIF
    ENDIF
    oRender[ "thinkHeaderDone" ] := .T.
+   oRender[ "thinkLastUpdate" ] := nNow
    cMsg := CCUI_Color( "●", "97" ) + " Thinking for " + cTime
    IF !Empty( cSummary )
       cMsg += ", " + CCUI_Color( cSummary, CCUI_Pal( "dim" ) )
@@ -2036,7 +2041,7 @@ STATIC FUNCTION CCREPL_ThinkActivity( oRender )
 STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
    LOCAL cTail := CCREPL_ThinkPending( oRender )
    IF !Empty( cTail )
-      CCREPL_Out( CCUI_Color( "  " + Chr( 226 ) + Chr( 143 ) + Chr( 191 ) + ;
+      CCREPL_Out( CCUI_Color( "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + ;
                   "  " + cTail, CCUI_Pal( "dim" ) ) + Chr(10) )
    ENDIF
    // Reprint the summary with a green bullet to mark thinking as done
@@ -2116,7 +2121,7 @@ STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
 // Prints a single reasoning line, word-wrapped to nWrap chars per visual
 // line. Each visual line gets the "  ⎿  " dimmed prefix.
 STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap )
-   LOCAL cPrefix := "  " + Chr( 226 ) + Chr( 143 ) + Chr( 191 ) + "  "
+   LOCAL cPrefix := "  " + Chr( 226 ) + Chr( 142 ) + Chr( 191 ) + "  "
    LOCAL cLine, nLen, nSpace
    IF nWrap < 20 ; nWrap := 20 ; ENDIF
    IF Empty( cText )
