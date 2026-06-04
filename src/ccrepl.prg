@@ -1984,12 +1984,12 @@ STATIC FUNCTION CCREPL_ThinkShow( oRender )
       RETURN NIL
    ENDIF
    nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   cTime := iif( nElapsed == 0, "0s", ;
-             iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+   cTime := iif( nElapsed == 0, "", ;
+             " for " + iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
              LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
              LTrim( Str( nElapsed % 60 ) ) + "s" ) )
    oRender[ "thinkHeaderDone" ] := .T.
-   cMsg := CCUI_Color( "●", "97" ) + " Thinking for " + cTime
+   cMsg := CCUI_Color( "●", "97" ) + " Thinking" + cTime
    cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
    CCREPL_Out( cMsg + Chr(10) )
@@ -2028,11 +2028,11 @@ STATIC FUNCTION CCREPL_ThinkDone( oRender )
       RETURN NIL
    ENDIF
    nElapsed := Int( ( nNow - oRender[ "spinnerStartMs" ] ) / 1000 )
-   cTime := iif( nElapsed == 0, "0s", ;
-             iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
+   cTime := iif( nElapsed == 0, "", ;
+             " for " + iif( nElapsed < 60, LTrim( Str( nElapsed ) ) + "s", ;
              LTrim( Str( Int( nElapsed / 60 ) ) ) + "m " + ;
              LTrim( Str( nElapsed % 60 ) ) + "s" ) )
-   cMsg := CCUI_Color( "●", "92" ) + " Thinking for " + cTime
+   cMsg := CCUI_Color( "●", "92" ) + " Thinking" + cTime
    cMsg += CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), ;
                         CCUI_Pal( "dim" ) )   // … (ellipsis)
    CCREPL_Out( cMsg + Chr(10) )
