@@ -1,7 +1,7 @@
 <h1 align="center">CCHarbour</h1>
 
 <p align="center">
-  <strong>A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary that runs on Windows, macOS and Linux, written in Harbour. It can also be embedded into a Harbour and FWH (or any other GUI) application to bring agentic AI directly into the app.</strong>
+  <strong>A Claude Code-style agentic coding assistant — in your terminal, in a single ~2 MB binary that runs on Windows, macOS and Linux, written in Harbour. It can also be embedded into Harbour and FWH (or any other GUI) applications to bring agentic AI directly into your apps.</strong>
 </p>
 
 <p align="center">
