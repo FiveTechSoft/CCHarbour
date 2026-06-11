@@ -2288,15 +2288,15 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
          Lower( hb_CStr( hEv[ "name" ] ) ) == "propose_agents"
          CCMD_Flush( oRender[ "md" ] )
       ELSE
-         // bullet line: ● Running <name>… (white, active)
-         CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + ;
+         // bullet line: ● Running <name>… (white, active) on the faint
+         // actions-panel tint (web "acciones" panel parity)
+         CCREPL_Out( Chr(10) + CCREPL_ToolCard( CCUI_Color( "●", "97" ) + ;
             " Running " + hb_CStr( hEv[ "name" ] ) + ;
-            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) + ;
-            Chr(10) )
+            CCUI_Color( Chr( 226 ) + Chr( 128 ) + Chr( 166 ), CCUI_Pal( "dim" ) ) ) )
          // tool content below (command + explanation, no separator)
-         CCREPL_Out( CCUI_ToolContentBlock( hEv[ "arguments" ], ;
+         CCREPL_Out( CCREPL_ToolCard( CCUI_ToolContentBlock( hEv[ "arguments" ], ;
             oRender[ "pendingText" ] + CCMD_Flush( oRender[ "md" ] ), ;
-            CCREPL_Cols() ) )
+            CCREPL_Cols() ) ) )
       ENDIF
       oRender[ "pendingText" ] := ""
       oRender[ "inText" ] := .F.
@@ -2306,13 +2306,13 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       oRender[ "inText" ] := .F.
       cId := hb_CStr( hb_HGetDef( hEv, "id", "" ) )
       // completed line: ✓ <name> <summary> (green check, web parity)
-      CCREPL_Out( CCUI_Color( Chr(226)+Chr(156)+Chr(147), "92" ) + " " + ;
+      CCREPL_Out( CCREPL_ToolCard( CCUI_Color( Chr(226)+Chr(156)+Chr(147), "92" ) + " " + ;
          hb_HGetDef( oRender[ "tools" ], cId, "" ) + " " + ;
          CCUI_Color( CCUI_Summarize( hb_CStr( hEv[ "content" ] ), 60 ), ;
-                     CCUI_Pal( "dim" ) ) + Chr(10) )
-      CCREPL_Out( CCUI_ResultSummary( ;
+                     CCUI_Pal( "dim" ) ) ) )
+      CCREPL_Out( CCREPL_ToolCard( CCUI_ResultSummary( ;
          hb_HGetDef( oRender[ "tools" ], cId, "" ), ;
-         hb_CStr( hEv[ "content" ] ) ) )
+         hb_CStr( hEv[ "content" ] ) ) ) )
 
    OTHERWISE
       CCREPL_FlushPending( oRender )
@@ -2520,21 +2520,21 @@ STATIC FUNCTION CCREPL_Demo()
    hb_idleSleep( 0.35 )
    // tool action lines + diff
    CCREPL_Out( CCREPL_UserCard( "Crea bienvenida.md y luego editalo" ) )
-   CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + " Running write" + ;
-      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) + Chr(10) )
-   CCREPL_Out( CCUI_Color( cCheck, "92" ) + " write " + ;
-      CCUI_Color( "Created bienvenida.md (3 lines)", CCUI_Pal( "dim" ) ) + Chr(10) )
+   CCREPL_Out( Chr(10) + CCREPL_ToolCard( CCUI_Color( "●", "97" ) + " Running write" + ;
+      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) ) )
+   CCREPL_Out( CCREPL_ToolCard( CCUI_Color( cCheck, "92" ) + " write " + ;
+      CCUI_Color( "Created bienvenida.md (3 lines)", CCUI_Pal( "dim" ) ) ) )
    hb_idleSleep( 0.35 )
-   CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + " Running edit" + ;
-      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) + Chr(10) )
-   CCREPL_Out( CCUI_Color( cCheck, "92" ) + " edit " + ;
-      CCUI_Color( "bienvenida.md: 1 removed, 3 added", CCUI_Pal( "dim" ) ) + Chr(10) )
-   CCREPL_Out( CCUI_ResultSummary( "edit", ;
+   CCREPL_Out( Chr(10) + CCREPL_ToolCard( CCUI_Color( "●", "97" ) + " Running edit" + ;
+      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) ) )
+   CCREPL_Out( CCREPL_ToolCard( CCUI_Color( cCheck, "92" ) + " edit " + ;
+      CCUI_Color( "bienvenida.md: 1 removed, 3 added", CCUI_Pal( "dim" ) ) ) )
+   CCREPL_Out( CCREPL_ToolCard( CCUI_ResultSummary( "edit", ;
       "     1   # CCHarbour" + Chr(10) + ;
       "     2 - Agente IA en tu terminal." + Chr(10) + ;
       "     2 + Agente IA en tu terminal, con cards como la web." + Chr(10) + ;
       "     3 + " + Chr(10) + ;
-      "     4 + Comandos: /plan, /run, /cost, /demo" ) )
+      "     4 + Comandos: /plan, /run, /cost, /demo" ) ) )
    hb_idleSleep( 0.35 )
    // assistant reply card
    CCREPL_Out( Chr(10) )
@@ -2580,6 +2580,22 @@ STATIC FUNCTION CCREPL_Demo()
    s_lGoalLooping := lOldLoop
    s_aPlanSteps   := aOldPlan
    RETURN NIL
+
+// Paints a tool-action line/block on the faint actions-panel tint (the web
+// version's collapsible "acciones" panel). Pass-through when colour is off.
+// Always ends in exactly one LF.
+STATIC FUNCTION CCREPL_ToolCard( cText )
+   cText := hb_CStr( cText )
+   DO WHILE Right( cText, 1 ) == Chr(10) .OR. Right( cText, 1 ) == Chr(13)
+      cText := hb_StrShrink( cText, 1 )
+   ENDDO
+   IF Empty( cText )
+      RETURN ""
+   ENDIF
+   IF !CCUI_ColorOn()
+      RETURN cText + Chr(10)
+   ENDIF
+   RETURN CCUI_Card( cText, "card_tool", Min( CCREPL_Cols() - 2, 100 ) ) + Chr(10)
 
 // The user's prompt echoed as a blue bubble (web addUser parity): white
 // text on a blue card. Plain "> text" line when colour is off. Ends in LF.
