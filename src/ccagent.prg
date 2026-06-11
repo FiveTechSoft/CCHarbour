@@ -2,11 +2,16 @@
 // stops or the iteration cap is reached. Tool execution is added in Task 3,
 // API-failure handling in Task 4.
 // hOpts: { model, max_iterations, tools, tool_executor, temperature,
-//          max_tokens, transport }
+//          max_tokens, transport, interrupt_check, inject }
+// "inject" (optional codeblock): polled at the start of every iteration; when
+// it returns a non-empty string, that text is appended as a user message
+// before the next model request - a mid-run interjection (e.g. the GUI's
+// /btw "what are you doing?") that does not interrupt the loop.
 // Returns hResult: { success, messages, content, stop_reason, iterations,
 //                    usage, error_type, message }
 FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
    LOCAL hResult, aMsgs, nIter := 0, nMax, hUsage, hChat, hChatParams, tc, cRes, bInterrupt
+   LOCAL bInject, cInject
 
    IF ValType( hOpts ) != "H"
       hOpts := {=>}
@@ -34,6 +39,9 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
    bInterrupt := iif( hb_HHasKey( hOpts, "interrupt_check" ) .AND. ;
                       ValType( hOpts[ "interrupt_check" ] ) == "B", ;
                       hOpts[ "interrupt_check" ], NIL )
+   bInject    := iif( hb_HHasKey( hOpts, "inject" ) .AND. ;
+                      ValType( hOpts[ "inject" ] ) == "B", ;
+                      hOpts[ "inject" ], NIL )
 
    DO WHILE nIter < nMax
       IF bInterrupt != NIL .AND. Eval( bInterrupt )
@@ -42,6 +50,15 @@ FUNCTION CC_AgentRun( oClient, aMessages, hOpts, bOnEvent )
       ENDIF
       nIter++
       CC_Emit( bOnEvent, { "type" => "iteration_start", "n" => nIter } )
+
+      // mid-run user interjection: append it before the next request
+      IF bInject != NIL
+         cInject := Eval( bInject )
+         IF ValType( cInject ) == "C" .AND. !Empty( cInject )
+            AAdd( aMsgs, { "role" => "user", "content" => cInject } )
+            CC_Emit( bOnEvent, { "type" => "inject", "text" => cInject } )
+         ENDIF
+      ENDIF
 
       hChatParams := {=>}
       IF hb_HHasKey( hOpts, "transport" )
