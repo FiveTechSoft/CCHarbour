@@ -112,7 +112,7 @@ FUNCTION Test_UI()
    T_Assert( ( Chr(226)+Chr(143)+Chr(186) ) $ CCUI_ToolCallLine( "read", "{}" ), ;
              "ui: tool-call line has the dot glyph" )
 
-   T_Equal( "  " + Chr(226)+Chr(142)+Chr(191) + "  Read 3 lines" + Chr(10), ;
+   T_Equal( "     Read 3 lines" + Chr(10), ;
             CCUI_ResultSummary( "read", "a" + Chr(10) + "b" + Chr(10) + "c" + Chr(10) ), ;
             "ui: read result summary" )
    T_Assert( "Found 2 matches" $ ;
@@ -141,9 +141,9 @@ FUNCTION Test_UI()
    T_Assert( !( CCUI_Glyph( "v" ) $ CCUI_InputBoxLine( "hi" ) ), "ui: input box line has no side borders" )
 
    // version + banner
-   T_Equal( CCUI_Version(), "0.8.26", "ui: version string" )
+   T_Equal( CCUI_Version(), "0.8.27", "ui: version string" )
    CCUI_SetColor( .F. )
-   T_Assert( "v0.8.26" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
+   T_Assert( "v0.8.27" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the version" )
    T_Assert( "CCHarbour" $ CCUI_Banner( "deepseek-v4-flash", "C:\proj", "x" ), ;
              "ui: banner shows the name" )

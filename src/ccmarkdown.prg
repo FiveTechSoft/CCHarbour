@@ -102,7 +102,7 @@ STATIC FUNCTION CCMD_RenderLine( oSt, cLine )
    nSuggest := hb_At( "suggested next:", Lower( cTrim ) )
    IF nSuggest > 1
       oSt[ "suggestion" ] := AllTrim( SubStr( cTrim, nSuggest + 15 ) )
-      RETURN Left( cTrim, nSuggest - 1 )   // keep text before the marker
+      RETURN AllTrim( Left( cTrim, nSuggest - 1 ) ) + Chr(10)
    ENDIF
 
    // fenced code block toggle (``` optionally followed by a language tag)

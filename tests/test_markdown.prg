@@ -56,6 +56,18 @@ FUNCTION Test_Markdown()
    T_Equal( cOut, "done." + Chr(10), "md: suggestion line not printed" )
    T_Equal( CCMD_Suggestion( oSt ), "run the tests", "md: suggestion captured" )
 
+   // suggested-prompt mid-line: gemma4 emits it without a leading newline
+   oSt := CCMD_New()
+   cOut := CCMD_Feed( oSt, "Here is the answer. Suggested next: try /help" + Chr(10) )
+   T_Equal( cOut, "Here is the answer." + Chr(10), "md: mid-line suggestion strips marker" )
+   T_Equal( CCMD_Suggestion( oSt ), "try /help", "md: mid-line suggestion captured" )
+
+   // suggested-prompt mid-line with "suggested next:" (lowercase, gemma4 style)
+   oSt := CCMD_New()
+   cOut := CCMD_Feed( oSt, "Result is 42. suggested next: check the logs" + Chr(10) )
+   T_Equal( cOut, "Result is 42." + Chr(10), "md: mid-line lowercase suggestion strips marker" )
+   T_Equal( CCMD_Suggestion( oSt ), "check the logs", "md: mid-line lowercase suggestion captured" )
+
    // flush renders a final unterminated line
    oSt := CCMD_New()
    CCMD_Feed( oSt, "tail" )

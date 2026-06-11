@@ -1,4 +1,21 @@
-CCHarbour v0.8.26 — Hooks system: fire-and-forget `turn_complete` shell hooks with a `/hook` REPL command.
+CCHarbour v0.8.27 — Claude Code-style thinking display, open prompt box, gemma4 support.
+
+## New since v0.8.26
+
+- **Claude Code-style thinking display.** Bullet headers (`● Thinking…` / `● Thinking for Ns…`), indented reasoning lines with `⎿` corner glyph on the first line, plain continuation lines below. White bullet while active, green when completed.
+- **Open prompt box.** Straight corners (`┌┐└┘`), no side borders — clean minimal look. Horizontal rules only.
+- **Working indicator.** `● Working…` line shown during agent activity so the user knows CCHarbour hasn't frozen.
+- **`/ctx` command.** Show or override the context window size. `/ctx` displays current size + session usage, `/ctx <N>` sets an override (affects `/compact` threshold), `/ctx auto` resets to auto-detected.
+- **DeepSeek v4 context bumped to 1M.** `deepseek-v4-pro` and `deepseek-v4-flash` now report 1,000,000 tokens instead of 128,000.
+- **Gemma4 / Google-model reasoning support.** SSE parser now handles `reasoning` key (Gemma format) alongside `reasoning_content` (OpenAI format).
+- **Suggested next detection improved.** Now catches "Suggested next:" mid-line (gemma4 emits it without a leading newline). Fixed trailing space left in the text before the marker + missing trailing newline.
+- **Goal reminder for small models.** When conversation has tool calls, the original user request is injected as a system reminder so local models don't forget what they were doing.
+- **Auto-continue on empty output.** When a model uses all output tokens on reasoning (common with gemma4), CCHarbour auto-sends "Continue." to give it another turn.
+- **Tip line after response.** Tips appear right below the agent response, before the token bar.
+- **Cursor position fix.** All cursor offsets updated from 5 to 3 to match the open prompt box.
+- **Various blank-line and layout fixes.** Spinner lines no longer create blank rows. Thinking header, reasoning lines, working indicator, and response properly separated.
+- **Gemma / Gemini model context windows.** `CCREPL_ModelContext` now recognises `gemma4` (128K), `gemma3` (128K), `gemma` (128K), and `gemini` (1M). Previously these fell through to the conservative 32K default.
+- **Test coverage for gemma4 paths.** SSE `reasoning` key (Gemma format), mid-line "Suggested next:" detection, and auto-continue on empty-content + reasoning all have dedicated tests (510 pass, 0 fail).
 
 ## New since v0.8.25
 

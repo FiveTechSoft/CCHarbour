@@ -39,6 +39,13 @@ STATIC FUNCTION SSE_ThinkTool( cReasoning, cId, cName )
           'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}' + Chr(10) + ;
           "data: [DONE]" + Chr(10)
 
+// SSE for a turn that produces reasoning but no visible content and no
+// tool calls — triggers auto-continue (gemma4 common pattern).
+STATIC FUNCTION SSE_ThinkOnly( cReasoning )
+   RETURN 'data: {"choices":[{"delta":{"reasoning_content":"' + cReasoning + '"}}]}' + Chr(10) + ;
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}' + Chr(10) + ;
+          "data: [DONE]" + Chr(10)
+
 STATIC FUNCTION HttpOK()
    RETURN { "ok" => .T., "status" => 200, "curl_code" => 0, "error" => "" }
 
@@ -173,4 +180,44 @@ FUNCTION Test_Agent()
    T_Equal( hR[ "success" ], .T., "agent: interrupt -> success" )
    T_Equal( hR[ "stop_reason" ], "interrupted", "agent: interrupt stop_reason" )
    T_Equal( hR[ "iterations" ], 0, "agent: interrupt before any iteration" )
+
+   // auto-continue on empty content + reasoning: turn 1 produces only
+   // reasoning (no text, no tools), turn 2 produces the actual answer.
+   // This is the gemma4 pattern: model spends all tokens on thinking
+   // and needs a "Continue." nudge to produce the visible reply.
+   bTransport := AgentTransport( { ;
+      { "sse" => SSE_ThinkOnly( "let me think about this carefully" ), ;
+        "http" => HttpOK() }, ;
+      { "sse" => SSE_Text( "here is the answer" ), ;
+        "http" => HttpOK() } } )
+   hRes := CC_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "complex question" } }, ;
+      { "transport" => bTransport }, NIL )
+   T_Equal( hRes[ "success" ], .T., "agent: think-only -> auto-continue success" )
+   T_Equal( hRes[ "content" ], "here is the answer", "agent: think-only -> got answer" )
+   T_Equal( hRes[ "iterations" ], 2, "agent: think-only -> 2 iterations (think + answer)" )
+   T_Equal( hRes[ "stop_reason" ], "stop", "agent: think-only -> stop reason" )
+   // Messages: user, assistant(reasoning_only), user("Continue."), assistant(answer)
+   T_Equal( Len( hRes[ "messages" ] ), 4, "agent: think-only -> 4 messages" )
+   T_Equal( hRes[ "messages" ][ 3 ][ "role" ], "user", ;
+            "agent: think-only -> Continue. is a user message" )
+   T_Equal( hRes[ "messages" ][ 3 ][ "content" ], "Continue.", ;
+            "agent: think-only -> Continue. message injected" )
+
+   // auto-continue with reasoning via gemma4 "reasoning" key (not reasoning_content)
+   bTransport := AgentTransport( { ;
+      { "sse" => ;
+         'data: {"choices":[{"delta":{"reasoning":"gemma style thinking"}}]}' + Chr(10) + ;
+         'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}' + Chr(10) + ;
+         "data: [DONE]" + Chr(10), ;
+        "http" => HttpOK() }, ;
+      { "sse" => SSE_Text( "gemma answer" ), ;
+        "http" => HttpOK() } } )
+   hRes := CC_AgentRun( oClient, ;
+      { { "role" => "user", "content" => "question" } }, ;
+      { "transport" => bTransport }, NIL )
+   T_Equal( hRes[ "success" ], .T., "agent: gemma reasoning key -> auto-continue success" )
+   T_Equal( hRes[ "content" ], "gemma answer", "agent: gemma reasoning key -> got answer" )
+   T_Equal( hRes[ "iterations" ], 2, "agent: gemma reasoning key -> 2 iterations" )
+
    RETURN NIL

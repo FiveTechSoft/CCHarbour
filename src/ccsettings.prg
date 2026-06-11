@@ -9,6 +9,7 @@ FUNCTION CCSETTINGS_Defaults()
             "color"             => .T., ;
             "co_author"         => "", ;
             "shell_timeout"     => 30, ;
+            "api_timeout"       => NIL, ;  // NIL = auto: 600 for Ollama, 120 for cloud
             "compact_threshold" => 0.7, ;
             "permissions"       => { "read"  => "allow", "glob"  => "allow", ;
                                      "grep"  => "allow", "write" => "ask", ;

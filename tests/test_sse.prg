@@ -62,7 +62,7 @@ FUNCTION Test_SSE()
    CCSSE_Feed( oP, "data: [DONE]" + Chr(10), {| h | AAdd( aEvents, h ) } )
    T_Equal( aEvents[ 1 ][ "type" ], "done", "sse: done event" )
 
-   // a reasoning_content delta emits a reasoning_delta event
+   // a reasoning_content delta emits a reasoning_delta event (OpenAI format)
    aEvents := {}
    oP := CCSSE_New()
    CCSSE_Feed( oP, 'data: {"choices":[{"delta":{"reasoning_content":"hmm"}}]}' + Chr(10), ;
@@ -70,4 +70,13 @@ FUNCTION Test_SSE()
    T_Equal( Len( aEvents ), 1, "sse: one event from a reasoning delta" )
    T_Equal( aEvents[ 1 ][ "type" ], "reasoning_delta", "sse: reasoning event type" )
    T_Equal( aEvents[ 1 ][ "text" ], "hmm", "sse: reasoning delta text" )
+
+   // a "reasoning" delta (Gemma / Ollama format) also emits reasoning_delta
+   aEvents := {}
+   oP := CCSSE_New()
+   CCSSE_Feed( oP, 'data: {"choices":[{"delta":{"reasoning":"gemma thinks"}}]}' + Chr(10), ;
+               {| h | AAdd( aEvents, h ) } )
+   T_Equal( Len( aEvents ), 1, "sse: one event from gemma reasoning delta" )
+   T_Equal( aEvents[ 1 ][ "type" ], "reasoning_delta", "sse: gemma reasoning type" )
+   T_Equal( aEvents[ 1 ][ "text" ], "gemma thinks", "sse: gemma reasoning text" )
    RETURN NIL
