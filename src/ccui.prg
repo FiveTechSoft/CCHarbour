@@ -410,6 +410,9 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "card_err"   ; RETURN "48;2;58;26;26"    // error card (dark red)
    CASE cName == "card_cost"  ; RETURN "48;2;16;46;36"    // cost metrics card (emerald)
    CASE cName == "card_warn"  ; RETURN "48;2;58;46;18"    // confirmation card (amber)
+   CASE cName == "card_user"  ; RETURN "48;2;37;99;235"   // user bubble (blue-600)
+   CASE cName == "card_goal"  ; RETURN "48;2;40;36;80"    // goal card (indigo)
+   CASE cName == "card_ctx"   ; RETURN "48;2;58;32;20"    // context-critical (orange)
    ENDCASE
    RETURN "0"
 

@@ -213,7 +213,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
       // shows what the user just asked. Cooked path skipped: the line is
       // already visible in the terminal as the user typed it.
       IF !lCooked .AND. !Empty( AllTrim( hb_CStr( cLine ) ) )
-         CCREPL_Out( Chr(10) + CCUI_Color( "> " + cLine, CCUI_Pal( "user" ) ) + Chr(10) )
+         CCREPL_Out( Chr(10) + CCREPL_UserCard( cLine ) )
       ENDIF
       hAction := CCUI_ParseCommand( cLine )
       DO CASE
@@ -385,7 +385,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             IF Empty( cMsg )
                EXIT
             ENDIF
-            CCREPL_Out( CCUI_Color( "> " + cMsg, CCUI_Pal( "user" ) ) + Chr(10) )
+            CCREPL_Out( CCREPL_UserCard( cMsg ) )
             CCREPL_Out( CCUI_Color( "[handling: " + ;
                         CCUI_Summarize( cMsg, 60 ) + "]", "90" ) + Chr(10) )
             CCREPL_PushRewind( aMsgs, cMsg )
@@ -713,10 +713,21 @@ STATIC FUNCTION CCREPL_MaybeWarnCompact( hUsage, cModel )
       RETURN NIL
    ENDIF
    nPct := Int( ( nIn * 100.0 ) / nCtx )
-   CCREPL_Out( CCUI_Color( ;
-      "[context " + LTrim( Str( nPct ) ) + "% full -- run /compact to " + ;
-      "summarise old turns and free up space]", ;
-      CCUI_Pal( "warn" ) ) + Chr(10) )
+   IF CCUI_ColorOn()
+      // orange context-critical card (web contextCard parity)
+      CCREPL_Out( CCUI_Card( ;
+         CCUI_Color( "CONTEXT WINDOW CRITICAL", "1;38;2;251;146;60" ) + "   " + ;
+         CCUI_Color( LTrim( Str( nIn ) ) + " / " + LTrim( Str( nCtx ) ) + ;
+                     " tkns  (" + LTrim( Str( nPct ) ) + "%)", "2" ) + Chr(10) + ;
+         "Memory is filling up: run /compact to summarise old turns, or " + ;
+         "/clear to start fresh.", ;
+         "card_ctx", Min( CCREPL_Cols() - 2, 100 ) ) + Chr(10) )
+   ELSE
+      CCREPL_Out( CCUI_Color( ;
+         "[context " + LTrim( Str( nPct ) ) + "% full -- run /compact to " + ;
+         "summarise old turns and free up space]", ;
+         CCUI_Pal( "warn" ) ) + Chr(10) )
+   ENDIF
    s_lCompactNudged := .T.
    RETURN NIL
 
@@ -858,10 +869,19 @@ STATIC FUNCTION CCREPL_HandleCompact( aMsgs, oClient, cModel )
       AAdd( aNew, aMsgs[ i ] )
    NEXT
    s_lCompactNudged := .F.
-   CCREPL_Out( CCUI_Color( "[compacted: " + LTrim( Str( Len( aOld ) ) ) + ;
-                           " turns -> 1 summary, kept last " + ;
-                           LTrim( Str( nKeep ) ) + "]", ;
-                           CCUI_Pal( "accent" ) ) + Chr(10) )
+   IF CCUI_ColorOn()
+      // purple "context compacted" card (web compactCard parity)
+      CCREPL_Out( CCUI_Card( ;
+         CCUI_Color( "CONTEXT COMPACTED", "1;38;2;192;132;252" ) + Chr(10) + ;
+         CCUI_Color( LTrim( Str( Len( aOld ) ) ) + " turns -> 1 summary, " + ;
+                     "kept last " + LTrim( Str( nKeep ) ) + " verbatim", "2" ), ;
+         "card_think", Min( CCREPL_Cols() - 2, 100 ) ) + Chr(10) )
+   ELSE
+      CCREPL_Out( CCUI_Color( "[compacted: " + LTrim( Str( Len( aOld ) ) ) + ;
+                              " turns -> 1 summary, kept last " + ;
+                              LTrim( Str( nKeep ) ) + "]", ;
+                              CCUI_Pal( "accent" ) ) + Chr(10) )
+   ENDIF
    RETURN aNew
 
 // Joins an array of strings with cSep. Local helper (avoids depending
@@ -1087,10 +1107,7 @@ STATIC FUNCTION CCREPL_HandleGoal( cArg, aMsgs, oPrompt )
          CCREPL_Out( CCUI_Color( "[no goal -- /goal <text> to set]", ;
                                  CCUI_Pal( "dim" ) ) + Chr(10) )
       ELSE
-         CCREPL_Out( CCUI_Color( "[goal: " + s_cGoal + ;
-                                 iif( s_lGoalLooping, "  (auto-continue ON)", ;
-                                                      "  (auto-continue paused)" ) + ;
-                                 "]", CCUI_Pal( "accent" ) ) + Chr(10) )
+         CCREPL_GoalCard()
       ENDIF
    CASE cLow == "stop"
       IF !s_lGoalLooping
@@ -1127,13 +1144,31 @@ STATIC FUNCTION CCREPL_HandleGoal( cArg, aMsgs, oPrompt )
                         "The REPL will auto-feed 'Continue toward the goal.' " + ;
                         "between turns, so do not wait for the user." + Chr(10) + Chr(10) + ;
                         "Goal:" + Chr(10) + Chr(10) + s_cGoal } )
-      CCREPL_Out( CCUI_Color( "[goal set -- agent will loop until " + ;
-                              CC_GOAL_SENTINEL + "]: " + s_cGoal, ;
-                              CCUI_Pal( "accent" ) ) + Chr(10) )
+      CCREPL_GoalCard()
    ENDCASE
    IF oPrompt != NIL
       CCPROMPT_Redraw( oPrompt )
    ENDIF
+   RETURN NIL
+
+// The active goal as an indigo card (web goalCard parity). Falls back to
+// the old accent line when colour is off.
+STATIC FUNCTION CCREPL_GoalCard()
+   LOCAL nW
+   IF !CCUI_ColorOn()
+      CCREPL_Out( CCUI_Color( "[goal: " + s_cGoal + ;
+                  iif( s_lGoalLooping, "  (auto-continue ON)", ;
+                                       "  (auto-continue paused)" ) + "]", ;
+                  CCUI_Pal( "accent" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   nW := Min( CCREPL_Cols() - 2, 100 )
+   CCREPL_Out( CCUI_CardLine( CCUI_Color( "ACTIVE GOAL", ;
+               "1;38;2;165;180;252" ) + "   " + ;
+               CCUI_Color( iif( s_lGoalLooping, "auto-continue ON", ;
+                                "auto-continue paused" ), "2" ), ;
+               "card_goal", nW ) + Chr(10) )
+   CCREPL_Out( CCUI_CardLine( s_cGoal, "card_goal", nW ) + Chr(10) )
    RETURN NIL
 
 // True when a goal is set. Public so the status line in CCPROMPT_Redraw
@@ -1433,8 +1468,7 @@ STATIC FUNCTION CCREPL_RunLoopLoop( aMsgs, oClient, oReg, cModel, bGate, nMaxIte
       IF !s_lLoopActive   // /loop stop may have fired during sleep
          EXIT
       ENDIF
-      CCREPL_Out( CCUI_Color( "> " + s_cLoopPrompt, CCUI_Pal( "user" ) ) + ;
-                  Chr(10) )
+      CCREPL_Out( CCREPL_UserCard( s_cLoopPrompt ) )
       CCREPL_PushRewind( aMsgs, s_cLoopPrompt )
       CCREPL_ApplyAutoSkills( s_cLoopPrompt, aMsgs, oPrompt )
       aTurn := AClone( aMsgs )
@@ -2269,8 +2303,8 @@ STATIC FUNCTION CCREPL_RenderEv( hEv, oRender )
       CCREPL_FlushPending( oRender )
       oRender[ "inText" ] := .F.
       cId := hb_CStr( hb_HGetDef( hEv, "id", "" ) )
-      // bullet line: ● <name> <summary> (green, completed)
-      CCREPL_Out( CCUI_Color( "●", "92" ) + " " + ;
+      // completed line: ✓ <name> <summary> (green check, web parity)
+      CCREPL_Out( CCUI_Color( Chr(226)+Chr(156)+Chr(147), "92" ) + " " + ;
          hb_HGetDef( oRender[ "tools" ], cId, "" ) + " " + ;
          CCUI_Color( CCUI_Summarize( hb_CStr( hEv[ "content" ] ), 60 ), ;
                      CCUI_Pal( "dim" ) ) + Chr(10) )
@@ -2445,6 +2479,22 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
       cPrefix := cPCont   // continuation lines use plain spaces
    ENDDO
    RETURN NIL
+
+// The user's prompt echoed as a blue bubble (web addUser parity): white
+// text on a blue card. Plain "> text" line when colour is off. Ends in LF.
+STATIC FUNCTION CCREPL_UserCard( cText )
+   LOCAL aLines, i, cOut := "", nW
+   cText := hb_CStr( cText )
+   IF !CCUI_ColorOn()
+      RETURN CCUI_Color( "> " + cText, CCUI_Pal( "user" ) ) + Chr(10)
+   ENDIF
+   nW := Min( CCREPL_Cols() - 2, 100 )
+   aLines := hb_ATokens( StrTran( cText, Chr(13), "" ), Chr(10) )
+   FOR i := 1 TO Len( aLines )
+      cOut += CCUI_CardLine( CCUI_Color( aLines[ i ], "97" ), "card_user", nW ) + ;
+              Chr(10)
+   NEXT
+   RETURN cOut
 
 // One reasoning line, GUI glass-box style: pink text on a faint purple card.
 // Falls back to the plain pink line when colour is off.
@@ -2674,9 +2724,20 @@ STATIC FUNCTION CCREPL_AskPerm( cName, cArgsJson )
       RETURN "n"
    ENDIF
    BEGIN SEQUENCE WITH {| o | Break( o ) }
-      CCREPL_Out( Chr(10) + CCUI_Color( "Tool '" + hb_CStr( cName ) + ;
-              "' wants to run: " + CCUI_Summarize( hb_CStr( cArgsJson ), 120 ) + ;
-              Chr(10) + "Allow? [y/n/a] ", "33" ) )
+      IF CCUI_ColorOn()
+         // amber confirmation card (web permitCard parity); the answer
+         // prompt itself stays a plain line so input lands after it
+         CCREPL_Out( Chr(10) + CCUI_Card( ;
+            CCUI_Color( "CONFIRMATION REQUIRED", "1;33" ) + Chr(10) + ;
+            "The agent wants to run " + CCUI_Color( hb_CStr( cName ), "1" ) + ;
+            ": " + CCUI_Summarize( hb_CStr( cArgsJson ), 120 ), ;
+            "card_warn", Min( CCREPL_Cols() - 2, 100 ) ) + Chr(10) )
+         CCREPL_Out( CCUI_Color( "Allow? [y/n/a] ", "33" ) )
+      ELSE
+         CCREPL_Out( Chr(10) + CCUI_Color( "Tool '" + hb_CStr( cName ) + ;
+                 "' wants to run: " + CCUI_Summarize( hb_CStr( cArgsJson ), 120 ) + ;
+                 Chr(10) + "Allow? [y/n/a] ", "33" ) )
+      ENDIF
       IF nTimeout > 0
          cLine := CCREPL_ReadLineTimeout( nTimeout )
          IF cLine == NIL
