@@ -409,15 +409,15 @@ FUNCTION CCUI_Pal( cName )
    // GUI-card background tints (AgenticAI / Agents web cards, truecolor).
    // A touch brighter than the web's gray-800: terminals sit on pure black,
    // so the same RGB reads darker than on the web's gray-900 page.
-   CASE cName == "card"       ; RETURN "48;2;40;50;66"    // reply bubble (slate)
-   CASE cName == "card_think" ; RETURN "48;2;52;44;72"    // reasoning glass box (purple)
-   CASE cName == "card_err"   ; RETURN "48;2;70;32;32"    // error card (dark red)
-   CASE cName == "card_cost"  ; RETURN "48;2;20;56;44"    // cost metrics card (emerald)
-   CASE cName == "card_warn"  ; RETURN "48;2;70;56;22"    // confirmation card (amber)
+   CASE cName == "card"       ; RETURN "48;2;52;64;84"    // reply bubble (slate)
+   CASE cName == "card_think" ; RETURN "48;2;66;56;94"    // reasoning glass box (purple)
+   CASE cName == "card_err"   ; RETURN "48;2;92;40;40"    // error card (dark red)
+   CASE cName == "card_cost"  ; RETURN "48;2;26;72;56"    // cost metrics card (emerald)
+   CASE cName == "card_warn"  ; RETURN "48;2;92;72;28"    // confirmation card (amber)
    CASE cName == "card_user"  ; RETURN "48;2;37;99;235"   // user bubble (blue-600)
-   CASE cName == "card_goal"  ; RETURN "48;2;48;44;96"    // goal card (indigo)
-   CASE cName == "card_ctx"   ; RETURN "48;2;70;40;24"    // context-critical (orange)
-   CASE cName == "card_tool"  ; RETURN "48;2;28;35;46"    // tool actions panel (faint)
+   CASE cName == "card_goal"  ; RETURN "48;2;62;56;124"   // goal card (indigo)
+   CASE cName == "card_ctx"   ; RETURN "48;2;92;52;30"    // context-critical (orange)
+   CASE cName == "card_tool"  ; RETURN "48;2;38;47;60"    // tool actions panel (faint)
    ENDCASE
    RETURN "0"
 
