@@ -876,7 +876,8 @@ STATIC FUNCTION CCREPL_HandleCompact( aMsgs, oClient, cModel )
       CCREPL_Out( CCUI_Card( ;
          CCUI_Color( "CONTEXT COMPACTED", "1;38;2;192;132;252" ) + Chr(10) + ;
          CCUI_Color( LTrim( Str( Len( aOld ) ) ) + " turns -> 1 summary, " + ;
-                     "kept last " + LTrim( Str( nKeep ) ) + " verbatim", "2" ), ;
+                     "kept last " + LTrim( Str( nKeep ) ) + " verbatim", ;
+                     "38;2;232;226;248" ), ;
          "card_think", Min( CCREPL_Cols() - 2, 100 ) ) + Chr(10) )
    ELSE
       CCREPL_Out( CCUI_Color( "[compacted: " + LTrim( Str( Len( aOld ) ) ) + ;
@@ -2562,7 +2563,8 @@ STATIC FUNCTION CCREPL_Demo()
    CCREPL_Out( CCREPL_UserCard( "/compact" ) )
    CCREPL_Out( CCUI_Card( ;
       CCUI_Color( "CONTEXT COMPACTED", "1;38;2;192;132;252" ) + Chr(10) + ;
-      CCUI_Color( "12 turns -> 1 summary, kept last 4 verbatim", "2" ), ;
+      CCUI_Color( "12 turns -> 1 summary, kept last 4 verbatim", ;
+                  "38;2;232;226;248" ), ;
       "card_think", nW ) + Chr(10) )
    hb_idleSleep( 0.35 )
    // context-critical card
