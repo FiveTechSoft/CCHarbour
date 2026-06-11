@@ -16,6 +16,12 @@ CCHarbour v0.8.28 — /plan step cards + /run executor, GUI-style console cards,
 - **Plan mode moved to `/plan mode`.** The write/edit/shell lock while the
   model writes an implementation plan is now entered with `/plan mode`;
   `/plan accept` and `/plan cancel` work as before.
+- **Web-parity passthrough commands.** `/sh` (also `/shell` `/bash`) runs a
+  shell command directly — no LLM — with terminal-card output; `/git [args]`
+  (default `status`) and `/clone <url|user/repo>` are git shortcuts; `/key`
+  saves the API key (alias of `/provider key`); `/skill` lists the skills as
+  a card and toggles them on/off by name; `/tool` shows the tools registry
+  with a security dot per tool (red mutating / green read-only).
 - **`/demo`.** Scripted showcase of the card UI with sample content — goal,
   plan, thinking, tool actions, diff, reply, error, permit, cost, compact and
   context cards — no API key needed, like the web Agents demo button. Session

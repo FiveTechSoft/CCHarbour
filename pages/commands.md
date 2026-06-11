@@ -16,6 +16,11 @@ assistant.
 | `/plan [task]`  | generate a 3-6 step plan card (web Agents style); `add/del/done/edit/clear` edit it |
 | `/run`          | execute the plan one step per turn (pauses on questions) |
 | `/demo`         | showcase the card UI with sample content (no API key needed) |
+| `/sh <cmd>`     | run a shell command directly, no LLM (also `/shell` `/bash`) |
+| `/git [args]`   | git passthrough (default `status`); `/clone <url\|user/repo>` |
+| `/key <secret>` | save the API key (alias of `/provider key`)     |
+| `/skill [name]` | list skills as a card, or toggle one on/off     |
+| `/tool`         | tools registry card (red mutating / green read-only) |
 | `/plan mode`    | enter plan mode (locks write/edit/shell)        |
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/provider [args]` | configure the LLM backend at runtime               |

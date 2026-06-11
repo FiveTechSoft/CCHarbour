@@ -34,6 +34,21 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "run", "text" => "" }
    CASE cLow == "/demo"
       RETURN { "type" => "demo", "text" => "" }
+   CASE cLow == "/sh" .OR. Left( cLow, 4 ) == "/sh " .OR. ;
+        cLow == "/shell" .OR. Left( cLow, 7 ) == "/shell " .OR. ;
+        cLow == "/bash" .OR. Left( cLow, 6 ) == "/bash "
+      RETURN { "type" => "shx", ;
+               "text" => AllTrim( SubStr( cTrim, At( " ", cTrim + " " ) ) ) }
+   CASE cLow == "/git" .OR. Left( cLow, 5 ) == "/git "
+      RETURN { "type" => "gitx", "text" => AllTrim( SubStr( cTrim, 5 ) ) }
+   CASE cLow == "/clone" .OR. Left( cLow, 7 ) == "/clone "
+      RETURN { "type" => "clonex", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
+   CASE cLow == "/key" .OR. Left( cLow, 5 ) == "/key "
+      RETURN { "type" => "keyx", "text" => AllTrim( SubStr( cTrim, 5 ) ) }
+   CASE cLow == "/skill" .OR. Left( cLow, 7 ) == "/skill "
+      RETURN { "type" => "skillx", "text" => AllTrim( SubStr( cTrim, 7 ) ) }
+   CASE cLow == "/tool" .OR. cLow == "/tools"
+      RETURN { "type" => "toolx", "text" => "" }
    CASE cLow == "/lean" .OR. Left( cLow, 6 ) == "/lean "
       RETURN { "type" => "lean", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/provider" .OR. Left( cLow, 10 ) == "/provider "
@@ -1131,6 +1146,11 @@ FUNCTION CCUI_Help()
           "  /plan add|del|done|edit <n>  edit the plan steps" + Chr(10) + ;
           "  /run           execute the plan step by step (pauses on questions)" + Chr(10) + ;
           "  /demo          showcase the card UI with sample content (no API)" + Chr(10) + ;
+          "  /sh <cmd>      run a shell command directly (also /shell /bash)" + Chr(10) + ;
+          "  /git [args]    git passthrough (default: status); /clone <repo>" + Chr(10) + ;
+          "  /key <secret>  save the API key (alias of /provider key)" + Chr(10) + ;
+          "  /skill [name]  list skills as a card, or toggle one on/off" + Chr(10) + ;
+          "  /tool          tools registry card (red mutating / green read-only)" + Chr(10) + ;
           "  /plan mode     enter plan mode (lock write/edit/shell)" + Chr(10) + ;
           "  /plan accept   approve the plan, unlock and proceed" + Chr(10) + ;
           "  /plan cancel   drop the plan and exit plan mode" + Chr(10) + ;

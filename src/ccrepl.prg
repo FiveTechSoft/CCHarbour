@@ -303,6 +303,36 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_RunPlan( @aMsgs, oClient, oReg, cModel, bGate, nMaxIter, oPrompt )
       CASE hAction[ "type" ] == "demo"
          CCREPL_Demo()
+      CASE hAction[ "type" ] == "shx"
+         CCREPL_ShellCmd( hAction[ "text" ], oReg )
+      CASE hAction[ "type" ] == "gitx"
+         CCREPL_ShellCmd( "git " + iif( Empty( hAction[ "text" ] ), "status", ;
+                          hAction[ "text" ] ), oReg )
+      CASE hAction[ "type" ] == "clonex"
+         IF Empty( hAction[ "text" ] )
+            CCREPL_Out( CCUI_Color( "Usage: /clone <url-or-user/repo>", ;
+                                    CCUI_Pal( "error" ) ) + Chr(10) )
+         ELSE
+            CCREPL_ShellCmd( "git clone " + ;
+               iif( "://" $ hAction[ "text" ], hAction[ "text" ], ;
+                    "https://github.com/" + hAction[ "text" ] ), oReg )
+         ENDIF
+      CASE hAction[ "type" ] == "keyx"
+         // /key <secret>: web-style alias of /provider key
+         IF Empty( hAction[ "text" ] )
+            CCREPL_Out( CCUI_Color( "Usage: /key <api-key>", ;
+                                    CCUI_Pal( "error" ) ) + Chr(10) )
+         ELSE
+            hLoaded := CCSETTINGS_Load()
+            hLoaded[ "api_key" ] := hAction[ "text" ]
+            CCSETTINGS_Save( hLoaded )
+            CCREPL_Out( CCUI_Color( "[api key saved to settings.json]", ;
+                                    CCUI_Pal( "accent" ) ) + Chr(10) )
+         ENDIF
+      CASE hAction[ "type" ] == "skillx"
+         CCREPL_SkillCmd( hAction[ "text" ], aMsgs, oPrompt )
+      CASE hAction[ "type" ] == "toolx"
+         CCREPL_ToolsList( oReg )
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt, oClient, cModel )
          IF !Empty( cMsg )
@@ -2581,6 +2611,93 @@ STATIC FUNCTION CCREPL_Demo()
    s_cGoal        := cOldGoal
    s_lGoalLooping := lOldLoop
    s_aPlanSteps   := aOldPlan
+   RETURN NIL
+
+// /sh /git /clone: run a shell command directly (no LLM) and print it as a
+// terminal card, like the web version's /sh. Uses the registry executor
+// directly: the command was typed explicitly by the user, so no permission
+// prompt applies.
+STATIC FUNCTION CCREPL_ShellCmd( cCmd, oReg )
+   LOCAL cOut, cLine, cBlock := ""
+   IF Empty( cCmd )
+      CCREPL_Out( CCUI_Color( "Usage: /sh <command>", ;
+                              CCUI_Pal( "error" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   cOut := hb_CStr( Eval( CCTOOLS_Executor( oReg ), "shell", ;
+                          hb_jsonEncode( { "command" => cCmd } ) ) )
+   cBlock := CCUI_Color( "> " + cCmd, "92" )
+   FOR EACH cLine IN hb_ATokens( StrTran( cOut, Chr(13), "" ), Chr(10) )
+      cBlock += Chr(10) + cLine
+   NEXT
+   CCREPL_Out( Chr(10) + CCREPL_ToolCard( cBlock ) )
+   RETURN NIL
+
+// /skill: list the available skills (a card with on/off state) or toggle one
+// by name. Active skills inject their body as a system note (web parity).
+STATIC FUNCTION CCREPL_SkillCmd( cArg, aMsgs, oPrompt )
+   LOCAL aList := CCSKILL_List(), aActive := CCSKILL_Active()
+   LOCAL hSkill, lOn, cRow, nW := Min( CCREPL_Cols() - 2, 100 ), cName
+   cArg := Lower( AllTrim( hb_CStr( cArg ) ) )
+   IF !Empty( cArg )
+      // toggle
+      IF AScan( aActive, {| c | Lower( c ) == cArg } ) > 0
+         CCSKILL_Deactivate( cArg )
+         AAdd( aMsgs, { "role" => "system", ;
+            "content" => "The user deactivated the skill '" + cArg + ;
+                         "'. Stop following its instructions." } )
+         CCREPL_Out( CCUI_Color( "[skill '" + cArg + "' off]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
+         IF oPrompt != NIL
+            CCPROMPT_Redraw( oPrompt )
+         ENDIF
+      ELSE
+         CCREPL_ActivateSkill( cArg, aMsgs, oPrompt )
+      ENDIF
+      RETURN NIL
+   ENDIF
+   // list card
+   IF Empty( aList )
+      CCREPL_Out( CCUI_Color( "[no skills in " + CCSKILL_Dir() + ;
+                  " -- add <name>.md files with name/description frontmatter]", ;
+                  CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   CCREPL_Out( Chr(10) + CCUI_CardLine( CCUI_Color( "SKILLS", ;
+               "1;38;2;244;114;182" ) + "   " + ;
+               CCUI_Color( "/skill <name> activa o desactiva", "2" ), ;
+               "card", nW ) + Chr(10) )
+   FOR EACH hSkill IN aList
+      cName := hSkill[ "name" ]
+      lOn   := AScan( aActive, {| c | Lower( c ) == Lower( cName ) } ) > 0
+      cRow  := CCUI_Color( iif( lOn, Chr(226)+Chr(151)+Chr(143), ;
+                                     Chr(226)+Chr(151)+Chr(139) ), ;
+                           iif( lOn, "38;2;244;114;182", "90" ) ) + " " + ;
+               CCUI_Color( cName, iif( lOn, "1", "0" ) ) + "  " + ;
+               CCUI_Color( Left( hb_CStr( hSkill[ "description" ] ), 60 ), "90" )
+      CCREPL_Out( CCUI_CardLine( cRow, "card", nW ) + Chr(10) )
+   NEXT
+   RETURN NIL
+
+// /tool: the tools-registry card -- one row per registered tool with a
+// security dot: red for mutating tools (permission-gated), green read-only.
+STATIC FUNCTION CCREPL_ToolsList( oReg )
+   LOCAL aSchemas := CCTOOLS_Schemas( oReg ), hTool, cName, lMut, cRow
+   LOCAL nW := Min( CCREPL_Cols() - 2, 100 )
+   CCREPL_Out( Chr(10) + CCUI_CardLine( CCUI_Color( "TOOLS", "1;36" ) + "   " + ;
+               CCUI_Color( "rojo = mutante (permission gate) - verde = lectura", ;
+                           "2" ), "card", nW ) + Chr(10) )
+   FOR EACH hTool IN aSchemas
+      cName := hTool[ "function" ][ "name" ]
+      lMut  := cName == "shell" .OR. cName == "write" .OR. cName == "edit" .OR. ;
+               cName == "github_write"
+      cRow  := CCUI_Color( Chr(226)+Chr(151)+Chr(143), ;
+                           iif( lMut, "91", "92" ) ) + " " + ;
+               CCUI_Color( PadR( cName, 16 ), "1;36" ) + ;
+               CCUI_Color( Left( hb_CStr( ;
+                  hTool[ "function" ][ "description" ] ), 70 ), "90" )
+      CCREPL_Out( CCUI_CardLine( cRow, "card", nW ) + Chr(10) )
+   NEXT
    RETURN NIL
 
 // Paints a tool-action line/block on the faint actions-panel tint (the web
