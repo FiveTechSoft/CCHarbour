@@ -19,6 +19,7 @@ STATIC s_nSessionTurnMs := 0
 // appears, the user hits Esc, or s_nGoalAutoCap iterations run.
 // /goal stop pauses the auto-loop without dropping the goal text.
 STATIC s_cGoal := ""
+STATIC s_aPlanSteps := {}      // /plan steps: { "title", "state" } (web parity)
 STATIC s_lGoalLooping := .F.
 // Recurring /loop state. When s_lLoopActive is .T., after each user turn
 // the REPL sleeps s_nLoopIntervalSec seconds (interruptible by Esc) then
@@ -228,6 +229,7 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          s_hSessionUsage := {=>}
          s_nSessionTurnMs := 0
          s_cGoal := ""
+         s_aPlanSteps := {}
          s_lGoalLooping := .F.
          s_cLoopPrompt := ""
          s_nLoopIntervalSec := 0
@@ -297,8 +299,10 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          aMsgs := CCREPL_HandleRewind( hAction[ "text" ], aMsgs )
       CASE hAction[ "type" ] == "hook"
          CCREPL_HandleHook( hAction[ "text" ], oPrompt )
+      CASE hAction[ "type" ] == "run"
+         CCREPL_RunPlan( @aMsgs, oClient, oReg, cModel, bGate, nMaxIter, oPrompt )
       CASE hAction[ "type" ] == "plan"
-         cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt )
+         cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt, oClient, cModel )
          IF !Empty( cMsg )
             // /plan <text>: run the text as the first planning prompt
             aTurn := AClone( aMsgs )
@@ -1219,6 +1223,7 @@ FUNCTION CCREPL_StateExport()
             "goal_looping"     => s_lGoalLooping, ;
             "session_turn_ms"  => s_nSessionTurnMs, ;
             "plan_mode"        => s_lPlanMode, ;
+            "plan_steps"       => s_aPlanSteps, ;
             "lean_mode"        => s_lLeanMode, ;
             "skills"           => CCSKILL_Active() }
 
@@ -1234,6 +1239,7 @@ FUNCTION CCREPL_StateImport( hState )
    s_lGoalLooping   := hb_HGetDef( hState, "goal_looping",    .F. )
    s_nSessionTurnMs := hb_HGetDef( hState, "session_turn_ms", 0 )
    s_lPlanMode      := hb_HGetDef( hState, "plan_mode",       .F. )
+   s_aPlanSteps     := hb_HGetDef( hState, "plan_steps",      {} )
    s_lLeanMode      := hb_HGetDef( hState, "lean_mode",       .F. )
    CCSKILL_ClearAll()
    aSkills := hb_HGetDef( hState, "skills", {} )
@@ -1472,6 +1478,7 @@ FUNCTION CCREPL_PushRewind( aMsgs, cPreview )
       "loop_int"    => s_nLoopIntervalSec, ;
       "loop_active" => s_lLoopActive, ;
       "plan_mode"   => s_lPlanMode, ;
+      "plan_steps"  => AClone( s_aPlanSteps ), ;
       "lean_mode"   => s_lLeanMode, ;
       "usage"       => hb_HClone( s_hSessionUsage ), ;
       "compact_nudged" => s_lCompactNudged, ;
@@ -1509,6 +1516,7 @@ FUNCTION CCREPL_PopRewind( aMsgs, nCount )
    s_nLoopIntervalSec := hSnap[ "loop_int" ]
    s_lLoopActive    := hSnap[ "loop_active" ]
    s_lPlanMode      := hSnap[ "plan_mode" ]
+   s_aPlanSteps     := hb_HGetDef( hSnap, "plan_steps", {} )
    s_lLeanMode      := hSnap[ "lean_mode" ]
    s_hSessionUsage  := hb_HClone( hSnap[ "usage" ] )
    s_lCompactNudged := hSnap[ "compact_nudged" ]
@@ -1582,19 +1590,29 @@ STATIC FUNCTION CCREPL_ToggleLean( cArg, aMsgs, oPrompt )
    ENDIF
    RETURN NIL
 
-// Implements /plan, /plan accept, /plan cancel and /plan <free text>.
-// Returns the free-text prompt the caller should run as a user message
-// (empty string when no message should be dispatched).
+// Implements /plan, the web Agents action-plan system (console flavour):
 //
-//   /plan                 -> enter plan mode, wait for the user to type
-//                            the task as a normal message
-//   /plan <text>          -> enter plan mode AND queue <text> as the
-//                            first planning prompt
-//   /plan accept|go|approve -> exit plan mode, agent proceeds with code
-//   /plan off|cancel      -> exit plan mode, drop the plan
-STATIC FUNCTION CCREPL_HandlePlan( cArg, aMsgs, oPrompt )
-   LOCAL cMode := Lower( AllTrim( hb_CStr( cArg ) ) )
-   LOCAL cRest := AllTrim( hb_CStr( cArg ) )
+//   /plan <tarea>     -> ask the model for 3-6 JSON steps, show the plan card
+//   /plan             -> show the current plan, or generate one from the
+//                        goal / recent conversation when none exists
+//   /plan add <t>     -> append a pending step
+//   /plan del <n>     -> delete step n
+//   /plan done <n>    -> toggle step n done/pending
+//   /plan edit <n> <t> -> retitle step n
+//   /plan clear       -> drop the plan
+//   /run              -> execute the plan one step per agent turn
+//
+// The pre-existing plan MODE (lock write/edit/shell while the model writes an
+// implementation plan) moved to "/plan mode"; /plan accept and /plan cancel
+// keep working as before. Returns the free-text prompt the caller should run
+// as a user message ("" when nothing should be dispatched).
+STATIC FUNCTION CCREPL_HandlePlan( cArg, aMsgs, oPrompt, oClient, cModel )
+   LOCAL cTrim := AllTrim( hb_CStr( cArg ) )
+   LOCAL cMode := Lower( cTrim )
+   LOCAL cSub, cRest, nSp, nStep
+   nSp   := At( " ", cTrim )
+   cSub  := Lower( iif( nSp > 0, Left( cTrim, nSp - 1 ), cTrim ) )
+   cRest := iif( nSp > 0, AllTrim( SubStr( cTrim, nSp + 1 ) ), "" )
    DO CASE
    CASE cMode == "off" .OR. cMode == "cancel"
       s_lPlanMode := .F.
@@ -1607,7 +1625,6 @@ STATIC FUNCTION CCREPL_HandlePlan( cArg, aMsgs, oPrompt )
       IF oPrompt != NIL
          CCPROMPT_Redraw( oPrompt )
       ENDIF
-      RETURN ""
    CASE cMode == "accept" .OR. cMode == "go" .OR. cMode == "approve"
       s_lPlanMode := .F.
       AAdd( aMsgs, { "role" => "system", ;
@@ -1619,25 +1636,229 @@ STATIC FUNCTION CCREPL_HandlePlan( cArg, aMsgs, oPrompt )
       IF oPrompt != NIL
          CCPROMPT_Redraw( oPrompt )
       ENDIF
-      RETURN ""
-   ENDCASE
-   // /plan or /plan <free text>: enter plan mode if not already in it
-   IF !s_lPlanMode
-      s_lPlanMode := .T.
-      CCREPL_ActivateSkill( "writing-plans", aMsgs, oPrompt )
-      CCREPL_Out( CCUI_Color( "[plan mode ON - write/edit/shell are " + ;
-                              "locked until /plan accept]", ;
-                              CCUI_Pal( "accent" ) ) + Chr(10) )
-      IF oPrompt != NIL
-         CCPROMPT_Redraw( oPrompt )
+   CASE cSub == "mode"
+      // legacy plan mode: lock mutating tools until /plan accept
+      IF !s_lPlanMode
+         s_lPlanMode := .T.
+         CCREPL_ActivateSkill( "writing-plans", aMsgs, oPrompt )
+         CCREPL_Out( CCUI_Color( "[plan mode ON - write/edit/shell are " + ;
+                                 "locked until /plan accept]", ;
+                                 CCUI_Pal( "accent" ) ) + Chr(10) )
+         IF oPrompt != NIL
+            CCPROMPT_Redraw( oPrompt )
+         ENDIF
+      ELSE
+         CCREPL_Out( CCUI_Color( "[plan mode already active]", ;
+                                 CCUI_Pal( "dim" ) ) + Chr(10) )
       ENDIF
-   ELSE
-      CCREPL_Out( CCUI_Color( "[plan mode already active]", ;
-                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      // optional trailing text runs as the first planning prompt
+      RETURN cRest
+   CASE cMode == "clear"
+      s_aPlanSteps := {}
+      CCREPL_Out( CCUI_Color( "[plan dropped]", CCUI_Pal( "dim" ) ) + Chr(10) )
+   CASE cSub == "add" .AND. !Empty( cRest )
+      AAdd( s_aPlanSteps, { "title" => cRest, "state" => "pending" } )
+      CCREPL_PlanCard()
+   CASE ( cSub == "del" .OR. cSub == "done" .OR. cSub == "edit" ) .AND. ;
+        !Empty( cRest )
+      nStep := Val( cRest )
+      IF nStep < 1 .OR. nStep > Len( s_aPlanSteps )
+         CCREPL_Out( CCUI_Color( "[paso fuera de rango: " + cRest + "]", ;
+                                 "33" ) + Chr(10) )
+      ELSE
+         DO CASE
+         CASE cSub == "del"
+            hb_ADel( s_aPlanSteps, nStep, .T. )
+         CASE cSub == "done"
+            s_aPlanSteps[ nStep ][ "state" ] := ;
+               iif( s_aPlanSteps[ nStep ][ "state" ] == "done", "pending", "done" )
+         CASE cSub == "edit"
+            // /plan edit <n> <new title>
+            cRest := AllTrim( SubStr( cRest, At( " ", cRest + " " ) ) )
+            IF !Empty( cRest )
+               s_aPlanSteps[ nStep ][ "title" ] := cRest
+            ENDIF
+         ENDCASE
+         CCREPL_PlanCard()
+      ENDIF
+   CASE Empty( cTrim ) .AND. !Empty( s_aPlanSteps )
+      CCREPL_PlanCard()   // show the current plan
+   OTHERWISE
+      // /plan <tarea> (or bare /plan with no stored plan): generate
+      CCREPL_PlanGenerate( oClient, cModel, cTrim, aMsgs )
+   ENDCASE
+   RETURN ""
+
+// Asks the model (plain completion, no tools) for a 3-6 step plan and stores
+// it in s_aPlanSteps. With no task, plans from the goal or the recent
+// conversation, like the web version.
+STATIC FUNCTION CCREPL_PlanGenerate( oClient, cModel, cTask, aMsgs )
+   LOCAL aPMsgs, hRes, cContent, nStart, nEnd, xJson, hStep, cUser, i, hMsg
+   cUser := cTask
+   IF Empty( cUser )
+      IF !Empty( s_cGoal )
+         cUser := "Objetivo: " + s_cGoal
+      ELSE
+         cUser := ""
+         FOR i := Max( 2, Len( aMsgs ) - 6 ) TO Len( aMsgs )
+            hMsg := aMsgs[ i ]
+            IF ( hMsg[ "role" ] == "user" .OR. hMsg[ "role" ] == "assistant" ) .AND. ;
+               ValType( hb_HGetDef( hMsg, "content", NIL ) ) == "C" .AND. ;
+               !Empty( hMsg[ "content" ] )
+               cUser += hMsg[ "role" ] + ": " + ;
+                        Left( hMsg[ "content" ], 300 ) + Chr(10)
+            ENDIF
+         NEXT
+         IF Empty( cUser )
+            cUser := "Propon un plan corto y util para trabajar con los " + ;
+                     "ficheros de la carpeta actual (" + hb_cwd() + "): " + ;
+                     "revisar, mejorar, organizar, documentar o generar codigo."
+         ELSE
+            cUser := "Conversacion reciente:" + Chr(10) + cUser + Chr(10) + ;
+                     "Propon un plan corto y util que continue este trabajo."
+         ENDIF
+      ENDIF
    ENDIF
-   // return the free-text portion so the caller can run it as a user
-   // message in plan mode; empty means "wait for the user to type it next"
-   RETURN cRest
+   CCREPL_Out( CCUI_Color( "[generando plan...]", CCUI_Pal( "dim" ) ) + Chr(10) )
+   aPMsgs := { { "role" => "system", "content" => ;
+                 'You are a planner. Break the request into 3 to 6 short ' + ;
+                 'concrete steps. Reply ONLY with compact JSON: ' + ;
+                 '{"steps":[{"title":"...","state":"active|pending"}]}. ' + ;
+                 'First step active, the rest pending. No prose. ' + ;
+                 'Answer in the language of the request.' }, ;
+               { "role" => "user", "content" => cUser } }
+   hRes := CC_ChatCompletion( oClient, aPMsgs, { "model" => cModel }, NIL )
+   IF !hRes[ "success" ]
+      CCREPL_Out( CCUI_Color( "!! error: no se pudo generar el plan: " + ;
+                  hb_CStr( hRes[ "message" ] ), "31" ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   cContent := hb_CStr( hRes[ "content" ] )
+   nStart   := At( "{", cContent )
+   nEnd     := RAt( "}", cContent )
+   xJson    := iif( nStart > 0 .AND. nEnd > nStart, ;
+                    hb_jsonDecode( SubStr( cContent, nStart, ;
+                                           nEnd - nStart + 1 ) ), NIL )
+   s_aPlanSteps := {}
+   IF ValType( xJson ) == "H" .AND. hb_HHasKey( xJson, "steps" ) .AND. ;
+      ValType( xJson[ "steps" ] ) == "A"
+      FOR EACH hStep IN xJson[ "steps" ]
+         IF ValType( hStep ) == "H" .AND. hb_HHasKey( hStep, "title" )
+            AAdd( s_aPlanSteps, { "title" => hb_CStr( hStep[ "title" ] ), ;
+                  "state" => iif( hb_HGetDef( hStep, "state", "" ) == "active", ;
+                                  "active", "pending" ) } )
+         ENDIF
+      NEXT
+   ENDIF
+   IF Empty( s_aPlanSteps )
+      CCREPL_Out( CCUI_Color( "[el modelo no devolvio un plan valido - " + ;
+                  "reintenta /plan]", "33" ) + Chr(10) )
+   ELSE
+      CCREPL_PlanCard()
+   ENDIF
+   RETURN NIL
+
+// Renders the plan as a slate card (GUI parity): ✓ done / ● active / ○ pending.
+STATIC FUNCTION CCREPL_PlanCard()
+   LOCAL nW := Min( CCREPL_Cols() - 2, 100 )
+   LOCAL i, hStep, nDone := 0, cRow, cHead
+   IF Empty( s_aPlanSteps )
+      CCREPL_Out( CCUI_Color( "[no hay plan - usa /plan <tarea>]", ;
+                              CCUI_Pal( "dim" ) ) + Chr(10) )
+      RETURN NIL
+   ENDIF
+   AEval( s_aPlanSteps, {| h | iif( h[ "state" ] == "done", nDone++, NIL ) } )
+   cHead := CCUI_Color( "Plan de Accion", "1" ) + "   " + ;
+            CCUI_Color( LTrim( Str( nDone ) ) + " / " + ;
+                        LTrim( Str( Len( s_aPlanSteps ) ) ) + " completado", ;
+                        "38;2;120;160;230" )
+   CCREPL_Out( Chr(10) + CCUI_CardLine( cHead, "card", nW ) + Chr(10) )
+   CCREPL_Out( CCUI_CardLine( "", "card", nW ) + Chr(10) )
+   FOR i := 1 TO Len( s_aPlanSteps )
+      hStep := s_aPlanSteps[ i ]
+      DO CASE
+      CASE hStep[ "state" ] == "done"
+         cRow := CCUI_Color( Chr(226)+Chr(156)+Chr(147), "92" ) + " " + ;
+                 CCUI_Color( LTrim( Str( i ) ) + ". " + hStep[ "title" ], "2" )
+      CASE hStep[ "state" ] == "active"
+         cRow := CCUI_Color( Chr(226)+Chr(151)+Chr(143), "94" ) + " " + ;
+                 CCUI_Color( LTrim( Str( i ) ) + ". " + hStep[ "title" ], "1;94" )
+      OTHERWISE
+         cRow := CCUI_Color( Chr(226)+Chr(151)+Chr(139), "90" ) + " " + ;
+                 CCUI_Color( LTrim( Str( i ) ) + ". " + hStep[ "title" ], "90" )
+      ENDCASE
+      CCREPL_Out( CCUI_CardLine( cRow, "card", nW ) + Chr(10) )
+   NEXT
+   CCREPL_Out( CCUI_CardLine( CCUI_Color( "/run ejecutar - /plan " + ;
+               "add|del|done|edit <n> - /plan clear", "2" ), "card", nW ) + ;
+               Chr(10) )
+   RETURN NIL
+
+// /run: executes the plan one step per agent turn. Each step gets the goal +
+// the full plan as context and runs ONLY that step; the run pauses when the
+// agent ends a step asking the user something (web parity).
+STATIC FUNCTION CCREPL_RunPlan( aMsgs, oClient, oReg, cModel, bGate, ;
+                                nMaxIter, oPrompt )
+   LOCAL n, i, cPlanTxt, cMsg, aTurn, hTurn, hRes, cTail
+   IF Empty( s_aPlanSteps )
+      CCREPL_Out( CCUI_Color( "[no hay plan - usa /plan primero]", "33" ) + ;
+                  Chr(10) )
+      RETURN NIL
+   ENDIF
+   DO WHILE .T.
+      n := 0
+      FOR i := 1 TO Len( s_aPlanSteps )
+         IF s_aPlanSteps[ i ][ "state" ] != "done"
+            n := i
+            EXIT
+         ENDIF
+      NEXT
+      IF n == 0
+         CCREPL_PlanCard()
+         CCREPL_Out( CCUI_Color( "[" + Chr(226)+Chr(156)+Chr(147) + ;
+                     " plan completado]", "92" ) + Chr(10) )
+         EXIT
+      ENDIF
+      FOR i := 1 TO Len( s_aPlanSteps )
+         s_aPlanSteps[ i ][ "state" ] := ;
+            iif( i < n, "done", iif( i == n, "active", "pending" ) )
+      NEXT
+      CCREPL_PlanCard()
+      CCREPL_Out( CCUI_Color( "[paso " + LTrim( Str( n ) ) + "/" + ;
+                  LTrim( Str( Len( s_aPlanSteps ) ) ) + ": " + ;
+                  s_aPlanSteps[ n ][ "title" ] + "]", ;
+                  CCUI_Pal( "accent" ) ) + Chr(10) )
+      cPlanTxt := ""
+      FOR i := 1 TO Len( s_aPlanSteps )
+         cPlanTxt += LTrim( Str( i ) ) + ". " + ;
+                     s_aPlanSteps[ i ][ "title" ] + Chr(10)
+      NEXT
+      cMsg := iif( !Empty( s_cGoal ), "Objetivo: " + s_cGoal + Chr(10), "" ) + ;
+         "Plan en curso:" + Chr(10) + cPlanTxt + Chr(10) + ;
+         "Ejecuta SOLO el paso " + LTrim( Str( n ) ) + ': "' + ;
+         s_aPlanSteps[ n ][ "title" ] + '". Los pasos anteriores ya estan ' + ;
+         "hechos (su resultado esta en la conversacion). No preguntes salvo " + ;
+         "bloqueo real."
+      aTurn := AClone( aMsgs )
+      AAdd( aTurn, { "role" => "user", "content" => cMsg } )
+      hTurn := CCREPL_RunTurn( oClient, oReg, cModel, bGate, nMaxIter, ;
+                               aTurn, oPrompt )
+      hRes := hTurn[ "result" ]
+      IF !hRes[ "success" ] .OR. hRes[ "stop_reason" ] == "interrupted"
+         CCREPL_Out( CCUI_Color( "[plan detenido]", "33" ) + Chr(10) )
+         EXIT
+      ENDIF
+      aMsgs := hRes[ "messages" ]
+      cTail := Right( hb_CStr( hRes[ "content" ] ), 200 )
+      IF "?" $ cTail .OR. hb_UTF8Chr( 0xBF ) $ cTail
+         CCREPL_Out( CCUI_Color( "[plan pausado en el paso " + ;
+                     LTrim( Str( n ) ) + ": el agente espera tu respuesta. " + ;
+                     "Contesta y usa /run para continuar]", "33" ) + Chr(10) )
+         EXIT
+      ENDIF
+      s_aPlanSteps[ n ][ "state" ] := "done"
+   ENDDO
+   RETURN NIL
 
 // Manually activates a skill by name (used by /caveman and any future
 // /skill <name> command). Loads the body, injects it as a system note in
