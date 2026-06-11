@@ -106,7 +106,8 @@ FUNCTION Main( cModel )
    // throw off the dynamic-box header-row count).
    hCfg := CCCFG_Resolve( {=>} )
    HB_SYMBOL_UNUSED( hCfg )
-   oClient := CC_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ] } )
+   oClient := CC_Client( { "model" => cModel, "base_url" => hSet[ "base_url" ], ;
+                           "timeout" => CCREPL_ApiTimeout( hSet ) } )
    oReg    := CCTOOLS_Registry( { ;
       "github"       => CCCFG_ResolveKey( "GITHUB_TOKEN", "github_token", hSet ), ;
       "co_author"    => hb_HGetDef( hSet, "co_author", "" ), ;
@@ -278,7 +279,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
             ENDIF
             IF hb_HGetDef( hLoaded, "rebuild_client", .F. )
                oClient := CC_Client( { "model" => cModel, ;
-                  "base_url" => CCSETTINGS_Load()[ "base_url" ] } )
+                  "base_url" => CCSETTINGS_Load()[ "base_url" ], ;
+                  "timeout"  => CCREPL_ApiTimeout( CCSETTINGS_Load() ) } )
             ENDIF
          ENDIF
       CASE hAction[ "type" ] == "goal"
@@ -635,6 +637,22 @@ STATIC FUNCTION CCREPL_HandleHook( cArg, oPrompt )
    ENDIF
    RETURN NIL
 
+// Returns the API timeout in seconds for the given settings. When the user
+// sets api_timeout explicitly it takes precedence. Otherwise, Ollama URLs
+// get 600 s (local models can be slow), cloud backends get 120 s.
+STATIC FUNCTION CCREPL_ApiTimeout( hSet )
+   LOCAL nUser
+   IF ValType( hSet ) == "H" .AND. hb_HHasKey( hSet, "api_timeout" ) .AND. ;
+      ValType( hSet[ "api_timeout" ] ) == "N" .AND. hSet[ "api_timeout" ] > 0
+      RETURN hSet[ "api_timeout" ]
+   ENDIF
+   // Auto-detect: Ollama runs locally on slow hardware → longer timeout
+   IF "11434" $ Lower( hb_CStr( hb_HGetDef( hSet, "base_url", "" ) ) ) .OR. ;
+      "ollama" $ Lower( hb_CStr( hb_HGetDef( hSet, "base_url", "" ) ) )
+      RETURN 600
+   ENDIF
+   RETURN 120
+
 // Per-model context window (in tokens). Used by /compact to decide
 // when to suggest compaction and by CCREPL_HandleCompact to size the
 // summary against the budget. Values mirror the upstream provider
@@ -657,6 +675,10 @@ STATIC FUNCTION CCREPL_ModelContext( cModel )
    CASE "gpt-5"             $ cLow ; RETURN  400000
    CASE "gpt-4o"            $ cLow ; RETURN  128000
    CASE "gpt-4"             $ cLow ; RETURN  128000
+   CASE "gemma4"            $ cLow ; RETURN  128000
+   CASE "gemma3"            $ cLow ; RETURN  128000
+   CASE "gemma"             $ cLow ; RETURN  128000
+   CASE "gemini"            $ cLow ; RETURN 1048576
    ENDCASE
    RETURN 32000
 
@@ -1831,6 +1853,7 @@ STATIC FUNCTION CCREPL_SanitiseName( cName )
 // Prints the buffered narration text (pendingText) with the assistant
 // bullet prefix, then clears it. No-op when nothing is pending.
 STATIC FUNCTION CCREPL_FlushPending( oRender )
+   LOCAL aLines, i, nW
    IF Empty( oRender[ "pendingText" ] )
       RETURN NIL
    ENDIF
@@ -1840,11 +1863,31 @@ STATIC FUNCTION CCREPL_FlushPending( oRender )
          CCREPL_SpinnerClear()
          oRender[ "spinner" ] := .F.
       ENDIF
-      CCREPL_Out( Chr(10) + ;
-         CCUI_Color( Chr(226)+Chr(143)+Chr(186), CCUI_Pal( "accent" ) ) + "  " )
+      IF CCUI_ColorOn()
+         // GUI-style reply bubble: the card itself marks the response
+         CCREPL_Out( Chr(10) )
+      ELSE
+         CCREPL_Out( Chr(10) + ;
+            CCUI_Color( Chr(226)+Chr(143)+Chr(186), CCUI_Pal( "accent" ) ) + "  " )
+      ENDIF
       oRender[ "inText" ] := .T.
    ENDIF
-   CCREPL_Out( oRender[ "pendingText" ] )
+   IF CCUI_ColorOn()
+      // paint the reply as a card, one tinted row per (complete) line.
+      // CCMD_Feed only emits whole lines, so no partial line is repainted.
+      nW := Min( CCREPL_Cols() - 2, 100 )
+      aLines := hb_ATokens( StrTran( oRender[ "pendingText" ], Chr(13), "" ), ;
+                            Chr(10) )
+      // a trailing LF yields a final empty token: drop it (not a blank row)
+      IF Len( aLines ) > 0 .AND. Empty( ATail( aLines ) )
+         hb_ADel( aLines, Len( aLines ), .T. )
+      ENDIF
+      FOR i := 1 TO Len( aLines )
+         CCREPL_Out( CCUI_CardLine( aLines[ i ], "card", nW ) + Chr(10) )
+      NEXT
+   ELSE
+      CCREPL_Out( oRender[ "pendingText" ] )
+   ENDIF
    oRender[ "pendingText" ] := ""
    RETURN NIL
 
@@ -2067,7 +2110,7 @@ STATIC FUNCTION CCREPL_FlushReasoningTail( oRender )
       ELSE
          cPrefix := "     "
       ENDIF
-      CCREPL_Out( CCUI_Color( cPrefix + cTail, "38;2;225;150;170" ) + Chr(10) )
+      CCREPL_Out( CCREPL_ThinkLine( cPrefix + cTail ) + Chr(10) )
    ENDIF
    // Reprint the summary with a green bullet to mark thinking as done.
    // The working indicator is already running from iteration_start.
@@ -2120,7 +2163,7 @@ STATIC FUNCTION CCREPL_FlushReasoningLines( oRender )
    LOCAL cBuf := oRender[ "reasoningBuf" ]
    LOCAL nPrinted := oRender[ "reasoningLines" ]
    LOCAL nTotal, nStart, nPos, cLine, nLine
-   LOCAL nWrap := CCREPL_Cols() - 6   // indent(4) + ⎿ glyph(2) ≈ 6
+   LOCAL nWrap := Min( CCREPL_Cols(), 102 ) - 8   // card width cap + inner padding
    // Count newlines (complete segments)
    nTotal := 0 ; nStart := 1
    DO WHILE ( nPos := hb_At( Chr(10), cBuf, nStart ) ) > 0
@@ -2165,7 +2208,7 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
       cText := AllTrim( cText )
       nLen := hb_BLen( cText )
       IF nLen <= nWrap
-         CCREPL_Out( CCUI_Color( cPrefix + cText, "38;2;225;150;170" ) + Chr(10) )
+         CCREPL_Out( CCREPL_ThinkLine( cPrefix + cText ) + Chr(10) )
          RETURN NIL
       ENDIF
       cLine := hb_BLeft( cText, nWrap )
@@ -2177,10 +2220,19 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
          cLine := hb_BLeft( cText, nSpace - 1 )
          cText := hb_BSubStr( cText, nSpace + 1 )
       ENDIF
-      CCREPL_Out( CCUI_Color( cPrefix + cLine, "38;2;225;150;170" ) + Chr(10) )
+      CCREPL_Out( CCREPL_ThinkLine( cPrefix + cLine ) + Chr(10) )
       cPrefix := cPCont   // continuation lines use plain spaces
    ENDDO
    RETURN NIL
+
+// One reasoning line, GUI glass-box style: pink text on a faint purple card.
+// Falls back to the plain pink line when colour is off.
+STATIC FUNCTION CCREPL_ThinkLine( cText )
+   IF CCUI_ColorOn()
+      RETURN CCUI_CardLine( CCUI_Color( cText, "38;2;225;150;170" ), ;
+                            "card_think", Min( CCREPL_Cols() - 2, 100 ) )
+   ENDIF
+   RETURN CCUI_Color( cText, "38;2;225;150;170" )
 
 // Toggles the working bullet between filled (●) and hollow (○) on each
 // call, overwriting the same physical line via ESC[1G ESC[K. Called from

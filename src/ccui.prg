@@ -73,35 +73,34 @@ FUNCTION CCUI_InitPrompt()
 // hUsage: { prompt_tokens => N, completion_tokens => N, ... }
 // Pricing is approximate (DeepSeek API rates).
 FUNCTION CCUI_CostReport( hUsage )
-   LOCAL nIn, nOut, cOut, nCostIn, nCostOut, nCostTotal
+   LOCAL nIn, nOut, nHit, cOut, nCostTotal, nW := 46
    IF ValType( hUsage ) != "H" .OR. Len( hb_HKeys( hUsage ) ) == 0
       RETURN CCUI_Color( "No usage data for this session yet.", "90" ) + Chr(10)
    ENDIF
    nIn  := hb_HGetDef( hUsage, "prompt_tokens", 0 )
    nOut := hb_HGetDef( hUsage, "completion_tokens", 0 )
-   cOut := CCUI_Color( CCUI_Glyph( "tl" ) + Replicate( CCUI_Glyph( "h" ), 34 ) + ;
-                       CCUI_Glyph( "tr" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
-           "  Session cost report" + ;
-           CCUI_Color( "  " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
-           "  prompt tokens:      " + LTrim( Str( nIn ) ) + ;
-           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
-           "  completion tokens:  " + LTrim( Str( nOut ) ) + ;
-           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
-           CCUI_Color( "  total tokens:      " + LTrim( Str( nIn + nOut ) ), "1" ) + ;
-           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   // approximate cost: DeepSeek ~$0.15/M input, ~$0.60/M output
-   nCostIn   := nIn * 0.15 / 1000000
-   nCostOut  := nOut * 0.60 / 1000000
-   nCostTotal := nCostIn + nCostOut
-   cOut += CCUI_Color( CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + ;
-           "  est. cost:          $" + LTrim( Str( nCostTotal, 10, 6 ) ) + ;
-           CCUI_Color( "   " + CCUI_Glyph( "v" ), CCUI_Pal( "dim" ) ) + Chr(10)
-   cOut += CCUI_Color( CCUI_Glyph( "bl" ) + Replicate( CCUI_Glyph( "h" ), 34 ) + ;
-                       CCUI_Glyph( "br" ), CCUI_Pal( "dim" ) ) + Chr(10)
+   nHit := Min( hb_HGetDef( hUsage, "prompt_cache_hit_tokens", 0 ), nIn )
+   // DeepSeek pricing: $0.14/M input cache-miss, $0.0028/M input cache-HIT
+   // (98% off), $0.28/M output. Agent loops re-send the conversation prefix
+   // every step (= cache hits), so billing all input as cache-miss would
+   // overstate the session cost several-fold (web-version parity).
+   nCostTotal := ( nIn - nHit ) * 0.14 / 1000000 + ;
+                 nHit * 0.0028 / 1000000 + nOut * 0.28 / 1000000
+   // emerald metrics card, like the GUI's "Metricas de Sesion"
+   cOut := CCUI_CardLine( CCUI_Color( "Session cost report", "1" ) + ;
+           Space( 8 ) + CCUI_Color( "$" + LTrim( Str( nCostTotal, 10, 4 ) ), "1;97" ), ;
+           "card_cost", nW ) + Chr(10)
+   cOut += CCUI_CardLine( "", "card_cost", nW ) + Chr(10)
+   cOut += CCUI_CardLine( "input (context):     " + ;
+           LTrim( Str( nIn ) ) + " tokens", "card_cost", nW ) + Chr(10)
+   IF nHit > 0
+      cOut += CCUI_CardLine( CCUI_Color( "  cached (98% off):  " + ;
+              LTrim( Str( nHit ) ) + " tokens", "2" ), "card_cost", nW ) + Chr(10)
+   ENDIF
+   cOut += CCUI_CardLine( "output (generated):  " + ;
+           LTrim( Str( nOut ) ) + " tokens", "card_cost", nW ) + Chr(10)
+   cOut += CCUI_CardLine( CCUI_Color( "total:               " + ;
+           LTrim( Str( nIn + nOut ) ) + " tokens", "1" ), "card_cost", nW ) + Chr(10)
    RETURN cOut
 
 // Returns the sessions directory path (.ccharbour/sessions under the
@@ -196,6 +195,11 @@ FUNCTION CCUI_RenderEvent( hEv )
    CASE cType == "text_delta"
       RETURN hb_CStr( hEv[ "text" ] )
    CASE cType == "error"
+      // dark-red error card (GUI parity); plain red line when colour is off
+      IF CCUI_ColorOn()
+         RETURN Chr(10) + CCUI_Card( CCUI_Color( "!! error: " + ;
+                hb_CStr( hEv[ "message" ] ), "1;91" ), "card_err" ) + Chr(10)
+      ENDIF
       RETURN Chr(10) + CCUI_Color( "!! error: " + hb_CStr( hEv[ "message" ] ), ;
              "31" ) + Chr(10)
    ENDCASE
@@ -398,8 +402,71 @@ FUNCTION CCUI_Pal( cName )
    CASE cName == "bash_header"  ; RETURN "38;2;128;160;230"   // cyan-violet header
    CASE cName == "bash_command" ; RETURN "92"                  // bright green command
    CASE cName == "bash_explain" ; RETURN "2;97"                // soft (faint) bright white
+   // GUI-card background tints (AgenticAI / Agents web cards, truecolor)
+   CASE cName == "card"       ; RETURN "48;2;31;41;55"    // reply bubble (bg-gray-800)
+   CASE cName == "card_think" ; RETURN "48;2;42;36;58"    // reasoning glass box (purple)
+   CASE cName == "card_err"   ; RETURN "48;2;58;26;26"    // error card (dark red)
+   CASE cName == "card_cost"  ; RETURN "48;2;16;46;36"    // cost metrics card (emerald)
+   CASE cName == "card_warn"  ; RETURN "48;2;58;46;18"    // confirmation card (amber)
    ENDCASE
    RETURN "0"
+
+// Visible column width of a string: ANSI CSI sequences are skipped and
+// UTF-8 continuation bytes are not counted (close enough for card padding).
+FUNCTION CCUI_VisLen( cText )
+   LOCAL n := 0, i := 1, nLen, c
+   cText := hb_CStr( cText )
+   nLen  := Len( cText )
+   DO WHILE i <= nLen
+      c := SubStr( cText, i, 1 )
+      IF c == Chr(27) .AND. SubStr( cText, i + 1, 1 ) == "["
+         i += 2
+         DO WHILE i <= nLen
+            c := SubStr( cText, i, 1 )
+            i++
+            IF c >= "@" .AND. c <= "~" ; EXIT ; ENDIF
+         ENDDO
+      ELSE
+         IF hb_BCode( c ) < 0x80 .OR. hb_BCode( c ) >= 0xC0
+            n++
+         ENDIF
+         i++
+      ENDIF
+   ENDDO
+   RETURN n
+
+// Paints one line as a GUI-style card row: two columns of inner padding,
+// the background tint cBgPal padded out to nWidth columns. Embedded SGR
+// resets (markdown bold/code spans) re-apply the background so the card
+// colour never "leaks away" mid-line. Plain text when colour is off.
+FUNCTION CCUI_CardLine( cLine, cBgPal, nWidth )
+   LOCAL cBg, nVis
+   cLine := hb_CStr( cLine )
+   IF !CCUI_ColorOn()
+      RETURN "  " + cLine
+   ENDIF
+   IF ValType( nWidth ) != "N" .OR. nWidth < 20
+      nWidth := 80
+   ENDIF
+   cBg   := Chr(27) + "[" + CCUI_Pal( cBgPal ) + "m"
+   cLine := "  " + cLine + "  "
+   nVis  := CCUI_VisLen( cLine )
+   IF nVis < nWidth
+      cLine += Space( nWidth - nVis )
+   ENDIF
+   cLine := StrTran( cLine, Chr(27) + "[0m", Chr(27) + "[0m" + cBg )
+   RETURN cBg + cLine + Chr(27) + "[0m"
+
+// Paints a whole (possibly multi-line) block as a card, one row per line.
+// Returns the block without a trailing LF.
+FUNCTION CCUI_Card( cText, cBgPal, nWidth )
+   LOCAL aLines := hb_ATokens( StrTran( hb_CStr( cText ), Chr(13), "" ), Chr(10) )
+   LOCAL cOut := "", i
+   FOR i := 1 TO Len( aLines )
+      cOut += CCUI_CardLine( aLines[ i ], cBgPal, nWidth ) + ;
+              iif( i < Len( aLines ), Chr(10), "" )
+   NEXT
+   RETURN cOut
 
 // Emits an ANSI control sequence (e.g. "1A" = cursor up one line,
 // "1G" = move to column 1) when ANSI output is enabled, else "".
@@ -566,7 +633,7 @@ STATIC FUNCTION CCUI_PadCell( cText, nWidth, cAlign )
 // version in releasenotes.md and the Releases section of README.md, then
 // tag the commit v<x.y.z>. All four must stay in sync.
 FUNCTION CCUI_Version()
-   RETURN "0.8.26"
+   RETURN "0.8.27"
 
 // The pool of short usage tips shown on the banner and at the idle prompt.
 FUNCTION CCUI_Tips()
