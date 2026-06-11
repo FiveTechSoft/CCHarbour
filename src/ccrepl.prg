@@ -301,6 +301,8 @@ FUNCTION CCREPL_Run( oClient, oReg, cModel, bGate, nMaxIter )
          CCREPL_HandleHook( hAction[ "text" ], oPrompt )
       CASE hAction[ "type" ] == "run"
          CCREPL_RunPlan( @aMsgs, oClient, oReg, cModel, bGate, nMaxIter, oPrompt )
+      CASE hAction[ "type" ] == "demo"
+         CCREPL_Demo()
       CASE hAction[ "type" ] == "plan"
          cMsg := CCREPL_HandlePlan( hAction[ "text" ], aMsgs, oPrompt, oClient, cModel )
          IF !Empty( cMsg )
@@ -2478,6 +2480,105 @@ STATIC FUNCTION CCREPL_ThinkPrintWrapped( cText, nWrap, oRender )
       CCREPL_Out( CCREPL_ThinkLine( cPrefix + cLine ) + Chr(10) )
       cPrefix := cPCont   // continuation lines use plain spaces
    ENDDO
+   RETURN NIL
+
+// /demo -- showcase of the card UI with sample content, like the web Agents
+// demo button: goal, plan, thinking, tool actions, diff, reply, error,
+// permit, cost, compact and context cards, no API key required. Session
+// state (goal / plan) is saved and restored around the show.
+STATIC FUNCTION CCREPL_Demo()
+   LOCAL nW := Min( CCREPL_Cols() - 2, 100 )
+   LOCAL aOldPlan := s_aPlanSteps, cOldGoal := s_cGoal, lOldLoop := s_lGoalLooping
+   LOCAL hUsage := { "prompt_tokens" => 125430, "completion_tokens" => 8205, ;
+                     "prompt_cache_hit_tokens" => 98000 }
+   LOCAL cCorner := "  " + Chr(226)+Chr(142)+Chr(191) + "  "
+   LOCAL cCheck  := Chr(226)+Chr(156)+Chr(147)
+   CCREPL_Out( Chr(10) + CCUI_Color( "[" + Chr(226)+Chr(150)+Chr(182) + ;
+      " Demo (simulada): cards de muestra - sin API]", ;
+      CCUI_Pal( "accent" ) ) + Chr(10) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   // goal card
+   CCREPL_Out( CCREPL_UserCard( "/goal" ) )
+   s_cGoal := "Mostrar las capacidades de CCHarbour: planes, cards, diffs, " + ;
+              "coste y compactado."
+   s_lGoalLooping := .F.
+   CCREPL_GoalCard()
+   hb_idleSleep( 0.35 )
+   // plan card
+   CCREPL_Out( CCREPL_UserCard( "/plan" ) )
+   s_aPlanSteps := { ;
+      { "title" => "Crear bienvenida.md", "state" => "done" }, ;
+      { "title" => "Editar el fichero y mostrar el diff", "state" => "active" }, ;
+      { "title" => "Resumir el coste de la sesion", "state" => "pending" } }
+   CCREPL_PlanCard()
+   hb_idleSleep( 0.35 )
+   // thinking glass box
+   CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + " Thinking" + ;
+      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) + Chr(10) )
+   CCREPL_Out( CCREPL_ThinkLine( cCorner + "El usuario quiere ver las cards. " + ;
+      "Creo el fichero, lo edito y muestro el diff antes de seguir." ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   // tool action lines + diff
+   CCREPL_Out( CCREPL_UserCard( "Crea bienvenida.md y luego editalo" ) )
+   CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + " Running write" + ;
+      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) + Chr(10) )
+   CCREPL_Out( CCUI_Color( cCheck, "92" ) + " write " + ;
+      CCUI_Color( "Created bienvenida.md (3 lines)", CCUI_Pal( "dim" ) ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   CCREPL_Out( Chr(10) + CCUI_Color( "●", "97" ) + " Running edit" + ;
+      CCUI_Color( Chr(226)+Chr(128)+Chr(166), CCUI_Pal( "dim" ) ) + Chr(10) )
+   CCREPL_Out( CCUI_Color( cCheck, "92" ) + " edit " + ;
+      CCUI_Color( "bienvenida.md: 1 removed, 3 added", CCUI_Pal( "dim" ) ) + Chr(10) )
+   CCREPL_Out( CCUI_ResultSummary( "edit", ;
+      "     1   # CCHarbour" + Chr(10) + ;
+      "     2 - Agente IA en tu terminal." + Chr(10) + ;
+      "     2 + Agente IA en tu terminal, con cards como la web." + Chr(10) + ;
+      "     3 + " + Chr(10) + ;
+      "     4 + Comandos: /plan, /run, /cost, /demo" ) )
+   hb_idleSleep( 0.35 )
+   // assistant reply card
+   CCREPL_Out( Chr(10) )
+   CCREPL_Out( CCUI_CardLine( "Listo: he creado bienvenida.md y lo he ampliado.", ;
+               "card", nW ) + Chr(10) )
+   CCREPL_Out( CCUI_CardLine( "El diff de arriba muestra los cambios linea a linea.", ;
+               "card", nW ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   // error card
+   CCREPL_Out( CCUI_RenderEvent( { "type" => "error", ;
+      "message" => "Cannot find module 'clsx' (ejemplo de error simulado)" } ) )
+   hb_idleSleep( 0.35 )
+   // permit card (visual only)
+   CCREPL_Out( Chr(10) + CCUI_Card( ;
+      CCUI_Color( "CONFIRMATION REQUIRED", "1;33" ) + Chr(10) + ;
+      "The agent wants to run " + CCUI_Color( "shell", "1" ) + ;
+      ": npm install clsx   (demo: no espera respuesta)", ;
+      "card_warn", nW ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   // cost card
+   CCREPL_Out( CCREPL_UserCard( "/cost" ) )
+   CCREPL_Out( CCUI_CostReport( hUsage ) )
+   hb_idleSleep( 0.35 )
+   // compact card
+   CCREPL_Out( CCREPL_UserCard( "/compact" ) )
+   CCREPL_Out( CCUI_Card( ;
+      CCUI_Color( "CONTEXT COMPACTED", "1;38;2;192;132;252" ) + Chr(10) + ;
+      CCUI_Color( "12 turns -> 1 summary, kept last 4 verbatim", "2" ), ;
+      "card_think", nW ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   // context-critical card
+   CCREPL_Out( Chr(10) + CCUI_Card( ;
+      CCUI_Color( "CONTEXT WINDOW CRITICAL", "1;38;2;251;146;60" ) + "   " + ;
+      CCUI_Color( "112000 / 128000 tkns  (87%)", "2" ) + Chr(10) + ;
+      "Memory is filling up: run /compact to summarise old turns, or " + ;
+      "/clear to start fresh.", "card_ctx", nW ) + Chr(10) )
+   hb_idleSleep( 0.35 )
+   CCREPL_Out( Chr(10) + CCUI_Color( "[" + cCheck + " Demo completada - " + ;
+      "goal - plan - thinking - acciones - diff - respuesta - error - " + ;
+      "permit - cost - compact - contexto]", "92" ) + Chr(10) )
+   // restore the real session state
+   s_cGoal        := cOldGoal
+   s_lGoalLooping := lOldLoop
+   s_aPlanSteps   := aOldPlan
    RETURN NIL
 
 // The user's prompt echoed as a blue bubble (web addUser parity): white

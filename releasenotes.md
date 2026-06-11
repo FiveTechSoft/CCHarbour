@@ -16,6 +16,10 @@ CCHarbour v0.8.28 — /plan step cards + /run executor, GUI-style console cards,
 - **Plan mode moved to `/plan mode`.** The write/edit/shell lock while the
   model writes an implementation plan is now entered with `/plan mode`;
   `/plan accept` and `/plan cancel` work as before.
+- **`/demo`.** Scripted showcase of the card UI with sample content — goal,
+  plan, thinking, tool actions, diff, reply, error, permit, cost, compact and
+  context cards — no API key needed, like the web Agents demo button. Session
+  state (goal / plan) is saved and restored around the show.
 - **GUI-style cards in the console.** Responses render on background-tinted
   card rows like the AgenticAI / Agents web bubbles: replies on slate,
   live reasoning on a purple glass box, errors on dark red, `/cost` on an

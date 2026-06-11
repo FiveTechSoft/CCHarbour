@@ -32,6 +32,8 @@ FUNCTION CCUI_ParseCommand( cLine )
       RETURN { "type" => "plan", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/run"
       RETURN { "type" => "run", "text" => "" }
+   CASE cLow == "/demo"
+      RETURN { "type" => "demo", "text" => "" }
    CASE cLow == "/lean" .OR. Left( cLow, 6 ) == "/lean "
       RETURN { "type" => "lean", "text" => AllTrim( SubStr( cTrim, 6 ) ) }
    CASE cLow == "/provider" .OR. Left( cLow, 10 ) == "/provider "
@@ -1125,6 +1127,7 @@ FUNCTION CCUI_Help()
           "  /plan [tarea]  generate a 3-6 step plan card (web Agents style)" + Chr(10) + ;
           "  /plan add|del|done|edit <n>  edit the plan steps" + Chr(10) + ;
           "  /run           execute the plan step by step (pauses on questions)" + Chr(10) + ;
+          "  /demo          showcase the card UI with sample content (no API)" + Chr(10) + ;
           "  /plan mode     enter plan mode (lock write/edit/shell)" + Chr(10) + ;
           "  /plan accept   approve the plan, unlock and proceed" + Chr(10) + ;
           "  /plan cancel   drop the plan and exit plan mode" + Chr(10) + ;

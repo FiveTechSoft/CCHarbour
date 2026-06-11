@@ -15,6 +15,7 @@ assistant.
 | `/caveman`      | activate the caveman skill (terse replies)      |
 | `/plan [task]`  | generate a 3-6 step plan card (web Agents style); `add/del/done/edit/clear` edit it |
 | `/run`          | execute the plan one step per turn (pauses on questions) |
+| `/demo`         | showcase the card UI with sample content (no API key needed) |
 | `/plan mode`    | enter plan mode (locks write/edit/shell)        |
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/provider [args]` | configure the LLM backend at runtime               |
