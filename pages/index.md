@@ -81,8 +81,18 @@ Windows (MSVC or mingw-w64), Linux (gcc), macOS (clang). The same Harbour source
 </div>
 
 <div class="cc-card" markdown>
+### 📋 /plan & /run
+`/plan <task>` asks the model for a 3-6 step plan and shows it as an editable card (✓/●/○). `/run` executes it one step per turn, pausing when the agent asks you something — same behaviour as the Agents web app.
+</div>
+
+<div class="cc-card" markdown>
+### 🎴 Card-style output
+Replies, live reasoning, errors and `/cost` render on background-tinted cards (slate / purple / red / emerald), mirroring the AgenticAI GUI. `/cost` bills DeepSeek cache hits at 98% off.
+</div>
+
+<div class="cc-card" markdown>
 ### 🧠 Skills & Plan mode
-Drop a Markdown checklist under `.ccharbour/skills/` and the agent picks it up. `/plan` locks file writes until you approve the approach.
+Drop a Markdown checklist under `.ccharbour/skills/` and the agent picks it up. `/plan mode` locks file writes until you approve the approach.
 </div>
 
 <div class="cc-card" markdown>

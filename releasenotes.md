@@ -1,4 +1,36 @@
-CCHarbour v0.8.27 — Claude Code-style thinking display, open prompt box, gemma4 support.
+CCHarbour v0.8.28 — /plan step cards + /run executor, GUI-style console cards, /btw inject hook.
+
+## New since v0.8.27
+
+- **`/plan` generates a step plan (web Agents parity).** `/plan <task>` asks
+  the model (plain completion, planner system prompt) for 3-6 JSON steps and
+  renders them as a slate plan card: `✓` done, `●` active, `○` pending. Bare
+  `/plan` shows the current plan, or invents one from the goal / recent
+  conversation. Edit from the prompt: `/plan add <t>`, `/plan del <n>`,
+  `/plan done <n>`, `/plan edit <n> <t>`, `/plan clear`.
+- **`/run` executes the plan** one step per agent turn, feeding the goal +
+  the full plan as context and running ONLY the current step; steps are
+  marked done as the run advances, and the run pauses when the agent ends a
+  step asking the user something (answer, then `/run` again to continue).
+  Plan steps persist through `/save`, `/load` and `/rewind`.
+- **Plan mode moved to `/plan mode`.** The write/edit/shell lock while the
+  model writes an implementation plan is now entered with `/plan mode`;
+  `/plan accept` and `/plan cancel` work as before.
+- **GUI-style cards in the console.** Responses render on background-tinted
+  card rows like the AgenticAI / Agents web bubbles: replies on slate,
+  live reasoning on a purple glass box, errors on dark red, `/cost` on an
+  emerald metrics card. Embedded markdown SGR spans keep the card colour;
+  plain output is unchanged when colour is off.
+- **Cache-aware `/cost`.** DeepSeek pricing now bills `prompt_cache_hit_tokens`
+  at 98% off ($0.0028/M vs $0.14/M cache-miss, $0.28/M output). Agent loops
+  re-send the conversation prefix every step, so the previous all-cache-miss
+  estimate overstated the session cost several-fold.
+- **`CC_AgentRun` inject hook.** Optional `hOpts["inject"]` codeblock polled
+  at the start of every iteration; a non-empty string is appended as a user
+  message before the next request — a mid-run interjection (the GUI's `/btw`)
+  that does not interrupt the loop.
+- **`api_timeout` setting.** Explicit per-settings API timeout; auto-detect
+  gives Ollama URLs 600 s (local models can be slow) and cloud backends 120 s.
 
 ## New since v0.8.26
 

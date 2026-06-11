@@ -13,7 +13,9 @@ assistant.
 | `/save [name]`  | save the session (messages + state + suggestion) to JSON |
 | `/load [name]`  | load a saved session (no name lists them)       |
 | `/caveman`      | activate the caveman skill (terse replies)      |
-| `/plan [text]`  | enter plan mode (locks write/edit/shell)        |
+| `/plan [task]`  | generate a 3-6 step plan card (web Agents style); `add/del/done/edit/clear` edit it |
+| `/run`          | execute the plan one step per turn (pauses on questions) |
+| `/plan mode`    | enter plan mode (locks write/edit/shell)        |
 | `/lean [on\|off]` | toggle lean mode (trims system prompt to save tokens) |
 | `/provider [args]` | configure the LLM backend at runtime               |
 | `/goal [args]`  | set a goal — keep working until the condition is met |
@@ -85,17 +87,40 @@ terse, fragment-style replies (code and command output stay verbatim). The skill
 name shows up in the status line under the input box. Cancel by `/clear` or by
 asking the model to "stop caveman" / "normal mode".
 
-## /plan
+## /plan and /run
 
-`/plan` puts the session into plan mode: the permission gate locks the
-`write`, `edit`, `shell` and `github_write` tools, the `writing-plans` skill
-is auto-activated, and the status line shows a `[plan-mode]` badge. The agent
-can still read, glob, grep, fetch, search and use memory while it plans, but
-cannot modify the codebase or run commands. Forms:
+`/plan` generates a step plan, like the
+[Agents web app](https://fivetechsoft.github.io/Agents/): it asks the model
+(plain completion, planner system prompt, no tools) for 3-6 short concrete
+steps and renders them as a slate plan card — `✓` done, `●` active, `○`
+pending. Forms:
 
-- `/plan` — enter plan mode and wait for the next message.
-- `/plan <text>` — enter plan mode AND submit `<text>` as the first planning
-  prompt.
+- `/plan <task>` — generate a plan for `<task>`.
+- `/plan` — show the current plan; with no stored plan, invent one from the
+  goal (`/goal`) or the recent conversation.
+- `/plan add <text>` — append a pending step.
+- `/plan del <n>` — delete step *n*.
+- `/plan done <n>` — toggle step *n* done/pending.
+- `/plan edit <n> <text>` — retitle step *n*.
+- `/plan clear` — drop the plan.
+
+`/run` executes the plan one step per agent turn. Each turn receives the
+goal + the full plan as context and is told to run ONLY the current step;
+steps are marked done as the run advances. When the agent ends a step
+asking the user something, the run pauses — answer normally, then `/run`
+again to continue. Plan steps persist through `/save`, `/load` and
+`/rewind`; `/clear` drops them.
+
+### Plan mode
+
+The write-lock review mode is now entered with `/plan mode`: the permission
+gate locks the `write`, `edit`, `shell` and `github_write` tools, the
+`writing-plans` skill is auto-activated, and the status line shows a
+`[plan-mode]` badge. The agent can still read, glob, grep, fetch, search and
+use memory while it plans, but cannot modify the codebase or run commands.
+
+- `/plan mode` — enter plan mode (optional trailing text runs as the first
+  planning prompt).
 - `/plan accept` (alias `/plan go` / `/plan approve`) — exit plan mode and
   add a system note telling the agent to proceed step by step.
 - `/plan cancel` (alias `/plan off`) — exit plan mode and tell the agent to
@@ -172,7 +197,7 @@ round-trips the **full session state**, not just the conversation:
 | `saved_at` | ISO timestamp |
 | `usage`    | accumulated `prompt_tokens` / `completion_tokens` for `/cost` |
 | `messages` | the full message array (system + user + assistant + tool calls) |
-| `state`    | `goal`, `goal_looping`, `session_turn_ms`, `plan_mode`, `lean_mode`, `skills` |
+| `state`    | `goal`, `goal_looping`, `session_turn_ms`, `plan_mode`, `plan_steps`, `lean_mode`, `skills` |
 | `suggest`  | the pending "Suggested next:" prompt for the editor |
 
 `/load [name]` reads the JSON and reapplies every field on top of the
